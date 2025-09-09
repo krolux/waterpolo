@@ -694,7 +694,7 @@ export default function App() {
   useEffect(()=>{ saveState(state); }, [state]);
 
   const { role: sRole, userDisplay: sName } = useSupabaseAuth();
-  const supaUser = sRole !== 'Guest' ? { name: sName, role: sRole as any } : null;
+  const supaUser = sRole !== 'Guest' ? { name: sName, role: sRole as any, club: undefined as string | undefined } : null;
   const effectiveUser = supaUser ?? user;
 
   return (
