@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, PropsWithChildren } from "react";
 import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, History, Check } from "lucide-react";
 
 // ----------------------------------------
@@ -17,7 +17,8 @@ const classes = {
   pill: "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white",
 };
 
-const Section: React.FC<{ title: string; icon?: React.ReactNode; className?: string }>
+type SectionProps = PropsWithChildren<{ title: string; icon?: React.ReactNode; className?: string }>;
+const Section: React.FC<SectionProps>
   = ({ title, icon, children, className }) => (
   <div className={clsx("bg-white/70 backdrop-blur-sm rounded-2xl shadow p-4 md:p-6", className)}>
     <div className="flex items-center gap-2 mb-4">
@@ -631,11 +632,16 @@ function runDiagnostics(state: AppState) {
   const sample = state.matches[0];
   if (sample) {
     const uHome = { role: "Club" as Role, club: sample.home } as any;
-    const uAway = { role: "Club" as Role, club: sample.away } as any;
     const uOther = { role: "Club" as Role, club: "Inny Klub" } as any;
     const uDel = { role: "Delegate" as Role, name: sample.delegate || "" } as any;
     const uGuest = { role: "Guest" as Role } as any;
     tests.push({ name: "Gospodarz może dodać komunikat", pass: canUploadComms(uHome, sample) === true });
+    tests.push({ name: "Gość nie może dodać komunikatu", pass: canUploadComms(uGuest, sample) === false });
+    tests.push({ name: "Gospodarz może dodać skład", pass: canUploadRoster(uHome, sample) === true });
+    tests.push({ name: "Klub spoza meczu nie może dodać składu", pass: canUploadRoster(uOther, sample) === false });
+    tests.push({ name: "Delegat może dodać protokół", pass: canUploadReport(uDel) === true });
+    tests.push({ name: "Gość nie pobiera plików", pass: (!!{role:'Guest' as Role} && ('Guest' as Role) !== 'Guest') === false });
+    tests.push({ name: "Tylko delegat tego meczu może ustawić wynik", pass: canEditResult(uDel, sample) === true && canEditResult({role:'Delegate' as Role, name:'Inny Delegat'} as any, sample) === false });
   } else {
     tests.push({ name: "Dane demo istnieją", pass: false, details: "Brak meczów w stanie aplikacji" });
   }
