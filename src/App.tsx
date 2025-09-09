@@ -599,7 +599,7 @@ const AdminPanel: React.FC<{ state: AppState; setState:(s:AppState)=>void; }> = 
             <textarea className={classes.input + " min-h-[80px]"} placeholder="Notatki" value={draft.notes||""} onChange={e=>setDraft({...draft, notes:e.target.value})}/>
             <div className="flex gap-2">
               <button onClick={saveDraft} className={clsx(classes.btnPrimary, "flex items-center gap-2")}><Save className="w-4 h-4"/>{editId?"Zapisz zmiany":"Dodaj mecz"}</button>
-              {editId and <button onClick={classes.btnSecondary as any} onClickCapture={resetDraft}>Anuluj edycję</button>}
+              {editId && <button onClick={classes.btnSecondary as any} onClickCapture={resetDraft}>Anuluj edycję</button>}
             </div>
           </div>
         </div>
