@@ -640,7 +640,8 @@ function runDiagnostics(state: AppState) {
     tests.push({ name: "Gospodarz może dodać skład", pass: canUploadRoster(uHome, sample) === true });
     tests.push({ name: "Klub spoza meczu nie może dodać składu", pass: canUploadRoster(uOther, sample) === false });
     tests.push({ name: "Delegat może dodać protokół", pass: canUploadReport(uDel) === true });
-    tests.push({ name: "Gość nie pobiera plików", pass: (!!{role:'Guest' as Role} && ('Guest' as Role) !== 'Guest') === false });
+    const canDownload = (u: {role: Role} | null) => !!u && u.role !== 'Guest';
+    tests.push({ name: "Gość nie pobiera plików", pass: canDownload({role:'Guest' as Role}) === false });
     tests.push({ name: "Tylko delegat tego meczu może ustawić wynik", pass: canEditResult(uDel, sample) === true && canEditResult({role:'Delegate' as Role, name:'Inny Delegat'} as any, sample) === false });
   } else {
     tests.push({ name: "Dane demo istnieją", pass: false, details: "Brak meczów w stanie aplikacji" });
