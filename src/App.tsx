@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState, PropsWithChildren } from "react";
 import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, History, Check } from "lucide-react";
+import { useSupabaseAuth } from './hooks/useSupabaseAuth'
+import { LoginBox } from './components/LoginBox'
 
 // ----------------------------------------
 // Helpers & UI primitives
@@ -597,7 +599,7 @@ const AdminPanel: React.FC<{ state: AppState; setState:(s:AppState)=>void; }> = 
             <textarea className={classes.input + " min-h-[80px]"} placeholder="Notatki" value={draft.notes||""} onChange={e=>setDraft({...draft, notes:e.target.value})}/>
             <div className="flex gap-2">
               <button onClick={saveDraft} className={clsx(classes.btnPrimary, "flex items-center gap-2")}><Save className="w-4 h-4"/>{editId?"Zapisz zmiany":"Dodaj mecz"}</button>
-              {editId && <button onClick={classes.btnSecondary as any} onClickCapture={resetDraft}>Anuluj edycję</button>}
+              {editId and <button onClick={classes.btnSecondary as any} onClickCapture={resetDraft}>Anuluj edycję</button>}
             </div>
           </div>
         </div>
@@ -691,6 +693,10 @@ export default function App() {
   const [state, setState] = useState<AppState>(()=>loadState());
   useEffect(()=>{ saveState(state); }, [state]);
 
+  const { role: sRole, userDisplay: sName } = useSupabaseAuth();
+  const supaUser = sRole !== 'Guest' ? { name: sName, role: sRole as any } : null;
+  const effectiveUser = supaUser ?? user;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 to-indigo-50 p-4 md:p-8">
       <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between">
@@ -704,11 +710,14 @@ export default function App() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {user ? (
+          <LoginBox classes={classes} />
+          {effectiveUser ? (
             <div className="flex items-center gap-2">
-              <Badge tone="blue">{user.role}{user.club?` • ${user.club}`:""}</Badge>
-              <span className="text-sm text-gray-700">{user.name}</span>
-              <button onClick={logout} className={classes.btnSecondary}><LogOut className="w-4 h-4 inline mr-1"/>Wyloguj</button>
+              <Badge tone="blue">{effectiveUser.role}{effectiveUser.club?` • ${effectiveUser.club}`:""}</Badge>
+              <span className="text-sm text-gray-700">{effectiveUser.name}</span>
+              {!supaUser && (
+                <button onClick={logout} className={classes.btnSecondary}><LogOut className="w-4 h-4 inline mr-1"/>Wyloguj</button>
+              )}
             </div>
           ) : (
             <span className="text-sm text-gray-600">Niezalogowany</span>
@@ -717,9 +726,9 @@ export default function App() {
       </header>
 
       <main className="max-w-6xl mx-auto grid gap-6">
-        {!user && <LoginPanel users={state.users} onLogin={login}/>}      
-        <MatchesTable state={state} setState={setState} user={user}/>
-        {user?.role === "Admin" && <AdminPanel state={state} setState={setState}/>} 
+        {!effectiveUser && <LoginPanel users={state.users} onLogin={login}/>}      
+        <MatchesTable state={state} setState={setState} user={effectiveUser}/>
+        {effectiveUser?.role === "Admin" && <AdminPanel state={state} setState={setState}/>} 
         <Diagnostics state={state}/>
         <InfoBox/>
       </main>
