@@ -1,9 +1,10 @@
-/* Full App.tsx with Admin Users Panel + select lists + Referee role */
+/* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState, PropsWithChildren } from "react";
-import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, History, Check } from "lucide-react";
+import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, History, Check, RefreshCw } from "lucide-react";
 import { useSupabaseAuth, Role as SupaRole } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
+import { listMatches, createMatch, updateMatch as dbUpdateMatch, deleteMatch as dbDeleteMatch, setMatchResult } from './lib/matches'
 
 function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(Boolean).join(" "); }
 
@@ -43,31 +44,13 @@ type ProfileRow = { id:string; display_name:string; role:Role; club_id:string|nu
 
 const CLUBS = ["Waterpolo Poznań","AZS UW","KSZO Ostrowiec Św.","Alfa Gorzów Wlkp","UKS Neptun UŁ","ŁSTW PŁ","Arkonia Szczecin","WTS Polonia Bytom"] as const;
 
-const LS_KEY = "wpr-mvp-app-state-v1";
-function loadState(): AppState {
-  const raw = localStorage.getItem(LS_KEY); if (!raw) return demoState();
-  try { const parsed = JSON.parse(raw) as AppState; return parsed.matches? parsed : demoState(); } catch { return demoState(); }
+// --- Docs persistence in localStorage (temporary until Step 3) ---
+const DOCS_KEY = "wpr-docs-v1";
+type DocsOnly = Pick<Match,'commsByClub'|'rosterByClub'|'matchReport'|'reportPhotos'|'uploadsLog'>;
+function loadDocs(): Record<string, DocsOnly> {
+  try { const raw = localStorage.getItem(DOCS_KEY); return raw? JSON.parse(raw): {} } catch { return {} }
 }
-function saveState(s:AppState){ localStorage.setItem(LS_KEY, JSON.stringify(s)); }
-function demoState(): AppState {
-  const m1: Match = { id: crypto.randomUUID(), date: new Date().toISOString().slice(0,10), time:"18:00", round:"1", location:"Szczecin – Floating Arena", home:"AZS Szczecin", away:"KS Warszawa",
-    referees:["Jan Kowalski","Piotr Nowak"], delegate:"Anna Delegat", commsByClub:{home:null,away:null}, rosterByClub:{home:null,away:null}, reportPhotos:[], matchReport:null, notes:"Mecz otwarcia sezonu.", uploadsLog:[] };
-  const m2: Match = { id: crypto.randomUUID(), date: new Date(Date.now()+86400000).toISOString().slice(0,10), time:"13:30", round:"1", location:"Gdańsk – Morena", home:"UKS Gdańsk", away:"WTS Poznań",
-    referees:["Kamil Ref","Łukasz Sędzia"], delegate:"Marta Del.", commsByClub:{home:null,away:null}, rosterByClub:{home:null,away:null}, reportPhotos:[], matchReport:null, notes:"", uploadsLog:[] };
-  return { matches:[m1,m2], users:[ {name:"Admin", role:"Admin"}, {name:"AZS Szczecin – Klub", role:"Club", club:"AZS Szczecin"}, {name:"KS Warszawa – Klub", role:"Club", club:"KS Warszawa"}, {name:"Anna Delegat", role:"Delegate"}, {name:"Sędzia – Demo", role:"Referee"}, {name:"Gość", role:"Guest"} ] };
-}
-
-// Demo auth (for local only, when not logged via Supabase)
-function useAuth(){
-  const [user, setUser] = useState<{name:string; role:Role; club?:string}|null>(()=>{
-    const raw = localStorage.getItem("wpr-auth-user"); return raw? JSON.parse(raw): null
-  });
-  return {
-    user,
-    login: (n:string, r:Role, c?:string)=>{ const u={name:n, role:r, club:c}; setUser(u); localStorage.setItem("wpr-auth-user", JSON.stringify(u)); },
-    logout: ()=>{ setUser(null); localStorage.removeItem("wpr-auth-user"); },
-  } as const
-}
+function saveDocs(map: Record<string, DocsOnly>) { localStorage.setItem(DOCS_KEY, JSON.stringify(map)) }
 
 // Files helpers
 function fileToDataUrl(file: File): Promise<string> { return new Promise((resolve, reject)=>{ const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string); reader.onerror=reject; reader.readAsDataURL(file); }); }
@@ -88,7 +71,7 @@ function canUploadRoster(user:{role:Role;club?:string}, m:Match){ return user.ro
 function canUploadReport(user:{role:Role}){ return user.role==="Delegate" }
 function canEditResult(user:{role:Role;name:string}, m:Match){ return user.role==="Delegate" && !!m.delegate && m.delegate===user.name }
 
-// Components (LoginPanel, ExportImport, MatchesTable, PerMatchActions) — same as before but included here
+// Components
 const LoginPanel: React.FC<{ users: AppState["users"]; onLogin: (n: string, r: Role, c?: string) => void; }> = ({ users, onLogin }) => {
   const [name,setName]=useState(""); const [role,setRole]=useState<Role>("Guest"); const [club,setClub]=useState("");
   return (<Section title="Zaloguj się" icon={<LogIn className="w-5 h-5" />}>
@@ -117,8 +100,8 @@ const LoginPanel: React.FC<{ users: AppState["users"]; onLogin: (n: string, r: R
 }
 
 const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = ({ state, setState }) => {
-  function exportJSON(){ const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`wpr-export-${new Date().toISOString().slice(0,10)}.json`; a.click(); }
-  async function importJSON(e:React.ChangeEvent<HTMLInputElement>){ const f=e.target.files?.[0]; if(!f) return; const text=await f.text(); try{ const parsed=JSON.parse(text) as AppState; setState(parsed); saveState(parsed);}catch{ alert("Niepoprawny plik JSON.")} }
+  function exportJSON(){ const blob=new Blob([JSON.stringify(state.matches,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`wpr-matches-export-${new Date().toISOString().slice(0,10)}.json`; a.click(); }
+  async function importJSON(e:React.ChangeEvent<HTMLInputElement>){ const f=e.target.files?.[0]; if(!f) return; const text=await f.text(); try{ const parsed=JSON.parse(text) as Match[]; setState({...state, matches: parsed}); }catch{ alert("Niepoprawny plik JSON.")} }
   return (<div className="flex items-center gap-2">
     <button onClick={exportJSON} className={clsx(classes.btnSecondary,"flex items-center gap-2")}><Download className="w-4 h-4"/>Eksport</button>
     <label className={clsx(classes.btnSecondary,"inline-flex items-center gap-2 cursor-pointer")}>
@@ -127,11 +110,15 @@ const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = (
   </div>)
 }
 
-const MatchesTable: React.FC<{ state: AppState; setState:(s:AppState)=>void; user:{name:string;role:Role;club?:string}|null; }> = ({ state, setState, user }) => {
+const MatchesTable: React.FC<{ state: AppState; setState:(s:AppState)=>void; user:{name:string;role:Role;club?:string}|null; onRefresh:()=>void; loading:boolean; }> = ({ state, setState, user, onRefresh, loading }) => {
   const [q,setQ]=useState(""); const filtered=useMemo(()=>state.matches.filter(m=>[m.home,m.away,m.location,m.round,m.result,m.delegate,...m.referees].join(" ").toLowerCase().includes(q.toLowerCase())),[state.matches,q]);
   const canDownload=!!user && user.role!=='Guest';
   return (<Section title="Tabela meczów" icon={<Table className="w-5 h-5" />}>
-    <div className="flex items-center gap-2 mb-3"><div className="relative flex-1"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"/><input value={q} onChange={e=>setQ(e.target.value)} className={clsx(classes.input,"pl-9")} placeholder="Szukaj po drużynie, miejscu, sędziach..."/></div><ExportImport state={state} setState={setState}/></div>
+    <div className="flex items-center gap-2 mb-3">
+      <div className="relative flex-1"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"/><input value={q} onChange={e=>setQ(e.target.value)} className={clsx(classes.input,"pl-9")} placeholder="Szukaj po drużynie, miejscu, sędziach..."/></div>
+      <button onClick={onRefresh} className={clsx(classes.btnSecondary, "flex items-center gap-2")}><RefreshCw className={clsx("w-4 h-4", loading && "animate-spin")}/>Odśwież</button>
+      <ExportImport state={state} setState={setState}/>
+    </div>
     <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead><tr className="text-left border-b bg-gray-50">
       <th className="p-2">Data</th><th className="p-2">Runda</th><th className="p-2">Miejsce</th><th className="p-2">Gospodarz</th><th className="p-2">Goście</th><th className="p-2">Wynik</th><th className="p-2">Sędziowie</th><th className="p-2">Delegat</th><th className="p-2">Dokumenty</th></tr></thead>
       <tbody>{filtered.map(m=>(<tr key={m.id} className="border-b hover:bg-gray-50/60">
@@ -152,6 +139,19 @@ const PerMatchActions: React.FC<{ state:AppState; setState:(s:AppState)=>void; u
   const [selectedId,setSelectedId]=useState<string>(state.matches[0]?.id??""); const match=state.matches.find(m=>m.id===selectedId)||null;
   const [resultDraft,setResultDraft]=useState<string>(match?.result||""); useEffect(()=>{ setResultDraft(match?.result||"") },[selectedId]);
   function pushLog(next:Match, entry: Omit<UploadLog,"id"|"matchId"|"at">){ next.uploadsLog=[{ id:crypto.randomUUID(), matchId:next.id, at:new Date().toISOString(), ...entry }, ...next.uploadsLog] }
+
+  // Save docs to localStorage (per match)
+  function saveDocsFor(match: Match) {
+    const map = loadDocs()
+    map[match.id] = {
+      commsByClub: match.commsByClub,
+      rosterByClub: match.rosterByClub,
+      matchReport: match.matchReport,
+      reportPhotos: match.reportPhotos,
+      uploadsLog: match.uploadsLog,
+    }
+    saveDocs(map)
+  }
 
   async function handleUpload(type:"comms"|"roster"|"report"|"photos"){
     if(!match) return; const input=document.createElement("input"); input.type="file"; if(type==="photos") input.multiple=true;
@@ -176,13 +176,15 @@ const PerMatchActions: React.FC<{ state:AppState; setState:(s:AppState)=>void; u
         if(!canUploadReport(user)){ alert("Zdjęcia raportu może dodać tylko Delegat."); return; }
         const sfs:StoredFile[]=[]; for(const f of files) sfs.push(await toStoredFile(f, user.name, "Zdjęcie raportu")); next.reportPhotos=[...next.reportPhotos,...sfs]; pushLog(next,{type:'photos',club:null,user:user.name,fileName:`${files.length} zdjęć`});
       }
-      const newState={...state, matches: state.matches.map(m=>m.id===match.id? next: m)}; setState(newState); saveState(newState);
+      const newState={...state, matches: state.matches.map(m=>m.id===match.id? next: m)}; setState(newState); saveDocsFor(next);
     }
     input.click();
   }
 
-  function saveResult(){ if(!match) return; if(!canEditResult(user, match)){ alert("Wynik może ustawić tylko delegat tego meczu."); return; }
-    const next={...match, result:resultDraft} as Match; const newState={...state, matches: state.matches.map(m=>m.id===match.id? next: m)}; setState(newState); saveState(newState); }
+  async function saveResult(){ if(!match) return; if(!canEditResult(user, match)){ alert("Wynik może ustawić tylko delegat tego meczu."); return; }
+    try { await setMatchResult(match.id, resultDraft); const newState={...state, matches: state.matches.map(m=>m.id===match.id? {...m, result: resultDraft}: m)}; setState(newState) } 
+    catch(e:any){ alert("Błąd zapisu wyniku: " + e.message) }
+  }
 
   const canClubAct = ()=> user.role==="Club" && !!user.club; const canDelegateAct = ()=> user.role==="Delegate";
 
@@ -215,29 +217,34 @@ const PerMatchActions: React.FC<{ state:AppState; setState:(s:AppState)=>void; u
   </div>)
 }
 
-const AdminUsersPanel: React.FC<{ profiles: ProfileRow[]; onRefresh:()=>void; }> = ({ profiles, onRefresh }) => {
-  const [rows,setRows]=useState<ProfileRow[]>(profiles); useEffect(()=>setRows(profiles),[profiles]);
-  async function saveRow(r:ProfileRow){ const { error } = await supabase.from("profiles").update({ display_name:r.display_name, role:r.role, club_id:r.club_id }).eq("id", r.id); if(error){ alert("Błąd zapisu: "+error.message); return; } alert("Zapisano."); onRefresh(); }
-  return (<Section title="Użytkownicy (Supabase)" icon={<Users className="w-5 h-5"/>}>
-    <div className="mb-3 flex items-center gap-2"><button className={classes.btnSecondary} onClick={onRefresh}>Odśwież</button></div>
-    <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="bg-gray-50"><tr className="text-left"><th className="p-2">Nazwa</th><th className="p-2">ID (email)</th><th className="p-2">Rola</th><th className="p-2">Klub</th><th className="p-2">Akcje</th></tr></thead>
-      <tbody>{rows.map(r=>(<tr key={r.id} className="border-t">
-        <td className="p-2"><input className={classes.input} value={r.display_name??""} onChange={e=>setRows(rs=>rs.map(x=>x.id===r.id?{...x, display_name:e.target.value}:x))}/></td>
-        <td className="p-2 text-xs text-gray-600 break-all">{r.id}</td>
-        <td className="p-2"><select className={classes.input} value={r.role} onChange={e=>setRows(rs=>rs.map(x=>x.id===r.id?{...x, role:e.target.value as Role}:x))}>{(["Admin","Delegate","Referee","Club","Guest"] as Role[]).map(rr=><option key={rr} value={rr}>{rr}</option>)}</select></td>
-        <td className="p-2"><select className={classes.input} value={r.club_id??""} onChange={e=>setRows(rs=>rs.map(x=>x.id===r.id?{...x, club_id:e.target.value||null}:x))}><option value="">—</option>{CLUBS.map(c=><option key={c} value={c}>{c}</option>)}</select></td>
-        <td className="p-2"><button className={classes.btnPrimary} onClick={()=>saveRow(rows.find(x=>x.id===r.id)!)}>Zapisz</button></td>
-      </tr>))}{rows.length===0 && (<tr><td className="p-3 text-gray-500" colSpan={5}>Brak profili do wyświetlenia.</td></tr>)}</tbody></table></div>
-  </Section>)
-}
-
-const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:readonly string[]; refereeNames:string[]; delegateNames:string[]; }> = ({ state, setState, clubs, refereeNames, delegateNames }) => {
+const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:readonly string[]; refereeNames:string[]; delegateNames:string[]; onAfterChange:()=>void; canWrite:boolean; }> = ({ state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite }) => {
   const blank: Match = { id:crypto.randomUUID(), date:new Date().toISOString().slice(0,10), time:"", round:"", location:"", home:"", away:"", referees:["",""], delegate:"", commsByClub:{home:null,away:null}, rosterByClub:{home:null,away:null}, matchReport:null, reportPhotos:[], notes:"", result:"", uploadsLog:[] };
   const [draft,setDraft]=useState<Match>(blank); const [editId,setEditId]=useState<string|null>(null);
-  function resetDraft(){ setDraft({ ...blank, id: crypto.randomUUID() }); setEditId(null); }
-  function saveDraft(){ if(!draft.home||!draft.away||!draft.location||!draft.date){ alert("Uzupełnij: data, miejsce, drużyny"); return; } const matches = editId? state.matches.map(m=>m.id===editId? draft: m) : [draft, ...state.matches]; const newState={...state, matches}; setState(newState); saveState(newState); resetDraft(); }
-  function removeMatch(id:string){ if(!confirm("Usunąć mecz?")) return; const matches=state.matches.filter(m=>m.id!==id); const newState={...state, matches}; setState(newState); saveState(newState); }
-  return (<Section title="Panel administratora" icon={<Settings className="w-5 h-5" />}> 
+
+  function toDbRow(m: Match){
+    return { date:m.date, time:m.time||null, round:m.round||null, location:m.location, home:m.home, away:m.away, result:m.result||null, referee1:m.referees[0]||null, referee2:m.referees[1]||null, delegate:m.delegate||null, notes:m.notes||null }
+  }
+
+  async function saveDraft(){ 
+    if(!canWrite){ alert("Tylko Admin może zapisywać mecze do bazy."); return; }
+    if (!draft.home||!draft.away||!draft.location||!draft.date){ alert("Uzupełnij: data, miejsce, drużyny"); return; }
+    try{
+      if(editId){
+        await dbUpdateMatch(editId, toDbRow(draft))
+      } else {
+        await createMatch(toDbRow(draft) as any)
+      }
+      setDraft({ ...blank, id: crypto.randomUUID() }); setEditId(null); onAfterChange();
+    } catch(e:any){ alert("Błąd zapisu: " + e.message) }
+  }
+
+  async function removeMatch(id:string){
+    if(!canWrite){ alert("Tylko Admin może usuwać mecze."); return; }
+    if(!confirm("Usunąć mecz?")) return;
+    try{ await dbDeleteMatch(id); onAfterChange(); } catch(e:any){ alert("Błąd usuwania: " + e.message) }
+  }
+
+  return (<Section title="Panel administratora (mecze w bazie)" icon={<Settings className="w-5 h-5" />}> 
     <div className="grid md:grid-cols-2 gap-6">
       <div><div className="font-medium mb-2">Dodaj / edytuj mecz</div><div className="grid gap-2">
         <div className="grid grid-cols-2 gap-2"><input className={classes.input} type="date" value={draft.date} onChange={e=>setDraft({...draft, date:e.target.value})}/><input className={classes.input} placeholder="Godzina (opcjonalnie)" value={draft.time||""} onChange={e=>setDraft({...draft, time:e.target.value})}/></div>
@@ -253,13 +260,15 @@ const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:
         <select className={classes.input} value={draft.delegate||""} onChange={e=>setDraft({...draft, delegate:e.target.value})}><option value="">Delegat</option>{delegateNames.map(n=><option key={n} value={n}>{n}</option>)}</select>
         <input className={classes.input} placeholder="Wynik (np. 10:9)" value={draft.result||""} onChange={e=>setDraft({...draft, result:e.target.value})}/>
         <textarea className={classes.input + " min-h-[80px]"} placeholder="Notatki" value={draft.notes||""} onChange={e=>setDraft({...draft, notes:e.target.value})}/>
-        <div className="flex gap-2"><button onClick={saveDraft} className={clsx(classes.btnPrimary,"flex items-center gap-2")}><Save className="w-4 h-4"/>{editId?"Zapisz zmiany":"Dodaj mecz"}</button>{editId && <button onClick={classes.btnSecondary as any} onClickCapture={resetDraft}>Anuluj edycję</button>}</div>
+        <div className="flex gap-2"><button onClick={saveDraft} className={clsx(classes.btnPrimary,"flex items-center gap-2")}><Save className="w-4 h-4"/>{editId?"Zapisz zmiany":"Dodaj mecz"}</button>{editId && <button onClick={classes.btnSecondary as any} onClickCapture={()=>{ setDraft({ ...blank, id: crypto.randomUUID() }); setEditId(null); }}>Anuluj edycję</button>}</div>
+        {!canWrite && <div className="text-xs text-amber-700">Zaloguj się jako Admin, aby dodać/edytować mecze.</div>}
       </div></div>
       <div><div className="font-medium mb-2">Istniejące mecze</div><div className="flex flex-col gap-2">
         {state.matches.map(m=>(<div key={m.id} className="rounded-xl border p-3 bg-white flex items-center justify-between">
           <div><div className="font-medium">{m.date} {m.time? m.time+" • ":""}{m.home} vs {m.away}</div><div className="text-xs text-gray-600">{m.location} • Sędz.: {m.referees.join(", ")} • Deleg.: {m.delegate||"-"} • Wynik: {m.result||'-'}</div></div>
-          <div className="flex gap-2"><button onClick={()=>{setDraft(m); setEditId(m.id);}} className={classes.iconBtn} title="Edytuj"><Edit className="w-4 h-4"/></button><button onClick={()=>{ if(confirm("Usunąć mecz?")){ const matches=state.matches.filter(x=>x.id!==m.id); const newState={...state, matches}; setState(newState); saveState(newState);} }} className={clsx(classes.iconBtn,"text-red-600")} title="Usuń"><Trash2 className="w-4 h-4"/></button></div>
+          <div className="flex gap-2"><button onClick={()=>{setDraft(m); setEditId(m.id);}} className={classes.iconBtn} title="Edytuj"><Edit className="w-4 h-4"/></button><button onClick={()=>removeMatch(m.id)} className={clsx(classes.iconBtn,"text-red-600")} title="Usuń"><Trash2 className="w-4 h-4"/></button></div>
         </div>))}
+        {state.matches.length===0 && <div className="text-sm text-gray-500">Brak meczów w bazie.</div>}
       </div></div>
     </div>
   </Section>)
@@ -276,7 +285,7 @@ function runDiagnostics(state:AppState){
     tests.push({name:"Delegat może dodać protokół", pass: canUploadReport(uDel)===true});
     const canDownload=(u:{role:Role}|null)=>!!u && u.role!=='Guest'; tests.push({name:"Gość nie pobiera plików", pass: canDownload({role:'Guest' as Role})===false});
     tests.push({name:"Tylko delegat tego meczu może ustawić wynik", pass: canEditResult(uDel,sample)===true && canEditResult({role:'Delegate' as Role, name:'Inny Delegat'} as any,sample)===false });
-  } else { tests.push({name:"Dane demo istnieją", pass:false, details:"Brak meczów w stanie aplikacji"}) }
+  } else { tests.push({name:"Dane (z bazy) istnieją", pass:false, details:"Brak meczów do testu"}) }
   const selectedIdInitial:string=""; tests.push({name:"selectedId jest stringiem na starcie", pass: typeof selectedIdInitial==="string"}); return tests;
 }
 const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=runDiagnostics(state); const allPass=tests.every(t=>t.pass);
@@ -285,30 +294,69 @@ const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=r
 }
 
 // Info
-const InfoBox: React.FC = () => (<Section title="Jak z tego korzystać (MVP)" icon={<Shield className="w-5 h-5"/>}>
+const InfoBox: React.FC = () => (<Section title="Jak z tego korzystać (Krok 1: mecze w bazie)" icon={<Shield className="w-5 h-5"/>}>
   <ol className="list-decimal ml-5 space-y-2 text-sm text-gray-700">
-    <li><b>Logowanie:</b> U góry formularz (Supabase). „Sędzia” pobiera dokumenty, ale nic nie uploaduje.</li>
-    <li><b>Rola Klub:</b> możesz dodać <i>Komunikat</i> tylko jako gospodarz oraz <i>Skład</i> gdy Twój klub gra.</li>
-    <li><b>Rola Delegat:</b> dodasz <i>Protokół</i>, <i>Zdjęcia raportu</i> i ustawisz wynik w swoim meczu.</li>
-    <li><b>Rola Admin:</b> panel „Użytkownicy (Supabase)” + „Panel administratora” z selektorami.</li>
-    <li><b>Kopia zapasowa:</b> Eksport/Import w tabeli meczów.</li>
-    <li><b>Dane:</b> mecze w localStorage (MVP), użytkownicy w Supabase (profiles).</li>
+    <li>Mecze są przechowywane w <b>Supabase</b> (dodawanie/edycja/usuwanie tylko przez <b>Admin</b>).</li>
+    <li>Wynik może ustawić <b>Delegat</b> przypisany do meczu (zapis do bazy).</li>
+    <li>Dokumenty (komunikat/składy/protokół/zdjęcia) jeszcze tymczasowo w przeglądarce (localStorage) – przeniesiemy w Kroku 3.</li>
   </ol>
 </Section>)
 
 export default function App(){
-  const { userId, userDisplay, role: sRole } = useSupabaseAuth()
+  const { userDisplay, role: sRole } = useSupabaseAuth()
   const supaUser = sRole !== 'Guest' ? { name: userDisplay, role: sRole as Role, club: undefined as string|undefined } : null
 
-  const { user, login, logout } = useAuth()
-  const effectiveUser = supaUser ?? user
+  // demo fallback
+  const [demoUser, setDemoUser] = useState<{name:string; role:Role; club?:string}|null>(()=>{
+    const raw = localStorage.getItem("wpr-auth-user"); return raw? JSON.parse(raw): null
+  });
+  function demoLogin(n:string,r:Role,c?:string){ const u={name:n, role:r, club:c}; setDemoUser(u); localStorage.setItem("wpr-auth-user", JSON.stringify(u)); }
+  function demoLogout(){ setDemoUser(null); localStorage.removeItem("wpr-auth-user"); }
 
-  const [state,setState]=useState<AppState>(()=>loadState()); useEffect(()=>{ saveState(state) },[state])
+  const effectiveUser = supaUser ?? demoUser
 
-  // Load profiles for admin panels
+  const [state,setState]=useState<AppState>({ matches: [], users:[
+    {name:"Admin", role:"Admin"}, {name:"AZS Szczecin – Klub", role:"Club", club:"AZS Szczecin"}, {name:"KS Warszawa – Klub", role:"Club", club:"KS Warszawa"}, {name:"Anna Delegat", role:"Delegate"}, {name:"Sędzia – Demo", role:"Referee"}, {name:"Gość", role:"Guest"}
+  ]});
+
+  // Load profiles (for admin select lists)
   const [profiles,setProfiles]=useState<ProfileRow[]>([])
-  async function refreshProfiles(){ const { data, error } = await supabase.from("profiles").select("id, display_name, role, club_id").order("display_name",{ascending:true}); if(!error) setProfiles((data as any)||[]) }
+  const [loadingProfiles,setLoadingProfiles]=useState(false)
+  async function refreshProfiles(){ setLoadingProfiles(True); const { data, error } = await supabase.from("profiles").select("id, display_name, role, club_id").order("display_name",{ascending:true}); if(!error) setProfiles((data as any)||[]); setLoadingProfiles(False) }
   useEffect(()=>{ if(effectiveUser?.role==="Admin"){ refreshProfiles() } },[effectiveUser?.role])
+
+  // Load matches from Supabase and merge docs from localStorage
+  const [loadingMatches,setLoadingMatches]=useState(false)
+  async function refreshMatches(){
+    setLoadingMatches(true)
+    try {
+      const rows = await listMatches()
+      const docsMap = loadDocs()
+      const matches: Match[] = rows.map(r => ({
+        id: r.id,
+        date: r.date,
+        time: r.time || undefined,
+        round: r.round || undefined,
+        location: r.location,
+        home: r.home,
+        away: r.away,
+        result: r.result || undefined,
+        referees: [r.referee1 || "", r.referee2 || ""],
+        delegate: r.delegate || undefined,
+        notes: r.notes || undefined,
+        commsByClub: docsMap[r.id]?.commsByClub || { home: null, away: null },
+        rosterByClub: docsMap[r.id]?.rosterByClub || { home: null, away: null },
+        matchReport: docsMap[r.id]?.matchReport || null,
+        reportPhotos: docsMap[r.id]?.reportPhotos || [],
+        uploadsLog: docsMap[r.id]?.uploadsLog || [],
+      }))
+      setState(s => ({ ...s, matches }))
+    } catch(e:any){
+      alert("Błąd pobierania meczów: " + e.message)
+    }
+    setLoadingMatches(false)
+  }
+  useEffect(()=>{ refreshMatches() }, [])
 
   const refereeNames = profiles.filter(p=>p.role==="Referee").map(p=>p.display_name).filter(Boolean)
   const delegateNames = profiles.filter(p=>p.role==="Delegate").map(p=>p.display_name).filter(Boolean)
@@ -322,24 +370,21 @@ export default function App(){
         {effectiveUser? (<div className="flex items-center gap-2">
           <Badge tone="blue">{effectiveUser.role}{effectiveUser.club?` • ${effectiveUser.club}`:""}</Badge>
           <span className="text-sm text-gray-700">{effectiveUser.name}</span>
-          {!supaUser && (<button onClick={logout} className={classes.btnSecondary}><LogOut className="w-4 h-4 inline mr-1"/>Wyloguj</button>)}
+          {!supaUser && (<button onClick={demoLogout} className={classes.btnSecondary}><LogOut className="w-4 h-4 inline mr-1"/>Wyloguj (demo)</button>)}
         </div>) : (<span className="text-sm text-gray-600">Niezalogowany</span>)}
       </div>
     </header>
 
     <main className="max-w-6xl mx-auto grid gap-6">
-      {!effectiveUser && <LoginPanel users={state.users} onLogin={login}/>}
-      <MatchesTable state={state} setState={setState} user={effectiveUser}/>
-      {effectiveUser?.role==="Admin" && (<>
-        <AdminUsersPanel profiles={profiles} onRefresh={refreshProfiles}/>
-        <AdminPanel state={state} setState={setState} clubs={CLUBS} refereeNames={refereeNames} delegateNames={delegateNames}/>
-      </>)}
+      {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin}/>}
+      <MatchesTable state={state} setState={setState} user={effectiveUser} onRefresh={refreshMatches} loading={loadingMatches}/>
+      {effectiveUser?.role==="Admin" && (<AdminPanel state={state} setState={setState} clubs={CLUBS} refereeNames={refereeNames} delegateNames={delegateNames} onAfterChange={refreshMatches} canWrite={true}/>)}
       <Diagnostics state={state}/>
       <InfoBox/>
     </main>
 
     <footer className="max-w-6xl mx-auto mt-8 text-xs text-gray-500">
-      <p>Prototyp: localStorage + Supabase (Auth/profiles). Do produkcji: Supabase DB/Storage + RLS.</p>
+      <p>Krok 1: Mecze w Supabase (CRUD). Dokumenty w localStorage. Następnie przeniesiemy dokumenty do Supabase Storage + DB.</p>
     </footer>
   </div>)
 }
