@@ -1,45 +1,61 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export type Role = 'Guest' | 'Club' | 'Delegate' | 'Admin'
+export type Role = 'Guest' | 'Club' | 'Delegate' | 'Admin' | 'Referee'
+
+type Profile = { id: string; display_name: string | null; role: Role | null }
 
 export function useSupabaseAuth() {
-  const [loading, setLoading] = useState(true)
-  const [session, setSession] = useState<Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']>(null)
-  const [profile, setProfile] = useState<{ id: string; display_name: string; role: Role; club_id?: string | null } | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [userDisplay, setUserDisplay] = useState<string>('')
+  const [role, setRole] = useState<Role>('Guest')
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session) })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => { setSession(sess) })
+    supabase.auth.getUser().then(({ data }) => {
+      const u = data.user
+      if (u?.id) {
+        setUserId(u.id)
+        loadProfile(u.id)
+      }
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      const u = session?.user
+      if (u?.id) {
+        setUserId(u.id)
+        loadProfile(u.id)
+      } else {
+        setUserId(null)
+        setUserDisplay('')
+        setRole('Guest')
+      }
+    })
     return () => { sub.subscription.unsubscribe() }
   }, [])
 
-  useEffect(() => {
-    async function fetchProfile() {
-      if (!session?.user) { setProfile(null); setLoading(false); return }
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, display_name, role, club_id')
-        .eq('id', session.user.id)
-        .single()
-      if (error) { console.error(error); setProfile(null) } else setProfile(data)
-      setLoading(false)
+  async function loadProfile(id: string) {
+    const { data, error } = await supabase.from('profiles').select('id, display_name, role').eq('id', id).maybeSingle()
+    if (!error && data) {
+      setUserDisplay(data.display_name || 'Użytkownik')
+      setRole((data.role as Role) || 'Guest')
+    } else {
+      setUserDisplay('Użytkownik')
+      setRole('Guest')
     }
-    fetchProfile()
-  }, [session?.user?.id])
+  }
 
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
   }
-  async function signOut() { await supabase.auth.signOut() }
+
+  async function signOut() {
+    await supabase.auth.signOut()
+  }
+
   async function changePassword(newPassword: string) {
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) throw error
   }
 
-  const role: Role = profile?.role ?? 'Guest'
-  const userDisplay = profile?.display_name || session?.user?.email || 'Użytkownik'
-
-  return { loading, session, profile, role, userDisplay, signIn, signOut, changePassword }
+  return { userId, userDisplay, role, signIn, signOut, changePassword }
 }

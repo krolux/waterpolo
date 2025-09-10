@@ -2,5 +2,4 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
-body { @apply bg-sky-50; }
+html, body, #root { height: 100%; }
