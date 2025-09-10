@@ -76,7 +76,6 @@ function canEditResult(user:{role:Role;name:string}, m:Match){ return user.role=
 const LoginPanel: React.FC<{ users: AppState["users"]; onLogin: (n: string, r: Role, c?: string) => void; }> = ({ users, onLogin }) => {
   const [name,setName]=useState(""); const [role,setRole]=useState<Role>("Guest"); const [club,setClub]=useState("");
   return (<Section title="Zaloguj się" icon={<LogIn className="w-5 h-5" />}>
-    <div className="grid md:grid-cols-2 gap-6">
 <LoginPanel />
   </Section>)
 }
