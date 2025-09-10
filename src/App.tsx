@@ -1,3 +1,4 @@
+import LoginPanel from "./components/LoginPanel";
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState, PropsWithChildren } from "react";
 import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, History, Check, RefreshCw } from "lucide-react";
@@ -76,26 +77,7 @@ const LoginPanel: React.FC<{ users: AppState["users"]; onLogin: (n: string, r: R
   const [name,setName]=useState(""); const [role,setRole]=useState<Role>("Guest"); const [club,setClub]=useState("");
   return (<Section title="Zaloguj się" icon={<LogIn className="w-5 h-5" />}>
     <div className="grid md:grid-cols-2 gap-6">
-      <div><div className="mb-2 font-medium">Szybki wybór (demo)</div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">{users.map(u=>(
-          <button key={u.name} onClick={()=>onLogin(u.name,u.role,u.club)} className={clsx(classes.btnSecondary,"text-left")}>
-            <div className="font-medium">{u.name}</div><div className="text-xs text-gray-600">Rola: {u.role}{u.club?` • ${u.club}`:""}</div>
-          </button>))}
-        </div></div>
-      <div><div className="mb-2 font-medium">Własny użytkownik</div>
-        <div className="flex flex-col gap-2">
-          <input className={classes.input} placeholder="Imię i nazwisko / nazwa" value={name} onChange={e=>setName(e.target.value)}/>
-          <div className="flex gap-2">
-            <select className={classes.input} value={role} onChange={e=>setRole(e.target.value as Role)}>{(["Guest","Club","Delegate","Referee","Admin"] as Role[]).map(r=><option key={r}>{r}</option>)}</select>
-            <select className={classes.input} value={club} onChange={e=>setClub(e.target.value)}>
-              <option value="">Klub (dla roli Club)</option>
-              {CLUBS.map(c=><option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <button onClick={()=> name && onLogin(name, role, club || undefined)} className={classes.btnPrimary}>Zaloguj</button>
-        </div>
-      </div>
-    </div>
+<LoginPanel />
   </Section>)
 }
 
