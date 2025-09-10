@@ -1,4 +1,3 @@
-import LoginPanel from "./components/LoginPanel";
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState, PropsWithChildren } from "react";
 import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, History, Check, RefreshCw } from "lucide-react";
@@ -72,13 +71,22 @@ function canUploadRoster(user:{role:Role;club?:string}, m:Match){ return user.ro
 function canUploadReport(user:{role:Role}){ return user.role==="Delegate" }
 function canEditResult(user:{role:Role;name:string}, m:Match){ return user.role==="Delegate" && !!m.delegate && m.delegate===user.name }
 
+
 // Components
 const LoginPanel: React.FC<{ users: AppState["users"]; onLogin: (n: string, r: Role, c?: string) => void; }> = ({ users, onLogin }) => {
-  const [name,setName]=useState(""); const [role,setRole]=useState<Role>("Guest"); const [club,setClub]=useState("");
-  return (<Section title="Zaloguj się" icon={<LogIn className="w-5 h-5" />}>
-<LoginPanel />
-  </Section>)
-}
+  const [name, setName] = useState("");
+  const [role, setRole] = useState<Role>("Guest");
+  const [club, setClub] = useState("");
+
+  // Tu już nic nie renderujemy (mail/hasło jest w <LoginBox/> w nagłówku).
+  // Zostawiamy pustą sekcję, żeby nie psuć reszty struktury.
+  return (
+    <Section title="Zaloguj się" icon={<LogIn className="w-5 h-5" />}>
+      {/* celowo pusto – logowanie jest przez LoginBox */}
+    </Section>
+  );
+};
+
 
 const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = ({ state, setState }) => {
   function exportJSON(){ const blob=new Blob([JSON.stringify(state.matches,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`wpr-matches-export-${new Date().toISOString().slice(0,10)}.json`; a.click(); }
