@@ -855,7 +855,7 @@ try {
     </main>
 
     <footer className="max-w-6xl mx-auto mt-8 text-xs text-gray-500">
-      <p>Krok 1: Mecze w Supabase (CRUD). Dokumenty w localStorage. Następnie przeniesiemy dokumenty do Supabase Storage + DB.</p>
+      <p>Lukasz Krol 2025, krol.lukasz@hotmail.com</p>
     </footer>
   </div>)
 }
