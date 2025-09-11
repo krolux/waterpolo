@@ -48,13 +48,7 @@ type ProfileRow = { id:string; display_name:string; role:Role; club_id:string|nu
 
 const CLUBS = ["Waterpolo Poznań","AZS UW","KSZO Ostrowiec Św.","Alfa Gorzów Wlkp","UKS Neptun UŁ","ŁSTW PŁ","Arkonia Szczecin","WTS Polonia Bytom"] as const;
 
-// --- Docs persistence in localStorage (temporary until Step 3) ---
-const DOCS_KEY = "wpr-docs-v1";
-type DocsOnly = Pick<Match,'commsByClub'|'rosterByClub'|'matchReport'|'reportPhotos'|'uploadsLog'>;
-function loadDocs(): Record<string, DocsOnly> {
-  try { const raw = localStorage.getItem(DOCS_KEY); return raw? JSON.parse(raw): {} } catch { return {} }
-}
-function saveDocs(map: Record<string, DocsOnly>) { localStorage.setItem(DOCS_KEY, JSON.stringify(map)) }
+
 
 // Files helpers
 async function toStoredFileUsingStorage(kind: "comms"|"roster"|"report"|"photos", matchId: string, clubOrNeutral: string, file: File, uploadedBy: string, label: string): Promise<StoredFile> {
@@ -220,25 +214,26 @@ const MatchesTable: React.FC<{
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead>
-            <tr className="text-left border-b bg-gray-50">
-              <th className="p-2">Data</th>
-              <th className="p-2">Nr meczu</th>
-              <th className="p-2">Miejsce</th>
-              <th className="p-2">Gospodarz</th>
-              <th className="p-2">Goście</th>
-              <th className="p-2">Wynik</th>
-              <th className="p-2">Sędziowie</th>
-              <th className="p-2">Delegat</th>
-              <th className="p-2">Dokumenty</th>
-              {user && (
-                <>
-                  <th className="p-2">Kary (Gospodarz)</th>
-                  <th className="p-2">Kary (Goście)</th>
-                </>
-              )}
-            </tr>
-          </thead>
+<thead>
+  <tr className="text-left border-b bg-gray-50">
+    <th className="p-2">Data</th>
+    <th className="p-2">Nr meczu</th>
+    <th className="p-2 hidden sm:table-cell">Miejsce</th>
+    <th className="p-2">Gospodarz</th>
+    <th className="p-2">Goście</th>
+    <th className="p-2">Wynik</th>
+    <th className="p-2 hidden md:table-cell">Sędziowie</th>
+    <th className="p-2 hidden md:table-cell">Delegat</th>
+    <th className="p-2 hidden lg:table-cell">Dokumenty</th>
+    {user && (
+      <>
+        <th className="p-2 hidden lg:table-cell">Kary (Gospodarz)</th>
+        <th className="p-2 hidden lg:table-cell">Kary (Goście)</th>
+      </>
+    )}
+  </tr>
+</thead>
+
 
           <tbody>
             {filtered.map((m) => (
@@ -248,13 +243,13 @@ const MatchesTable: React.FC<{
                   {m.time ? ` ${m.time}` : ""}
                 </td>
                 <td className="p-2 whitespace-nowrap">{m.round ?? "-"}</td>
-                <td className="p-2">{m.location}</td>
-                <td className="p-2">{m.home}</td>
-                <td className="p-2">{m.away}</td>
-                <td className="p-2">{m.result ?? "-"}</td>
-                <td className="p-2">{m.referees.join(", ")}</td>
-                <td className="p-2">{m.delegate ?? "-"}</td>
-                <td className="p-2">
+                <td className="p-2 hidden sm:table-cell">{m.location}</td>
+                <td className="p-2 hidden sm:table-cell">{m.home}</td>
+                <td className="p-2 hidden sm:table-cell">{m.away}</td>
+                <td className="p-2 hidden sm:table-cell">{m.result ?? "-"}</td>
+                <td className="p-2 hidden sm:table-cell">{m.referees.join(", ")}</td>
+                <td className="p-2 hidden sm:table-cell">{m.delegate ?? "-"}</td>
+                <td className="p-2 hidden sm:table-cell">
                   <div className="flex flex-wrap gap-2">
                     {m.commsByClub.home && (
                       <DocBadge
@@ -296,7 +291,7 @@ const MatchesTable: React.FC<{
          {user && (
   <>
     {/* Kary gospodarza */}
-    <td className="p-2">
+    <td className="p-2 hidden lg:table-cell">
       <div className="flex flex-wrap gap-1">
         {(penaltyMap.get(m.id)?.home || []).map(p => (
           <span
@@ -323,7 +318,7 @@ const MatchesTable: React.FC<{
     </td>
 
     {/* Kary gości */}
-    <td className="p-2">
+    <td className="p-2 hidden lg:table-cell">
       <div className="flex flex-wrap gap-1">
         {(penaltyMap.get(m.id)?.away || []).map(p => (
           <span
@@ -426,7 +421,7 @@ for (const f of files) {
 next.reportPhotos = [...next.reportPhotos, ...sfs];
  pushLog(next,{type:'photos',club:null,user:user.name,fileName:`${files.length} zdjęć`});
       }
-      const newState={...state, matches: state.matches.map(m=>m.id===match.id? next: m)}; setState(newState); saveDocsFor(next);
+      const newState={...state, matches: state.matches.map(m=>m.id===match.id? next: m)}; setState(newState); 
     }
     input.click();
   }
@@ -603,12 +598,7 @@ const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=r
 }
 
 // Info
-const InfoBox: React.FC = () => (<Section title="Jak z tego korzystać (Krok 1: mecze w bazie)" icon={<Shield className="w-5 h-5"/>}>
-  <ol className="list-decimal ml-5 space-y-2 text-sm text-gray-700">
-    <li>Mecze są przechowywane w <b>Supabase</b> (dodawanie/edycja/usuwanie tylko przez <b>Admin</b>).</li>
-    <li>Wynik może ustawić <b>Delegat</b> przypisany do meczu (zapis do bazy).</li>
-    <li>Dokumenty (komunikat/składy/protokół/zdjęcia) jeszcze tymczasowo w przeglądarce (localStorage) – przeniesiemy w Kroku 3.</li>
-  </ol>
+
 </Section>)
 
 export default function App(){
@@ -704,26 +694,100 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
     setLoadingMatches(true)
     try {
       const rows = await listMatches()
-      const docsMap = loadDocs()
-      const matches: Match[] = rows.map(r => ({
-        id: r.id,
-        date: r.date,
-        time: r.time || undefined,
-        round: r.round || undefined,
-        location: r.location,
-        home: r.home,
-        away: r.away,
-        result: r.result || undefined,
-        referees: [r.referee1 || "", r.referee2 || ""],
-        delegate: r.delegate || undefined,
-        notes: r.notes || undefined,
-        commsByClub: docsMap[r.id]?.commsByClub || { home: null, away: null },
-        rosterByClub: docsMap[r.id]?.rosterByClub || { home: null, away: null },
-        matchReport: docsMap[r.id]?.matchReport || null,
-        reportPhotos: docsMap[r.id]?.reportPhotos || [],
-        uploadsLog: docsMap[r.id]?.uploadsLog || [],
+ commsByClub: { home: null, away: null },
+rosterByClub: { home: null, away: null },
+matchReport: null,
+reportPhotos: [],
+uploadsLog: [],
+
       }))
       setState(s => ({ ...s, matches }))
+    // Dociągnij metadane dokumentów z DB i scal do state.matches
+try {
+  const matchIds = matches.map(m => m.id);
+  if (matchIds.length > 0) {
+    const { data: docs, error: docsErr } = await supabase
+      .from("docs_meta")
+      .select("match_id, kind, club_or_neutral, path, label")
+      .in("match_id", matchIds);
+
+    if (docsErr) throw docsErr;
+
+    const nextMatches = matches.map(m => {
+      const mm = { ...m };
+      const d = (docs || []).filter(x => x.match_id === m.id);
+
+      // comms / roster per club
+      for (const x of d) {
+        if (x.kind === "comms") {
+          // komunikat tylko dla gospodarza (home)
+          if (x.club_or_neutral === m.home) {
+            mm.commsByClub.home = {
+              id: crypto.randomUUID(),
+              name: x.label || "Komunikat",
+              mime: "application/octet-stream",
+              size: 0,
+              path: x.path,
+              uploadedBy: "",
+              uploadedAt: "",
+              label: x.label || "Komunikat",
+            };
+          }
+        }
+        if (x.kind === "roster") {
+          const target =
+            x.club_or_neutral === m.home ? "home" :
+            x.club_or_neutral === m.away ? "away" : null;
+          if (target) {
+            mm.rosterByClub[target] = {
+              id: crypto.randomUUID(),
+              name: x.label || `Skład (${target})`,
+              mime: "application/octet-stream",
+              size: 0,
+              path: x.path,
+              uploadedBy: "",
+              uploadedAt: "",
+              label: x.label || `Skład (${target})`,
+            };
+          }
+        }
+        if (x.kind === "report") {
+          mm.matchReport = {
+            id: crypto.randomUUID(),
+            name: x.label || "Protokół",
+            mime: "application/pdf",
+            size: 0,
+            path: x.path,
+            uploadedBy: "",
+            uploadedAt: "",
+            label: x.label || "Protokół",
+          };
+        }
+        if (x.kind === "photos") {
+          mm.reportPhotos = [
+            ...(mm.reportPhotos || []),
+            {
+              id: crypto.randomUUID(),
+              name: x.label || "Zdjęcie raportu",
+              mime: "image/*",
+              size: 0,
+              path: x.path,
+              uploadedBy: "",
+              uploadedAt: "",
+              label: x.label || "Zdjęcie raportu",
+            },
+          ];
+        }
+      }
+      return mm;
+    });
+
+    setState(s => ({ ...s, matches: nextMatches }));
+  }
+} catch(e:any) {
+  alert("Błąd pobierania dokumentów: " + e.message);
+}
+
       // opcjonalnie dociągnij kary po zmianie meczów:
     } catch(e:any){
       alert("Błąd pobierania meczów: " + e.message)
@@ -779,8 +843,8 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
   </div>
 )}
       {effectiveUser?.role==="Admin" && (<AdminPanel state={state} setState={setState} clubs={CLUBS} refereeNames={refereeNames} delegateNames={delegateNames} onAfterChange={refreshMatches} canWrite={true}/>)}
-      <Diagnostics state={state}/>
-      <InfoBox/>
+      {effectiveUser?.role === "Admin" && <Diagnostics state={state} />}
+    
     </main>
 
     <footer className="max-w-6xl mx-auto mt-8 text-xs text-gray-500">
