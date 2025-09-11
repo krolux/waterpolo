@@ -598,9 +598,6 @@ const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=r
     <ul className="text-sm space-y-1">{tests.map((t,i)=>(<li key={i} className={t.pass?"text-green-700":"text-red-700"}>• {t.name} — {t.pass?"PASS":"FAIL"}{t.details?` (${t.details})`:''}</li>))}</ul></Section>)
 }
 
-// Info
-
-</Section>)
 
 export default function App(){
   const { userDisplay, role: sRole } = useSupabaseAuth()
