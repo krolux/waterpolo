@@ -5,6 +5,7 @@ import { useSupabaseAuth, Role as SupaRole } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
 import { listMatches, createMatch, updateMatch as dbUpdateMatch, deleteMatch as dbDeleteMatch, setMatchResult } from './lib/matches'
+import { addPenalty, listPenalties, type Penalty } from "./lib/penalties";
 
 function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(Boolean).join(" "); }
 
@@ -99,7 +100,14 @@ const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = (
   </div>)
 }
 
-const MatchesTable: React.FC<{ state: AppState; setState:(s:AppState)=>void; user:{name:string;role:Role;club?:string}|null; onRefresh:()=>void; loading:boolean; }> = ({ state, setState, user, onRefresh, loading }) => {
+const MatchesTable: React.FC<{
+  state: AppState;
+  setState: (s: AppState) => void;
+  user: { name: string; role: Role; club?: string } | null;
+  onRefresh: () => void;
+  loading: boolean;
+  penaltyMap: Map<string, { home: string[]; away: string[] }>;
+}> = ({ state, setState, user, onRefresh, loading, penaltyMap }) => {
   const [q,setQ]=useState(""); const filtered=useMemo(()=>state.matches.filter(m=>[m.home,m.away,m.location,m.round,m.result,m.delegate,...m.referees].join(" ").toLowerCase().includes(q.toLowerCase())),[state.matches,q]);
   const canDownload=!!user && user.role!=='Guest';
   return (<Section title="Tabela meczów" icon={<Table className="w-5 h-5" />}>
@@ -108,8 +116,31 @@ const MatchesTable: React.FC<{ state: AppState; setState:(s:AppState)=>void; use
       <button onClick={onRefresh} className={clsx(classes.btnSecondary, "flex items-center gap-2")}><RefreshCw className={clsx("w-4 h-4", loading && "animate-spin")}/>Odśwież</button>
       <ExportImport state={state} setState={setState}/>
     </div>
-    <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead><tr className="text-left border-b bg-gray-50">
-      <th className="p-2">Data</th><th className="p-2">Runda</th><th className="p-2">Miejsce</th><th className="p-2">Gospodarz</th><th className="p-2">Goście</th><th className="p-2">Wynik</th><th className="p-2">Sędziowie</th><th className="p-2">Delegat</th><th className="p-2">Dokumenty</th></tr></thead>
+    <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead>
+  <tr className="text-left border-b bg-gray-50">
+    <th className="p-2">Data</th>
+    <th className="p-2">Runda</th>
+    <th className="p-2">Miejsce</th>
+    <th className="p-2">Gospodarz</th>
+    <th className="p-2">Goście</th>
+    <th className="p-2">Wynik</th>
+    <th className="p-2">Sędziowie</th>
+    <th className="p-2">Delegat</th>
+    <th className="p-2">Dokumenty</th>
+    {user && (
+      <>
+        <th className="p-2">Kary (Gospodarz)</th>
+        <th className="p-2">Kary (Goście)</th>
+      </>
+    )}
+  </tr>
+</thead>
+      {user && (
+  <>
+    <th className="p-2">Kary (Gospodarz)</th>
+    <th className="p-2">Kary (Goście)</th>
+  </>
+)}
       <tbody>{filtered.map(m=>(<tr key={m.id} className="border-b hover:bg-gray-50/60">
         <td className="p-2 whitespace-nowrap">{m.date}{m.time?` ${m.time}`:""}</td><td className="p-2 whitespace-nowrap">{m.round??"-"}</td><td className="p-2">{m.location}</td><td className="p-2">{m.home}</td><td className="p-2">{m.away}</td><td className="p-2">{m.result??"-"}</td><td className="p-2">{m.referees.join(", ")}</td><td className="p-2">{m.delegate??"-"}</td>
         <td className="p-2"><div className="flex flex-wrap gap-2">
@@ -119,10 +150,26 @@ const MatchesTable: React.FC<{ state: AppState; setState:(s:AppState)=>void; use
           {m.matchReport && <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload}/>}
           {m.reportPhotos.length>0 && (<span className={classes.pill}><Image className="w-3.5 h-3.5"/>Zdjęcia: {m.reportPhotos.length}</span>)}
         </div></td>
+      {user && (
+  <>
+    <td className="p-2 text-red-600">
+      {(penaltyMap.get(m.id)?.home || []).map((name, i) => (
+        <div key={i}>{name}</div>
+      ))}
+    </td>
+    <td className="p-2 text-red-600">
+      {(penaltyMap.get(m.id)?.away || []).map((name, i) => (
+        <div key={i}>{name}</div>
+      ))}
+    </td>
+  </>
+)}
       </tr>))}</tbody></table></div>
     {user && user.role!=="Guest" && (<div className="mt-6"><PerMatchActions state={state} setState={setState} user={user}/></div>)}
   </Section>)
 }
+
+
 
 const PerMatchActions: React.FC<{ state:AppState; setState:(s:AppState)=>void; user:{name:string;role:Role;club?:string} }> = ({ state, setState, user }) => {
   const [selectedId,setSelectedId]=useState<string>(state.matches[0]?.id??""); const match=state.matches.find(m=>m.id===selectedId)||null;
@@ -192,6 +239,65 @@ const PerMatchActions: React.FC<{ state:AppState; setState:(s:AppState)=>void; u
           <button onClick={()=>handleUpload("photos")} className={clsx(classes.btnOutline,"flex items-center gap-2")}><Image className="w-4 h-4"/>Dodaj zdjęcia raportu</button>
         </>)}
       </div>
+{canDelegateAct() && match && (
+  <div className="mt-4 border-t pt-3">
+    <div className="font-medium mb-2">Nałóż karę</div>
+
+    <div className="grid gap-2 md:grid-cols-3">
+      {/* Wybór klubu z tego meczu */}
+      <select id="pen-club" className={classes.input} defaultValue="">
+        <option value="" disabled>Wybierz klub</option>
+        <option value={match.home}>{match.home} (gospodarz)</option>
+        <option value={match.away}>{match.away} (goście)</option>
+      </select>
+
+      {/* Nazwisko */}
+      <input id="pen-player" className={classes.input} placeholder="Nazwisko zawodnika" />
+
+      {/* Liczba meczów */}
+      <input id="pen-games" className={classes.input} type="number" min={1} placeholder="Mecze kary" />
+    </div>
+
+    <div className="mt-2">
+      <button
+        className={clsx(classes.btnPrimary, "flex items-center gap-2")}
+        onClick={async () => {
+          const clubSel = (document.getElementById("pen-club") as HTMLSelectElement);
+          const playerInp = (document.getElementById("pen-player") as HTMLInputElement);
+          const gamesInp = (document.getElementById("pen-games") as HTMLInputElement);
+
+          const club = clubSel?.value || "";
+          const player = playerInp?.value?.trim() || "";
+          const games = parseInt(gamesInp?.value || "0", 10);
+
+          if (!club || !player || !games || games < 1) {
+            alert("Wypełnij wszystkie pola: Klub, Nazwisko, Liczba meczów (>=1).");
+            return;
+          }
+
+          try {
+            await addPenalty(match.id, club, player, games);
+            await refreshPenalties();
+            alert("Kara dodana.");
+            // wyczyść pola
+            clubSel.value = "";
+            playerInp.value = "";
+            gamesInp.value = "";
+          } catch (e:any) {
+            alert("Błąd dodawania kary: " + e.message);
+          }
+        }}
+      >
+        Dodaj karę
+      </button>
+      <div className="text-xs text-gray-500 mt-1">
+        Kara będzie widoczna w najbliższych {` ${' '} `}
+        meczach danego klubu (od tego meczu włącznie).
+      </div>
+    </div>
+  </div>
+)}
+      
       {match && canEditResult(user, match) && (<div className="flex items-center gap-2">
         <input className={classes.input} placeholder="Wynik (np. 10:9)" value={resultDraft} onChange={e=>setResultDraft(e.target.value)} style={{maxWidth:200}}/>
         <button onClick={saveResult} className={clsx(classes.btnPrimary,"flex items-center gap-2")}><Check className="w-4 h-4"/>Zapisz wynik</button>
@@ -314,6 +420,54 @@ export default function App(){
   async function refreshProfiles(){ setLoadingProfiles(true); const { data, error } = await supabase.from("profiles").select("id, display_name, role, club_id").order("display_name",{ascending:true}); if(!error) setProfiles((data as any)||[]); setLoadingProfiles(false) }
   useEffect(()=>{ if(effectiveUser?.role==="Admin"){ refreshProfiles() } },[effectiveUser?.role])
 
+// --- Penalties state (+load)
+const [penalties, setPenalties] = useState<Penalty[]>([]);
+
+async function refreshPenalties() {
+  try {
+    const rows = await listPenalties();
+    setPenalties(rows);
+  } catch (e:any) {
+    alert("Błąd pobierania kar: " + e.message);
+  }
+}
+
+// ładujemy kary przy starcie
+useEffect(() => { refreshPenalties(); }, []);
+
+  // Wylicz: dla każdego meczu osobno listy kar dla gospodarzy i gości
+function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
+  const map = new Map<string, { home: string[]; away: string[] }>();
+
+  penalties.forEach(p => {
+    const club = p.club_name;
+    const start = new Date(p.created_at);
+
+    // mecze tego klubu OD momentu kary, posortowane
+    const clubMatches = matches
+      .filter(m =>
+        (m.home === club || m.away === club) &&
+        new Date(m.date) >= start
+      )
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, p.games); // tylko najbliższe N meczów
+
+    clubMatches.forEach(m => {
+      const rec = map.get(m.id) || { home: [], away: [] };
+      if (m.home === club) rec.home.push(p.player_name);
+      else rec.away.push(p.player_name);
+      map.set(m.id, rec);
+    });
+  });
+
+  return map;
+}
+
+  const penaltiesByMatch = useMemo(
+  () => buildPenaltyMap(penalties, state.matches),
+  [penalties, state.matches]
+);
+  
   // Load matches from Supabase and merge docs from localStorage
   const [loadingMatches,setLoadingMatches]=useState(false)
   async function refreshMatches(){
@@ -366,7 +520,14 @@ export default function App(){
 
     <main className="max-w-6xl mx-auto grid gap-6">
       {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin}/>}
-      <MatchesTable state={state} setState={setState} user={effectiveUser} onRefresh={refreshMatches} loading={loadingMatches}/>
+     <MatchesTable
+  state={state}
+  setState={setState}
+  user={effectiveUser}
+  onRefresh={refreshMatches}
+  loading={loadingMatches}
+  penaltyMap={penaltiesByMatch}
+/>
       {effectiveUser?.role==="Admin" && (<AdminPanel state={state} setState={setState} clubs={CLUBS} refereeNames={refereeNames} delegateNames={delegateNames} onAfterChange={refreshMatches} canWrite={true}/>)}
       <Diagnostics state={state}/>
       <InfoBox/>
