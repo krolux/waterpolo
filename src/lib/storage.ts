@@ -9,7 +9,7 @@ export type DocKind = "comms" | "roster" | "report" | "photos";
  * - clubOrNeutral: nazwa klubu dla comms/roster, 'neutral' dla report/photos
  */
 function makePath(kind: DocKind, matchId: string, clubOrNeutral: string, fileName: string) {
-  const safe = (s: string) => s.replaceAll("/", "-").replaceAll(" ", "_");
+const safe = (s: string) => s.replace(/\//g, "-").replace(/ /g, "_");
   return `${kind}/${matchId}/${safe(clubOrNeutral)}/${Date.now()}_${safe(fileName)}`;
 }
 
