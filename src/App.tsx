@@ -849,7 +849,7 @@ try {
 )}
 
 {effectiveUser?.role === "Admin" && <Diagnostics state={state} />}
-/* InfoBox usuwamy całkowicie */
+
 
     </main>
 
