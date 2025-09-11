@@ -117,7 +117,7 @@ const MatchesTable: React.FC<{
       <ExportImport state={state} setState={setState}/>
     </div>
     <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead>
-  <tr className="text-left border-b bg-gray-50">
+   <tr className="text-left border-b bg-gray-50">
     <th className="p-2">Data</th>
     <th className="p-2">Runda</th>
     <th className="p-2">Miejsce</th>
@@ -152,16 +152,24 @@ const MatchesTable: React.FC<{
         </div></td>
       {user && (
   <>
-    <td className="p-2 text-red-600">
-      {(penaltyMap.get(m.id)?.home || []).map((name, i) => (
-        <div key={i}>{name}</div>
-      ))}
-    </td>
-    <td className="p-2 text-red-600">
-      {(penaltyMap.get(m.id)?.away || []).map((name, i) => (
-        <div key={i}>{name}</div>
-      ))}
-    </td>
+  <td className="p-2">
+  <div className="flex flex-wrap gap-1">
+    {(penaltyMap.get(m.id)?.home || []).map((name, i) => (
+      <span key={i} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
+        {name}
+      </span>
+    ))}
+  </div>
+</td>
+<td className="p-2">
+  <div className="flex flex-wrap gap-1">
+    {(penaltyMap.get(m.id)?.away || []).map((name, i) => (
+      <span key={i} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
+        {name}
+      </span>
+    ))}
+  </div>
+</td>
   </>
 )}
       </tr>))}</tbody></table></div>
@@ -494,6 +502,8 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
         uploadsLog: docsMap[r.id]?.uploadsLog || [],
       }))
       setState(s => ({ ...s, matches }))
+      // opcjonalnie dociągnij kary po zmianie meczów:
+    await refreshPenalties()
     } catch(e:any){
       alert("Błąd pobierania meczów: " + e.message)
     }
