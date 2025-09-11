@@ -94,6 +94,7 @@ const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = (
   async function importJSON(e:React.ChangeEvent<HTMLInputElement>){ const f=e.target.files?.[0]; if(!f) return; const text=await f.text(); try{ const parsed=JSON.parse(text) as Match[]; setState({...state, matches: parsed}); }catch{ alert("Niepoprawny plik JSON.")} }
   return (<div className="flex items-center gap-2">
     <button onClick={exportJSON} className={clsx(classes.btnSecondary,"flex items-center gap-2")}><Download className="w-4 h-4"/>Eksport</button>
+   
     <label className={clsx(classes.btnSecondary,"inline-flex items-center gap-2 cursor-pointer")}>
       <Upload className="w-4 h-4"/>Import<input type="file" accept="application/json" className="hidden" onChange={importJSON}/>
     </label>
@@ -108,78 +109,202 @@ const MatchesTable: React.FC<{
   loading: boolean;
   penaltyMap: Map<string, { home: string[]; away: string[] }>;
 }> = ({ state, setState, user, onRefresh, loading, penaltyMap }) => {
-  const [q,setQ]=useState(""); const filtered=useMemo(()=>state.matches.filter(m=>[m.home,m.away,m.location,m.round,m.result,m.delegate,...m.referees].join(" ").toLowerCase().includes(q.toLowerCase())),[state.matches,q]);
-  const canDownload=!!user && user.role!=='Guest';
-  return (<Section title="Tabela meczów" icon={<Table className="w-5 h-5" />}>
-    <div className="flex items-center gap-2 mb-3">
-      <div className="relative flex-1"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"/><input value={q} onChange={e=>setQ(e.target.value)} className={clsx(classes.input,"pl-9")} placeholder="Szukaj po drużynie, miejscu, sędziach..."/></div>
-      <button onClick={onRefresh} className={clsx(classes.btnSecondary, "flex items-center gap-2")}><RefreshCw className={clsx("w-4 h-4", loading && "animate-spin")}/>Odśwież</button>
-      <ExportImport state={state} setState={setState}/>
-    </div>
-    <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead>
-   <tr className="text-left border-b bg-gray-50">
-    <th className="p-2">Data</th>
-    <th className="p-2">Runda</th>
-    <th className="p-2">Miejsce</th>
-    <th className="p-2">Gospodarz</th>
-    <th className="p-2">Goście</th>
-    <th className="p-2">Wynik</th>
-    <th className="p-2">Sędziowie</th>
-    <th className="p-2">Delegat</th>
-    <th className="p-2">Dokumenty</th>
-    {user && (
-      <>
-        <th className="p-2">Kary (Gospodarz)</th>
-        <th className="p-2">Kary (Goście)</th>
-      </>
-    )}
-  </tr>
-</thead>
-      {user && (
-  <>
-    <th className="p-2">Kary (Gospodarz)</th>
-    <th className="p-2">Kary (Goście)</th>
-  </>
-)}
-      <tbody>{filtered.map(m=>(<tr key={m.id} className="border-b hover:bg-gray-50/60">
-        <td className="p-2 whitespace-nowrap">{m.date}{m.time?` ${m.time}`:""}</td><td className="p-2 whitespace-nowrap">{m.round??"-"}</td><td className="p-2">{m.location}</td><td className="p-2">{m.home}</td><td className="p-2">{m.away}</td><td className="p-2">{m.result??"-"}</td><td className="p-2">{m.referees.join(", ")}</td><td className="p-2">{m.delegate??"-"}</td>
-        <td className="p-2"><div className="flex flex-wrap gap-2">
-          {m.commsByClub.home && <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload}/>}
-          {m.rosterByClub.home && <DocBadge file={m.rosterByClub.home} label="Skład (Home)" disabled={!canDownload}/>}
-          {m.rosterByClub.away && <DocBadge file={m.rosterByClub.away} label="Skład (Away)" disabled={!canDownload}/>}
-          {m.matchReport && <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload}/>}
-          {m.reportPhotos.length>0 && (<span className={classes.pill}><Image className="w-3.5 h-3.5"/>Zdjęcia: {m.reportPhotos.length}</span>)}
-        </div></td>
-      {user && (
-  <>
-  <td className="p-2">
-  <div className="flex flex-wrap gap-1">
-    {(penaltyMap.get(m.id)?.home || []).map((name, i) => (
-      <span key={i} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-        {name}
-      </span>
-    ))}
-  </div>
-</td>
-<td className="p-2">
-  <div className="flex flex-wrap gap-1">
-    {(penaltyMap.get(m.id)?.away || []).map((name, i) => (
-      <span key={i} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-        {name}
-      </span>
-    ))}
-  </div>
-</td>
-  </>
-)}
-      </tr>))}</tbody></table></div>
-    {user && user.role!=="Guest" && (<div className="mt-6"><PerMatchActions state={state} setState={setState} user={user}/></div>)}
-  </Section>)
-}
+  const [q, setQ] = useState("");
+  const [sortKey, setSortKey] = useState<"date" | "round">("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const sorted = useMemo(() => {
+    const arr = [...state.matches];
+    arr.sort((a, b) => {
+      const A = sortKey === "date" ? (a.date || "") : (a.round || "");
+      const B = sortKey === "date" ? (b.date || "") : (b.round || "");
+      return sortDir === "asc" ? A.localeCompare(B) : B.localeCompare(A);
+    });
+    return arr;
+  }, [state.matches, sortKey, sortDir]);
+
+  const filtered = useMemo(
+    () =>
+      sorted.filter((m) =>
+        [m.home, m.away, m.location, m.round, m.result, m.delegate, ...m.referees]
+          .join(" ")
+          .toLowerCase()
+          .includes(q.toLowerCase())
+      ),
+    [sorted, q]
+  );
+
+  const canDownload = !!user && user.role !== "Guest";
+
+  return (
+    <Section title="Tabela meczów" icon={<Table className="w-5 h-5" />}>
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className={clsx(classes.input, "pl-9")}
+            placeholder="Szukaj po drużynie, miejscu, sędziach..."
+          />
+        </div>
+
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as "date" | "round")}
+          className={classes.input}
+          style={{ maxWidth: 170 }}
+          title="Sortuj wg…"
+        >
+          <option value="date">Sortuj wg daty</option>
+          <option value="round">Sortuj wg kolejki</option>
+        </select>
+
+        <button
+          onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+          className={clsx(classes.btnSecondary, "px-2")}
+          title={sortDir === "asc" ? "Kierunek: rosnąco" : "Kierunek: malejąco"}
+        >
+          {sortDir === "asc" ? "↑" : "↓"}
+        </button>
+
+        <button
+          onClick={onRefresh}
+          className={clsx(classes.btnSecondary, "flex items-center gap-2")}
+        >
+          <RefreshCw className={clsx("w-4 h-4", loading && "animate-spin")} />
+          Odśwież
+        </button>
+
+        <ExportImport state={state} setState={setState} />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="text-left border-b bg-gray-50">
+              <th className="p-2">Data</th>
+              <th className="p-2">Kolejka</th>
+              <th className="p-2">Miejsce</th>
+              <th className="p-2">Gospodarz</th>
+              <th className="p-2">Goście</th>
+              <th className="p-2">Wynik</th>
+              <th className="p-2">Sędziowie</th>
+              <th className="p-2">Delegat</th>
+              <th className="p-2">Dokumenty</th>
+              {user && (
+                <>
+                  <th className="p-2">Kary (Gospodarz)</th>
+                  <th className="p-2">Kary (Goście)</th>
+                </>
+              )}
+            </tr>
+          </thead>
+
+          <tbody>
+            {filtered.map((m) => (
+              <tr key={m.id} className="border-b hover:bg-gray-50/60">
+                <td className="p-2 whitespace-nowrap">
+                  {m.date}
+                  {m.time ? ` ${m.time}` : ""}
+                </td>
+                <td className="p-2 whitespace-nowrap">{m.round ?? "-"}</td>
+                <td className="p-2">{m.location}</td>
+                <td className="p-2">{m.home}</td>
+                <td className="p-2">{m.away}</td>
+                <td className="p-2">{m.result ?? "-"}</td>
+                <td className="p-2">{m.referees.join(", ")}</td>
+                <td className="p-2">{m.delegate ?? "-"}</td>
+                <td className="p-2">
+                  <div className="flex flex-wrap gap-2">
+                    {m.commsByClub.home && (
+                      <DocBadge
+                        file={m.commsByClub.home}
+                        label="Komunikat"
+                        disabled={!canDownload}
+                      />
+                    )}
+                    {m.rosterByClub.home && (
+                      <DocBadge
+                        file={m.rosterByClub.home}
+                        label="Skład (Home)"
+                        disabled={!canDownload}
+                      />
+                    )}
+                    {m.rosterByClub.away && (
+                      <DocBadge
+                        file={m.rosterByClub.away}
+                        label="Skład (Away)"
+                        disabled={!canDownload}
+                      />
+                    )}
+                    {m.matchReport && (
+                      <DocBadge
+                        file={m.matchReport}
+                        label="Protokół"
+                        disabled={!canDownload}
+                      />
+                    )}
+                    {m.reportPhotos.length > 0 && (
+                      <span className={classes.pill}>
+                        <Image className="w-3.5 h-3.5" />
+                        Zdjęcia: {m.reportPhotos.length}
+                      </span>
+                    )}
+                  </div>
+                </td>
+
+                {user && (
+                  <>
+                    <td className="p-2">
+                      <div className="flex flex-wrap gap-1">
+                        {(penaltyMap.get(m.id)?.home || []).map((name, i) => (
+                          <span
+                            key={i}
+                            className={clsx(
+                              classes.pill,
+                              "border-red-300 text-red-700 bg-red-50"
+                            )}
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-2">
+                      <div className="flex flex-wrap gap-1">
+                        {(penaltyMap.get(m.id)?.away || []).map((name, i) => (
+                          <span
+                            key={i}
+                            className={clsx(
+                              classes.pill,
+                              "border-red-300 text-red-700 bg-red-50"
+                            )}
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Section>
+  );
+};
 
 
 
-const PerMatchActions: React.FC<{ state:AppState; setState:(s:AppState)=>void; user:{name:string;role:Role;club?:string} }> = ({ state, setState, user }) => {
+const PerMatchActions: React.FC<{
+  state: AppState;
+  setState: (s: AppState) => void;
+  user: { name: string; role: Role; club?: string };
+  onPenaltiesChange: () => void;
+}> = ({ state, setState, user, onPenaltiesChange }) => {
   const [selectedId,setSelectedId]=useState<string>(state.matches[0]?.id??""); const match=state.matches.find(m=>m.id===selectedId)||null;
   const [resultDraft,setResultDraft]=useState<string>(match?.result||""); useEffect(()=>{ setResultDraft(match?.result||"") },[selectedId]);
   function pushLog(next:Match, entry: Omit<UploadLog,"id"|"matchId"|"at">){ next.uploadsLog=[{ id:crypto.randomUUID(), matchId:next.id, at:new Date().toISOString(), ...entry }, ...next.uploadsLog] }
@@ -284,8 +409,9 @@ const PerMatchActions: React.FC<{ state:AppState; setState:(s:AppState)=>void; u
           }
 
           try {
-            await addPenalty(match.id, club, player, games);
-            alert("Kara dodana.");
+          await addPenalty(match.id, club, player, games);
+onPenaltiesChange();
+alert("Kara dodana.");
             // wyczyść pola
             clubSel.value = "";
             playerInp.value = "";
@@ -350,7 +476,7 @@ const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:
     <div className="grid md:grid-cols-2 gap-6">
       <div><div className="font-medium mb-2">Dodaj / edytuj mecz</div><div className="grid gap-2">
         <div className="grid grid-cols-2 gap-2"><input className={classes.input} type="date" value={draft.date} onChange={e=>setDraft({...draft, date:e.target.value})}/><input className={classes.input} placeholder="Godzina (opcjonalnie)" value={draft.time||""} onChange={e=>setDraft({...draft, time:e.target.value})}/></div>
-        <div className="grid grid-cols-2 gap-2"><input className={classes.input} placeholder="Runda" value={draft.round||""} onChange={e=>setDraft({...draft, round:e.target.value})}/><input className={classes.input} placeholder="Miejsce" value={draft.location} onChange={e=>setDraft({...draft, location:e.target.value})}/></div>
+        <div className="grid grid-cols-2 gap-2"><input className={classes.input} placeholder="Nr meczu" value={draft.round||""} onChange={e=>setDraft({...draft, round:e.target.value})}/><input className={classes.input} placeholder="Miejsce" value={draft.location} onChange={e=>setDraft({...draft, location:e.target.value})}/></div>
         <div className="grid grid-cols-2 gap-2">
           <select className={classes.input} value={draft.home} onChange={e=>setDraft({...draft, home:e.target.value})}><option value="">Wybierz gospodarza</option>{CLUBS.map(c=><option key={c} value={c}>{c}</option>)}</select>
           <select className={classes.input} value={draft.away} onChange={e=>setDraft({...draft, away:e.target.value})}><option value="">Wybierz gości</option>{CLUBS.map(c=><option key={c} value={c}>{c}</option>)}</select>
@@ -544,6 +670,16 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
   loading={loadingMatches}
   penaltyMap={penaltiesByMatch}
 />
+      {effectiveUser && effectiveUser.role !== "Guest" && (
+  <div>
+    <PerMatchActions
+      state={state}
+      setState={setState}
+      user={effectiveUser}
+      onPenaltiesChange={refreshPenalties}
+    />
+  </div>
+)}
       {effectiveUser?.role==="Admin" && (<AdminPanel state={state} setState={setState} clubs={CLUBS} refereeNames={refereeNames} delegateNames={delegateNames} onAfterChange={refreshMatches} canWrite={true}/>)}
       <Diagnostics state={state}/>
       <InfoBox/>
