@@ -30,3 +30,7 @@ export async function listPenalties(): Promise<Penalty[]> {
   if (error) throw error
   return (data || []) as Penalty[]
 }
+export async function deletePenalty(id: string) {
+  const { error } = await supabase.from('penalties').delete().eq('id', id);
+  if (error) throw error;
+}
