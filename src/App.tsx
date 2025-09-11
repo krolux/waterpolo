@@ -285,7 +285,6 @@ const PerMatchActions: React.FC<{ state:AppState; setState:(s:AppState)=>void; u
 
           try {
             await addPenalty(match.id, club, player, games);
-            await refreshPenalties();
             alert("Kara dodana.");
             // wyczyść pola
             clubSel.value = "";
@@ -503,7 +502,6 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
       }))
       setState(s => ({ ...s, matches }))
       // opcjonalnie dociągnij kary po zmianie meczów:
-    await refreshPenalties()
     } catch(e:any){
       alert("Błąd pobierania meczów: " + e.message)
     }
