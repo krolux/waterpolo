@@ -6,7 +6,8 @@ import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
 import { listMatches, createMatch, updateMatch as dbUpdateMatch, deleteMatch as dbDeleteMatch, setMatchResult } from './lib/matches'
 import { addPenalty, listPenalties, deletePenalty, type Penalty } from "./lib/penalties";
-import { uploadDoc, getSignedUrl } from "./lib/docs";
+import { uploadDoc, getSignedUrl } from "./lib/storage";
+
 
 
 function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(Boolean).join(" "); }
@@ -71,7 +72,7 @@ async function toStoredFileUsingStorage(kind: "comms"|"roster"|"report"|"photos"
 }
 
 async function downloadStoredFile(file: StoredFile) {
-  const url = await getSignedUrl(file.path, 3600);
+const url = await getSignedUrl(file.path);
   const a = document.createElement("a");
   a.href = url;
   a.download = file.label ? file.label : file.name;
