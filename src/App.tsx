@@ -6,6 +6,8 @@ import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
 import { listMatches, createMatch, updateMatch as dbUpdateMatch, deleteMatch as dbDeleteMatch, setMatchResult } from './lib/matches'
 import { addPenalty, listPenalties, deletePenalty, type Penalty } from "./lib/penalties";
+import { uploadDoc, getSignedUrl } from "./lib/docs";
+
 
 function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(Boolean).join(" "); }
 
@@ -35,7 +37,7 @@ const Badge: React.FC<{ children: React.ReactNode; tone?: "gray" | "green" | "bl
 );
 
 // Types
-type StoredFile = { id:string; name:string; mime:string; size:number; dataUrl:string; uploadedBy:string; uploadedAt:string; label?:string; };
+type StoredFile = { id:string; name:string; mime:string; size:number; path:string; uploadedBy:string; uploadedAt:string; label?:string; };
 type UploadLog = { id:string; type:"comms"|"roster"|"protocol"|"photos"; matchId:string; club?:string|null; user:string; at:string; fileName:string; };
 type Match = { id:string; date:string; time?:string; round?:string; location:string; home:string; away:string; result?:string; referees:string[]; delegate?:string;
   commsByClub: Record<string, StoredFile | null>; rosterByClub: Record<string, StoredFile | null>;
@@ -54,17 +56,28 @@ function loadDocs(): Record<string, DocsOnly> {
 function saveDocs(map: Record<string, DocsOnly>) { localStorage.setItem(DOCS_KEY, JSON.stringify(map)) }
 
 // Files helpers
-function fileToDataUrl(file: File): Promise<string> { return new Promise((resolve, reject)=>{ const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string); reader.onerror=reject; reader.readAsDataURL(file); }); }
-async function toStoredFile(file: File, uploadedBy: string, label: string): Promise<StoredFile> {
-  const dataUrl = await fileToDataUrl(file);
-  return { id:crypto.randomUUID(), name:file.name, mime:file.type||"application/octet-stream", size:file.size, dataUrl, uploadedBy, uploadedAt:new Date().toISOString(), label };
+async function toStoredFileUsingStorage(kind: "comms"|"roster"|"report"|"photos", matchId: string, clubOrNeutral: string, file: File, uploadedBy: string, label: string): Promise<StoredFile> {
+  const path = await uploadDoc(kind, matchId, clubOrNeutral, file);
+  return {
+    id: crypto.randomUUID(),
+    name: file.name,
+    mime: file.type || "application/octet-stream",
+    size: file.size,
+    path,
+    uploadedBy,
+    uploadedAt: new Date().toISOString(),
+    label,
+  };
 }
-function downloadDataUrl(file: StoredFile) { const a=document.createElement("a"); a.href=file.dataUrl; const ext=file.name.includes(".")? file.name.slice(file.name.lastIndexOf(".")):""; a.download=file.label?`${file.label}${ext}`:file.name; a.click(); }
-const DocBadge: React.FC<{file: StoredFile; label: string; disabled?: boolean}> = ({ file, label, disabled }) => (
-  <button onClick={()=>{ if(disabled){ alert("Pobieranie dostępne po zalogowaniu (nie dla Gościa)."); return; } downloadDataUrl(file); }} className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white ${disabled? 'opacity-50 cursor-not-allowed' : 'hover:shadow'}`}>
-    <FileText className="w-3.5 h-3.5"/>{label}
-  </button>
-);
+
+async function downloadStoredFile(file: StoredFile) {
+  const url = await getSignedUrl(file.path, 3600);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.label ? file.label : file.name;
+  a.click();
+}
+
 
 // Permissions
 function canUploadComms(user:{role:Role;club?:string}, m:Match){ return user.role==="Club" && !!user.club && user.club===m.home }
@@ -355,19 +368,38 @@ const PerMatchActions: React.FC<{
         const key = user.club===match.home? "home" : user.club===match.away? "away": null; if(!key){ alert("Twój klub nie jest przypisany do tego meczu."); return; }
         if(type==="comms"){
           if(!canUploadComms(user, match)){ alert("Komunikat może dodać wyłącznie gospodarz meczu."); return; }
-          const sf=await toStoredFile(files[0], user.name, `Komunikat - ${match.home} - ${match.date}`); next.commsByClub[key]=sf; pushLog(next,{type:'comms',club:user.club,user:user.name,fileName:sf.name});
+          const sf = await toStoredFileUsingStorage(
+  "comms", match.id, match.home, files[0], user.name, `Komunikat - ${match.home} - ${match.date}`
+);
+next.commsByClub[key] = sf;
+ pushLog(next,{type:'comms',club:user.club,user:user.name,fileName:sf.name});
         } else {
           if(!canUploadRoster(user, match)){ alert("Skład może dodać tylko klub biorący udział w meczu."); return; }
-          const clubName = key==="home"? match.home: match.away; const sf=await toStoredFile(files[0], user.name, `Skład - ${clubName} - ${match.date}`); next.rosterByClub[key]=sf; pushLog(next,{type:'roster',club:user.club,user:user.name,fileName:sf.name});
+          const clubName = key==="home"? match.home: match.away; const sf = await toStoredFileUsingStorage(
+  "roster", match.id, clubName, files[0], user.name, `Skład - ${clubName} - ${match.date}`
+);
+next.rosterByClub[key] = sf;
+ pushLog(next,{type:'roster',club:user.club,user:user.name,fileName:sf.name});
         }
       }
       if(type==="report"){
         if(!canUploadReport(user)){ alert("Protokół może dodać tylko Delegat."); return; }
-        const sf=await toStoredFile(files[0], user.name, `Protokół - ${match.home} vs ${match.away} - ${match.date}`); next.matchReport=sf; pushLog(next,{type:'protocol',club:null,user:user.name,fileName:sf.name});
+        const sf = await toStoredFileUsingStorage(
+  "report", match.id, "neutral", files[0], user.name, `Protokół - ${match.home} vs ${match.away} - ${match.date}`
+);
+next.matchReport = sf;
+ pushLog(next,{type:'protocol',club:null,user:user.name,fileName:sf.name});
       }
       if(type==="photos"){
         if(!canUploadReport(user)){ alert("Zdjęcia raportu może dodać tylko Delegat."); return; }
-        const sfs:StoredFile[]=[]; for(const f of files) sfs.push(await toStoredFile(f, user.name, "Zdjęcie raportu")); next.reportPhotos=[...next.reportPhotos,...sfs]; pushLog(next,{type:'photos',club:null,user:user.name,fileName:`${files.length} zdjęć`});
+       const sfs: StoredFile[] = [];
+for (const f of files) {
+  sfs.push(await toStoredFileUsingStorage(
+    "photos", match.id, "neutral", f, user.name, "Zdjęcie raportu"
+  ));
+}
+next.reportPhotos = [...next.reportPhotos, ...sfs];
+ pushLog(next,{type:'photos',club:null,user:user.name,fileName:`${files.length} zdjęć`});
       }
       const newState={...state, matches: state.matches.map(m=>m.id===match.id? next: m)}; setState(newState); saveDocsFor(next);
     }
