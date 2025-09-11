@@ -78,6 +78,30 @@ async function downloadStoredFile(file: StoredFile) {
   a.click();
 }
 
+// Badge do pobierania dokumentów z Supabase Storage (podpisywane URL)
+const DocBadge: React.FC<{ file: StoredFile; label: string; disabled?: boolean }> = ({
+  file,
+  label,
+  disabled,
+}) => (
+  <button
+    onClick={() => {
+      if (disabled) {
+        alert("Pobieranie dostępne po zalogowaniu (nie dla Gościa).");
+        return;
+      }
+      downloadStoredFile(file);
+    }}
+    className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white ${
+      disabled ? "opacity-50 cursor-not-allowed" : "hover:shadow"
+    }`}
+    title={label}
+  >
+    <FileText className="w-3.5 h-3.5" />
+    {label}
+  </button>
+);
+
 
 // Permissions
 function canUploadComms(user:{role:Role;club?:string}, m:Match){ return user.role==="Club" && !!user.club && user.club===m.home }
