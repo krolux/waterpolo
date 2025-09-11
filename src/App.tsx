@@ -1,4 +1,3 @@
-<p className="text-xs text-red-500">build marker 11-09 15:05</p>
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState, PropsWithChildren } from "react";
 import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, History, Check, RefreshCw } from "lucide-react";
@@ -367,18 +366,7 @@ const PerMatchActions: React.FC<{
   const [resultDraft,setResultDraft]=useState<string>(match?.result||""); useEffect(()=>{ setResultDraft(match?.result||"") },[selectedId]);
   function pushLog(next:Match, entry: Omit<UploadLog,"id"|"matchId"|"at">){ next.uploadsLog=[{ id:crypto.randomUUID(), matchId:next.id, at:new Date().toISOString(), ...entry }, ...next.uploadsLog] }
 
-  // Save docs to localStorage (per match)
-  function saveDocsFor(match: Match) {
-    const map = loadDocs()
-    map[match.id] = {
-      commsByClub: match.commsByClub,
-      rosterByClub: match.rosterByClub,
-      matchReport: match.matchReport,
-      reportPhotos: match.reportPhotos,
-      uploadsLog: match.uploadsLog,
-    }
-    saveDocs(map)
-  }
+  
 
   async function handleUpload(type:"comms"|"roster"|"report"|"photos"){
     if(!match) return; const input=document.createElement("input"); input.type="file"; if(type==="photos") input.multiple=true;
