@@ -1,3 +1,4 @@
+<p className="text-xs text-red-500">build marker 11-09 15:05</p>
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState, PropsWithChildren } from "react";
 import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, History, Check, RefreshCw } from "lucide-react";
@@ -858,3 +859,6 @@ try {
     </footer>
   </div>)
 }
+
+
+
