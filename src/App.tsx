@@ -444,26 +444,34 @@ useEffect(() => { refreshPenalties(); }, []);
 
   // Wylicz: dla każdego meczu osobno listy kar dla gospodarzy i gości
 function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
+  // mapa meczów po id – pozwala znaleźć datę meczu, do którego przypisano karę
+  const byId = new Map(matches.map(m => [m.id, m]));
   const map = new Map<string, { home: string[]; away: string[] }>();
 
-  penalties.forEach(p => {
+  penalties.forEach((p) => {
     const club = p.club_name;
-    const start = new Date(p.created_at);
 
-    // mecze tego klubu OD momentu kary, posortowane
+    // START kary: data meczu, do którego kara została przypisana
+    // (fallback: created_at, gdyby z jakiegoś powodu mecz nie był w pamięci)
+    const startMatch = byId.get(p.match_id);
+    const startDate = startMatch ? new Date(startMatch.date) : new Date(p.created_at);
+
+    // wybierz N najbliższych meczów tego klubu od daty startowej
     const clubMatches = matches
-      .filter(m =>
-        (m.home === club || m.away === club) &&
-        new Date(m.date) >= start
+      .filter(
+        (m) =>
+          (m.home === club || m.away === club) &&
+          new Date(m.date) >= startDate
       )
       .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(0, p.games); // tylko najbliższe N meczów
+      .slice(0, p.games);
 
-    clubMatches.forEach(m => {
-      const rec = map.get(m.id) || { home: [], away: [] };
-      if (m.home === club) rec.home.push(p.player_name);
-      else rec.away.push(p.player_name);
-      map.set(m.id, rec);
+    // wypełnij mapę nazwiskami (oddzielnie dla gospodarza i gości)
+    clubMatches.forEach((m) => {
+      const bucket = map.get(m.id) || { home: [], away: [] };
+      if (m.home === club) bucket.home.push(p.player_name);
+      else bucket.away.push(p.player_name);
+      map.set(m.id, bucket);
     });
   });
 
