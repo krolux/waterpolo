@@ -842,9 +842,15 @@ try {
     />
   </div>
 )}
-      {effectiveUser?.role==="Admin" && (<AdminPanel state={state} setState={setState} clubs={CLUBS} refereeNames={refereeNames} delegateNames={delegateNames} onAfterChange={refreshMatches} canWrite={true}/>)}
-      {effectiveUser?.role === "Admin" && <Diagnostics state={state} />}
-    
+  {effectiveUser?.role === "Admin" && (
+  <AdminPanel state={state} setState={setState} clubs={CLUBS}
+    refereeNames={refereeNames} delegateNames={delegateNames}
+    onAfterChange={refreshMatches} canWrite={true} />
+)}
+
+{effectiveUser?.role === "Admin" && <Diagnostics state={state} />}
+/* InfoBox usuwamy całkowicie */
+
     </main>
 
     <footer className="max-w-6xl mx-auto mt-8 text-xs text-gray-500">
