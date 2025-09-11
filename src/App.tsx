@@ -196,7 +196,7 @@ const MatchesTable: React.FC<{
           title="Sortuj wg…"
         >
           <option value="date">Sortuj wg daty</option>
-          <option value="round">Sortuj wg kolejki</option>
+          <option value="round">Sortuj wg nr meczu</option>
         </select>
 
         <button
