@@ -5,7 +5,7 @@ import { useSupabaseAuth, Role as SupaRole } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
 import { listMatches, createMatch, updateMatch as dbUpdateMatch, deleteMatch as dbDeleteMatch, setMatchResult } from './lib/matches'
-import { addPenalty, listPenalties, type Penalty } from "./lib/penalties";
+import { addPenalty, listPenalties, deletePenalty, type Penalty } from "./lib/penalties";
 
 function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(Boolean).join(" "); }
 
@@ -107,8 +107,9 @@ const MatchesTable: React.FC<{
   user: { name: string; role: Role; club?: string } | null;
   onRefresh: () => void;
   loading: boolean;
-  penaltyMap: Map<string, { home: string[]; away: string[] }>;
-}> = ({ state, setState, user, onRefresh, loading, penaltyMap }) => {
+  penaltyMap: Map<string, { home: { id: string; name: string }[]; away: { id: string; name: string }[] }>;
+  onRemovePenalty: (id: string) => void;
+}> = ({ state, setState, user, onRefresh, loading, penaltyMap, onRemovePenalty }) => {
   const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<"date" | "round">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -184,7 +185,7 @@ const MatchesTable: React.FC<{
           <thead>
             <tr className="text-left border-b bg-gray-50">
               <th className="p-2">Data</th>
-              <th className="p-2">Kolejka</th>
+              <th className="p-2">Nr meczu</th>
               <th className="p-2">Miejsce</th>
               <th className="p-2">Gospodarz</th>
               <th className="p-2">Goście</th>
@@ -254,40 +255,63 @@ const MatchesTable: React.FC<{
                   </div>
                 </td>
 
-                {user && (
-                  <>
-                    <td className="p-2">
-                      <div className="flex flex-wrap gap-1">
-                        {(penaltyMap.get(m.id)?.home || []).map((name, i) => (
-                          <span
-                            key={i}
-                            className={clsx(
-                              classes.pill,
-                              "border-red-300 text-red-700 bg-red-50"
-                            )}
-                          >
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="p-2">
-                      <div className="flex flex-wrap gap-1">
-                        {(penaltyMap.get(m.id)?.away || []).map((name, i) => (
-                          <span
-                            key={i}
-                            className={clsx(
-                              classes.pill,
-                              "border-red-300 text-red-700 bg-red-50"
-                            )}
-                          >
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                  </>
-                )}
+         {user && (
+  <>
+    {/* Kary gospodarza */}
+    <td className="p-2">
+      <div className="flex flex-wrap gap-1">
+        {(penaltyMap.get(m.id)?.home || []).map(p => (
+          <span
+            key={p.id}
+            className={clsx(
+              classes.pill,
+              "border-red-300 text-red-700 bg-red-50 flex items-center gap-1"
+            )}
+            title="Kara"
+          >
+            {p.name}
+            {(user.role === 'Admin' || user.role === 'Delegate') && (
+              <button
+                onClick={() => onRemovePenalty(p.id)}
+                className="ml-1 rounded px-1 leading-none hover:bg-red-100"
+                title="Usuń karę"
+              >
+                ×
+              </button>
+            )}
+          </span>
+        ))}
+      </div>
+    </td>
+
+    {/* Kary gości */}
+    <td className="p-2">
+      <div className="flex flex-wrap gap-1">
+        {(penaltyMap.get(m.id)?.away || []).map(p => (
+          <span
+            key={p.id}
+            className={clsx(
+              classes.pill,
+              "border-red-300 text-red-700 bg-red-50 flex items-center gap-1"
+            )}
+            title="Kara"
+          >
+            {p.name}
+            {(user.role === 'Admin' || user.role === 'Delegate') && (
+              <button
+                onClick={() => onRemovePenalty(p.id)}
+                className="ml-1 rounded px-1 leading-none hover:bg-red-100"
+                title="Usuń karę"
+              >
+                ×
+              </button>
+            )}
+          </span>
+        ))}
+      </div>
+    </td>
+  </>
+)}
               </tr>
             ))}
           </tbody>
@@ -424,8 +448,8 @@ alert("Kara dodana.");
         Dodaj karę
       </button>
       <div className="text-xs text-gray-500 mt-1">
-        Kara będzie widoczna w najbliższych {` ${' '} `}
-        meczach danego klubu (od tego meczu włącznie).
+      Kara będzie widoczna w najbliższych meczach danego klubu,
+poczynając od następnego spotkania po meczu, w którym ją nałożono.
       </div>
     </div>
   </div>
@@ -568,35 +592,43 @@ async function refreshPenalties() {
 // ładujemy kary przy starcie
 useEffect(() => { refreshPenalties(); }, []);
 
-  // Wylicz: dla każdego meczu osobno listy kar dla gospodarzy i gości
+// Wylicz: dla każdego meczu listy kar (z id) dla gospodarzy i gości,
+// przy czym kara zaczyna obowiązywać OD NASTĘPNEGO meczu tej drużyny.
 function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
-  // mapa meczów po id – pozwala znaleźć datę meczu, do którego przypisano karę
+  type Bucket = { home: { id: string; name: string }[]; away: { id: string; name: string }[] };
   const byId = new Map(matches.map(m => [m.id, m]));
-  const map = new Map<string, { home: string[]; away: string[] }>();
+  const map = new Map<string, Bucket>();
 
-  penalties.forEach((p) => {
+  // pomocniczo: wszystkie mecze danej drużyny posortowane po dacie
+  function clubSchedule(club: string) {
+    return matches
+      .filter(m => m.home === club || m.away === club)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  penalties.forEach(p => {
     const club = p.club_name;
+    const schedule = clubSchedule(club);
 
-    // START kary: data meczu, do którego kara została przypisana
-    // (fallback: created_at, gdyby z jakiegoś powodu mecz nie był w pamięci)
+    // mecz, po którym kara została nałożona
     const startMatch = byId.get(p.match_id);
-    const startDate = startMatch ? new Date(startMatch.date) : new Date(p.created_at);
 
-    // wybierz N najbliższych meczów tego klubu od daty startowej
-    const clubMatches = matches
-      .filter(
-        (m) =>
-          (m.home === club || m.away === club) &&
-          new Date(m.date) >= startDate
-      )
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(0, p.games);
+    // Indeks tego meczu w terminarzu klubu. Kara obowiązuje OD KOLEJNEGO meczu.
+    let startIdx = -1;
+    if (startMatch) {
+      startIdx = schedule.findIndex(m => m.id === startMatch.id);
+    } else {
+      // fallback: szukamy pierwszego meczu PO dacie utworzenia
+      const created = new Date(p.created_at);
+      startIdx = schedule.findIndex(m => new Date(m.date) > created) - 1; // tak, by slice(startIdx+1, ...)
+    }
 
-    // wypełnij mapę nazwiskami (oddzielnie dla gospodarza i gości)
-    clubMatches.forEach((m) => {
+    const nextMatches = schedule.slice(startIdx + 1, startIdx + 1 + p.games);
+
+    nextMatches.forEach(m => {
       const bucket = map.get(m.id) || { home: [], away: [] };
-      if (m.home === club) bucket.home.push(p.player_name);
-      else bucket.away.push(p.player_name);
+      if (m.home === club) bucket.home.push({ id: p.id, name: p.player_name });
+      else bucket.away.push({ id: p.id, name: p.player_name });
       map.set(m.id, bucket);
     });
   });
@@ -646,6 +678,14 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
   const refereeNames = profiles.filter(p=>p.role==="Referee").map(p=>p.display_name).filter(Boolean)
   const delegateNames = profiles.filter(p=>p.role==="Delegate").map(p=>p.display_name).filter(Boolean)
 
+ async function handleRemovePenalty(id: string) {
+  try {
+    await deletePenalty(id);
+    await refreshPenalties();
+  } catch (e: any) {
+    alert("Błąd usuwania kary: " + e.message);
+  }
+}
   return (<div className="min-h-screen bg-gradient-to-br from-sky-50 to-indigo-50 p-4 md:p-8">
     <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between">
       <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center"><Users className="w-5 h-5"/></div>
@@ -662,13 +702,14 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
 
     <main className="max-w-6xl mx-auto grid gap-6">
       {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin}/>}
-     <MatchesTable
+ <MatchesTable
   state={state}
   setState={setState}
   user={effectiveUser}
   onRefresh={refreshMatches}
   loading={loadingMatches}
   penaltyMap={penaltiesByMatch}
+  onRemovePenalty={handleRemovePenalty}
 />
       {effectiveUser && effectiveUser.role !== "Guest" && (
   <div>
