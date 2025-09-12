@@ -14,8 +14,8 @@ function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(B
 
 const classes = {
   input: "w-full px-3 py-2 rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-sky-300",
-  btnPrimary: "px-3 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-700 shadow",
-  btnOutline: "px-3 py-2 rounded-xl border border-sky-600 text-sky-700 bg-white hover:bg-sky-50",
+  btnPrimary: "px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow",
+  btnOutline: "px-3 py-2 rounded-xl border border-amber-600 text-amber-700 bg-white hover:bg-amber-50",
   btnSecondary: "px-3 py-2 rounded-xl border bg-white hover:bg-gray-50",
   iconBtn: "p-2 rounded-lg border bg-white hover:bg-gray-50",
   pill: "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white",
@@ -24,8 +24,12 @@ const classes = {
 type Role = SupaRole;
 type SectionProps = PropsWithChildren<{ title: string; icon?: React.ReactNode; className?: string }>;
 const Section: React.FC<SectionProps> = ({ title, icon, children, className }) => (
-<div className={clsx("rounded-2xl shadow p-3 sm:p-4 md:p-6 bg-white/90 md:bg-white/70 md:backdrop-blur-sm", className)}>
-    <div className="flex items-center gap-2 mb-4">{icon}<h2 className="text-xl md:text-2xl font-semibold">{title}</h2></div>{children}
+  <div className={clsx("rounded-2xl shadow p-3 sm:p-4 md:p-6", "bg-white/80 backdrop-blur-sm", className)}>
+    <div className="flex items-center gap-2 mb-4">
+      {icon}
+      <h2 className="text-xl md:text-2xl font-semibold">{title}</h2>
+    </div>
+    {children}
   </div>
 );
 
@@ -268,125 +272,124 @@ function renderResult(m: Match) {
 )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-xs sm:text-sm table-fixed">
-<thead>
-  <tr className="text-left border-b bg-gray-50">
-    <th className="p-2">Data</th>
-    <th className="p-2">Nr meczu</th>
+<div className="overflow-x-auto">
+  <table className="min-w-full text-xs sm:text-sm table-fixed">
+    <thead className="sticky top-0 z-10 bg-white shadow-sm">
+      <tr className="text-left border-b">
+        <th scope="col" className="p-2">Data</th>
+        <th scope="col" className="p-2">Nr meczu</th>
 
-    {/* MOBILE: jedna kolumna „Mecz” */}
-    <th className="p-2 sm:hidden">Mecz</th>
+        {/* MOBILE */}
+        <th scope="col" className="p-2 sm:hidden">Mecz</th>
 
-    {/* DESKTOP: osobno Miejsce, Gospodarz, Goście */}
-    <th className="p-2 hidden sm:table-cell">Miejsce</th>
-    <th className="p-2 hidden sm:table-cell">Gospodarz</th>
-    <th className="p-2 hidden sm:table-cell">Goście</th>
+        {/* DESKTOP */}
+        <th scope="col" className="p-2 hidden sm:table-cell">Miejsce</th>
+        <th scope="col" className="p-2 hidden sm:table-cell">Gospodarz</th>
+        <th scope="col" className="p-2 hidden sm:table-cell">Goście</th>
 
-    {/* Wynik ma być widoczny wszędzie */}
-    <th className="p-2">Wynik</th>
+        <th scope="col" className="p-2">Wynik</th>
+        <th scope="col" className="p-2 hidden md:table-cell">Sędziowie</th>
+        <th scope="col" className="p-2 hidden md:table-cell">Delegat</th>
+        <th scope="col" className="p-2 hidden lg:table-cell">Dokumenty</th>
 
-    <th className="p-2 hidden md:table-cell">Sędziowie</th>
-    <th className="p-2 hidden md:table-cell">Delegat</th>
-    <th className="p-2 hidden lg:table-cell">Dokumenty</th>
+        {user && (
+          <>
+            <th scope="col" className="p-2 hidden lg:table-cell">Kary (Gospodarz)</th>
+            <th scope="col" className="p-2 hidden lg:table-cell">Kary (Goście)</th>
+          </>
+        )}
+      </tr>
+    </thead>
 
-    {user && (
-      <>
-        <th className="p-2 hidden lg:table-cell">Kary (Gospodarz)</th>
-        <th className="p-2 hidden lg:table-cell">Kary (Goście)</th>
-      </>
-    )}
-  </tr>
-</thead>
+    <tbody>
+      {filtered.map((m) => (
+        <tr
+          key={m.id}
+          className="border-b odd:bg-white even:bg-slate-50/60 hover:bg-sky-50 transition-colors"
+        >
+          {/* Data */}
+          <td className="p-2 whitespace-nowrap">
+            {m.date}{m.time ? ` ${m.time}` : ""}
+          </td>
 
+          {/* Nr meczu */}
+          <td className="p-2 whitespace-nowrap">{m.round ?? "-"}</td>
 
-          <tbody>
-            {filtered.map((m) => (
-              <tr key={m.id} className="border-b hover:bg-gray-50/60">
-  {/* Data */}
-  <td className="p-2 whitespace-nowrap">
-    {m.date}{m.time ? ` ${m.time}` : ""}
-  </td>
+          {/* MOBILE */}
+          <td className="p-2 sm:hidden whitespace-nowrap">
+            {m.home} vs {m.away}
+          </td>
 
-  {/* Nr meczu */}
-  <td className="p-2 whitespace-nowrap">{m.round ?? "-"}</td>
+          {/* DESKTOP */}
+          <td className="p-2 hidden sm:table-cell">{m.location}</td>
+          <td className="p-2 hidden sm:table-cell">{m.home}</td>
+          <td className="p-2 hidden sm:table-cell">{m.away}</td>
 
-  {/* MOBILE: sklejone drużyny */}
-  <td className="p-2 sm:hidden whitespace-nowrap">
-    {m.home} vs {m.away}
-  </td>
+          {/* Wynik */}
+          <td className="p-2">{renderResult(m)}</td>
 
-  {/* DESKTOP: osobne kolumny */}
-  <td className="p-2 hidden sm:table-cell">{m.location}</td>
-  <td className="p-2 hidden sm:table-cell">{m.home}</td>
-  <td className="p-2 hidden sm:table-cell">{m.away}</td>
+          <td className="p-2 hidden sm:table-cell">{m.referees.join(", ")}</td>
+          <td className="p-2 hidden sm:table-cell">{m.delegate ?? "-"}</td>
 
-  {/* Wynik – widoczny wszędzie (UWAGA: bez "hidden") */}
-  <td className="p-2">{renderResult(m)}</td>
-
-  <td className="p-2 hidden sm:table-cell">{m.referees.join(", ")}</td>
-  <td className="p-2 hidden sm:table-cell">{m.delegate ?? "-"}</td>
-
-  {/* Dokumenty – tylko na >= sm */}
-  <td className="p-2 hidden sm:table-cell">
-    <div className="flex flex-wrap gap-2">
-      {m.commsByClub.home && (
-        <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />
-      )}
-      {m.rosterByClub.home && (
-        <DocBadge file={m.rosterByClub.home} label="Skład (Home)" disabled={!canDownload} />
-      )}
-      {m.rosterByClub.away && (
-        <DocBadge file={m.rosterByClub.away} label="Skład (Away)" disabled={!canDownload} />
-      )}
-      {m.matchReport && (
-        <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload} />
-      )}
-      {m.reportPhotos.length > 0 && (
-        <span className={classes.pill}>
-          <Image className="w-3.5 h-3.5" />
-          Zdjęcia: {m.reportPhotos.length}
-        </span>
-      )}
-    </div>
-  </td>
-
-  {user && (
-    <>
-      {/* Kary (Gospodarz) – tylko na >= lg */}
-      <td className="p-2 hidden lg:table-cell">
-        <div className="flex flex-wrap gap-1">
-          {(penaltyMap.get(m.id)?.home || []).map(p => (
-            <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")} title="Kara">
-              {p.name}
-              {(user.role === 'Admin' || user.role === 'Delegate') && (
-                <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+          {/* Dokumenty */}
+          <td className="p-2 hidden sm:table-cell">
+            <div className="flex flex-wrap gap-2">
+              {m.commsByClub.home && (
+                <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />
               )}
-            </span>
-          ))}
-        </div>
-      </td>
-
-      {/* Kary (Goście) – tylko na >= lg */}
-      <td className="p-2 hidden lg:table-cell">
-        <div className="flex flex-wrap gap-1">
-          {(penaltyMap.get(m.id)?.away || []).map(p => (
-            <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")} title="Kara">
-              {p.name}
-              {(user.role === 'Admin' || user.role === 'Delegate') && (
-                <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+              {m.rosterByClub.home && (
+                <DocBadge file={m.rosterByClub.home} label="Skład (Home)" disabled={!canDownload} />
               )}
-            </span>
-          ))}
-        </div>
-      </td>
-    </>
-  )}
-</tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              {m.rosterByClub.away && (
+                <DocBadge file={m.rosterByClub.away} label="Skład (Away)" disabled={!canDownload} />
+              )}
+              {m.matchReport && (
+                <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload} />
+              )}
+              {m.reportPhotos.length > 0 && (
+                <span className={classes.pill}>
+                  <Image className="w-3.5 h-3.5" />
+                  Zdjęcia: {m.reportPhotos.length}
+                </span>
+              )}
+            </div>
+          </td>
+
+          {/* Kary */}
+          {user && (
+            <>
+              <td className="p-2 hidden lg:table-cell">
+                <div className="flex flex-wrap gap-1">
+                  {(penaltyMap.get(m.id)?.home || []).map(p => (
+                    <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")} title="Kara">
+                      {p.name}
+                      {(user.role === 'Admin' || user.role === 'Delegate') && (
+                        <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </td>
+
+              <td className="p-2 hidden lg:table-cell">
+                <div className="flex flex-wrap gap-1">
+                  {(penaltyMap.get(m.id)?.away || []).map(p => (
+                    <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")} title="Kara">
+                      {p.name}
+                      {(user.role === 'Admin' || user.role === 'Delegate') && (
+                        <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </td>
+            </>
+          )}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
     </Section>
   );
 };
@@ -781,7 +784,7 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
       <div className="overflow-x-auto">
        <table className="min-w-full text-xs sm:text-sm table-fixed">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-white shadow-sm">
             <tr className="text-left border-b bg-gray-50">
               <th className="p-2">Miejsce</th>
               <th className="p-2">Drużyna</th>
@@ -797,7 +800,13 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
               if (i === 1) bg = "bg-gray-200";   // srebrne
               if (i === 2) bg = "bg-orange-200"; // brązowe
               return (
-                <tr key={row.team} className={`border-b ${bg}`}>
+                <tr
+  key={row.team}
+  className={clsx(
+    "border-b odd:bg-white even:bg-slate-50/60 hover:bg-sky-50 transition-colors",
+    bg
+  )}
+>
                   <td className="p-2">{i + 1}</td>
                   <td className="p-2">{row.team}</td>
                   <td className="p-2">{row.pts}</td>
@@ -1034,7 +1043,8 @@ const matches: Match[] = rows.map((r: any) => ({
   }
 }
   return (<div className="min-h-screen bg-gradient-to-br from-sky-50 to-indigo-50 p-4 md:p-8">
-    <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between">
+    <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between
+  bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
       <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center"><Users className="w-5 h-5"/></div>
         <div><h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">Kolegium Sędziów Piłki Wodnej – Portal</h1><p className="text-sm text-gray-600">Tabela meczów • Dokumenty klubów • Raporty delegatów</p></div></div>
 <div className="flex items-center gap-3 w-full sm:w-auto">
