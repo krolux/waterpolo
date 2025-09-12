@@ -162,16 +162,40 @@ const MatchesTable: React.FC<{
   const [sortKey, setSortKey] = useState<"date" | "round">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  const sorted = useMemo(() => {
-    const arr = [...state.matches];
-    arr.sort((a, b) => {
-      const A = sortKey === "date" ? (a.date || "") : (a.round || "");
-      const B = sortKey === "date" ? (b.date || "") : (b.round || "");
- 
- return sortDir === "asc" ? A.localeCompare(B) : B.localeCompare(A);
-    });
-    return arr;
-  }, [state.matches, sortKey, sortDir]);
+const sorted = useMemo(() => {
+  const arr = [...state.matches];
+
+  arr.sort((a, b) => {
+    // sort po dacie (YYYY-MM-DD) – działa leksykograficznie, ale dodajmy kierunek
+    if (sortKey === "date") {
+      const A = (a.date || "");
+      const B = (b.date || "");
+      const cmp = A.localeCompare(B); // ISO data sortuje się poprawnie
+      return sortDir === "asc" ? cmp : -cmp;
+    }
+
+    // sort po numerze meczu (round) – NUMERYCZNIE, z bezpiecznymi fallbackami
+    const An = Number((a.round || "").toString().trim());
+    const Bn = Number((b.round || "").toString().trim());
+    const aIsNum = Number.isFinite(An);
+    const bIsNum = Number.isFinite(Bn);
+
+    let cmp = 0;
+    if (aIsNum && bIsNum) {
+      cmp = An - Bn;                         // czysty sort numeryczny
+    } else if (aIsNum && !bIsNum) {
+      cmp = -1;                              // liczby przed nienumerycznymi
+    } else if (!aIsNum && bIsNum) {
+      cmp = 1;
+    } else {
+      cmp = (a.round || "").localeCompare(b.round || ""); // oba nienumeryczne
+    }
+
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  return arr;
+}, [state.matches, sortKey, sortDir]);
 
   const filtered = useMemo(
     () =>
