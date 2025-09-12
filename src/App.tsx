@@ -576,8 +576,7 @@ poczynając od następnego spotkania po meczu, w którym ją nałożono.
     <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
   </div>
 )}
-    </div>  {/* <- zamyka główny div w return */}
-  </div>)  {/* <- koniec return */}
+  );
 }
 
 const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:readonly string[]; refereeNames:string[]; delegateNames:string[]; onAfterChange:()=>void; canWrite:boolean; }> = ({ state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite }) => {
