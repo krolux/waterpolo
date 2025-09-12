@@ -197,7 +197,7 @@ function renderResult(m: Match) {
     if (a > b) return `k${a}:${b}`;
     if (b > a) return `${a}:${b}k`;
   }
-  return `${r} ★`;
+  return r;
 }
   return (
     <Section title="Tabela meczów" icon={<Table className="w-5 h-5" />}>
@@ -526,14 +526,14 @@ const PerMatchActions: React.FC<{
             <div className="mt-4 border-t pt-3">
               <div className="font-medium mb-2">Nałóż karę</div>
 
-              <div className="grid gap-2 md:grid-cols-3">
-                <select id="pen-club" className={classes.input} defaultValue="">
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+                <select id="pen-club" className={classes.input + " w-full"} defaultValue="">
                   <option value="" disabled>Wybierz klub</option>
                   <option value={match.home}>{match.home} (gospodarz)</option>
                   <option value={match.away}>{match.away} (goście)</option>
                 </select>
-                <input id="pen-player" className={classes.input} placeholder="Nazwisko zawodnika" />
-                <input id="pen-games" className={classes.input} type="number" min={1} placeholder="Mecze kary" />
+                <input id="pen-player" className={classes.input + " w-full"} placeholder="Nazwisko zawodnika" />
+  <input id="pen-games" className={classes.input + " w-full"} type="number" min={1} placeholder="Mecze kary" />
               </div>
 
               <div className="mt-2">
@@ -575,28 +575,36 @@ const PerMatchActions: React.FC<{
           )}
 
           {canEditResult(user, match) && (
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                className={classes.input}
-                placeholder="Wynik (np. 10:9)"
-                value={resultDraft}
-                onChange={(e) => setResultDraft(e.target.value)}
-                style={{ maxWidth: 200 }}
-              />
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={shootoutDraft}
-                  onChange={(e) => setShootoutDraft(e.target.checked)}
-                />
-                Rzuty karne
-              </label>
-              <button onClick={saveResult} className={clsx(classes.btnPrimary, "flex items-center gap-2")}>
-                <Check className="w-4 h-4" />
-                Zapisz wynik
-              </button>
-              <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
-            </div>
+          <div className="grid gap-2 grid-cols-1 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+  <input
+    className={classes.input + " w-full sm:w-auto"}
+    placeholder="Wynik (np. 10:9)"
+    value={resultDraft}
+    onChange={(e) => setResultDraft(e.target.value)}
+    style={{ maxWidth: 200 }}
+  />
+
+  <label className="inline-flex items-center gap-2 text-sm">
+    <input
+      type="checkbox"
+      checked={shootoutDraft}
+      onChange={(e) => setShootoutDraft(e.target.checked)}
+    />
+    Rzuty karne
+  </label>
+
+  <button
+    onClick={saveResult}
+    className={clsx(classes.btnPrimary, "flex items-center gap-2 w-full sm:w-auto")}
+  >
+    <Check className="w-4 h-4" />
+    Zapisz wynik
+  </button>
+
+  <span className="text-xs text-gray-500 block">
+    (Dostępne tylko dla delegata tego meczu)
+  </span>
+</div>
           )}
         </div>
       )}
