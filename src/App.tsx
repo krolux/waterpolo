@@ -245,18 +245,27 @@ function renderResult(m: Match) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
+        <table className="min-w-full text-sm table-fixed">
 <thead>
   <tr className="text-left border-b bg-gray-50">
     <th className="p-2">Data</th>
     <th className="p-2">Nr meczu</th>
+
+    {/* MOBILE: jedna kolumna „Mecz” */}
+    <th className="p-2 sm:hidden">Mecz</th>
+
+    {/* DESKTOP: osobno Miejsce, Gospodarz, Goście */}
     <th className="p-2 hidden sm:table-cell">Miejsce</th>
-    <th className="p-2">Gospodarz</th>
-    <th className="p-2">Goście</th>
+    <th className="p-2 hidden sm:table-cell">Gospodarz</th>
+    <th className="p-2 hidden sm:table-cell">Goście</th>
+
+    {/* Wynik ma być widoczny wszędzie */}
     <th className="p-2">Wynik</th>
+
     <th className="p-2 hidden md:table-cell">Sędziowie</th>
     <th className="p-2 hidden md:table-cell">Delegat</th>
     <th className="p-2 hidden lg:table-cell">Dokumenty</th>
+
     {user && (
       <>
         <th className="p-2 hidden lg:table-cell">Kary (Gospodarz)</th>
@@ -270,114 +279,86 @@ function renderResult(m: Match) {
           <tbody>
             {filtered.map((m) => (
               <tr key={m.id} className="border-b hover:bg-gray-50/60">
-                <td className="p-2 whitespace-nowrap">
-                  {m.date}
-                  {m.time ? ` ${m.time}` : ""}
-                </td>
-                <td className="p-2 whitespace-nowrap">{m.round ?? "-"}</td>
-                <td className="p-2 hidden sm:table-cell">{m.location}</td>
-                <td className="p-2 hidden sm:table-cell">{m.home}</td>
-                <td className="p-2 hidden sm:table-cell">{m.away}</td>
-               <td className="p-2 hidden sm:table-cell">{renderResult(m)}</td>
-                <td className="p-2 hidden sm:table-cell">{m.referees.join(", ")}</td>
-                <td className="p-2 hidden sm:table-cell">{m.delegate ?? "-"}</td>
-                <td className="p-2 hidden sm:table-cell">
-                  <div className="flex flex-wrap gap-2">
-                    {m.commsByClub.home && (
-                      <DocBadge
-                        file={m.commsByClub.home}
-                        label="Komunikat"
-                        disabled={!canDownload}
-                      />
-                    )}
-                    {m.rosterByClub.home && (
-                      <DocBadge
-                        file={m.rosterByClub.home}
-                        label="Skład (Home)"
-                        disabled={!canDownload}
-                      />
-                    )}
-                    {m.rosterByClub.away && (
-                      <DocBadge
-                        file={m.rosterByClub.away}
-                        label="Skład (Away)"
-                        disabled={!canDownload}
-                      />
-                    )}
-                    {m.matchReport && (
-                      <DocBadge
-                        file={m.matchReport}
-                        label="Protokół"
-                        disabled={!canDownload}
-                      />
-                    )}
-                    {m.reportPhotos.length > 0 && (
-                      <span className={classes.pill}>
-                        <Image className="w-3.5 h-3.5" />
-                        Zdjęcia: {m.reportPhotos.length}
-                      </span>
-                    )}
-                  </div>
-                </td>
+  {/* Data */}
+  <td className="p-2 whitespace-nowrap">
+    {m.date}{m.time ? ` ${m.time}` : ""}
+  </td>
 
-         {user && (
-  <>
-    {/* Kary gospodarza */}
-    <td className="p-2 hidden lg:table-cell">
-      <div className="flex flex-wrap gap-1">
-        {(penaltyMap.get(m.id)?.home || []).map(p => (
-          <span
-            key={p.id}
-            className={clsx(
-              classes.pill,
-              "border-red-300 text-red-700 bg-red-50 flex items-center gap-1"
-            )}
-            title="Kara"
-          >
-            {p.name}
-            {(user.role === 'Admin' || user.role === 'Delegate') && (
-              <button
-                onClick={() => onRemovePenalty(p.id)}
-                className="ml-1 rounded px-1 leading-none hover:bg-red-100"
-                title="Usuń karę"
-              >
-                ×
-              </button>
-            )}
-          </span>
-        ))}
-      </div>
-    </td>
+  {/* Nr meczu */}
+  <td className="p-2 whitespace-nowrap">{m.round ?? "-"}</td>
 
-    {/* Kary gości */}
-    <td className="p-2 hidden lg:table-cell">
-      <div className="flex flex-wrap gap-1">
-        {(penaltyMap.get(m.id)?.away || []).map(p => (
-          <span
-            key={p.id}
-            className={clsx(
-              classes.pill,
-              "border-red-300 text-red-700 bg-red-50 flex items-center gap-1"
-            )}
-            title="Kara"
-          >
-            {p.name}
-            {(user.role === 'Admin' || user.role === 'Delegate') && (
-              <button
-                onClick={() => onRemovePenalty(p.id)}
-                className="ml-1 rounded px-1 leading-none hover:bg-red-100"
-                title="Usuń karę"
-              >
-                ×
-              </button>
-            )}
-          </span>
-        ))}
-      </div>
-    </td>
-  </>
-)}
-              </tr>
+  {/* MOBILE: sklejone drużyny */}
+  <td className="p-2 sm:hidden whitespace-nowrap">
+    {m.home} vs {m.away}
+  </td>
+
+  {/* DESKTOP: osobne kolumny */}
+  <td className="p-2 hidden sm:table-cell">{m.location}</td>
+  <td className="p-2 hidden sm:table-cell">{m.home}</td>
+  <td className="p-2 hidden sm:table-cell">{m.away}</td>
+
+  {/* Wynik – widoczny wszędzie (UWAGA: bez "hidden") */}
+  <td className="p-2">{renderResult(m)}</td>
+
+  <td className="p-2 hidden sm:table-cell">{m.referees.join(", ")}</td>
+  <td className="p-2 hidden sm:table-cell">{m.delegate ?? "-"}</td>
+
+  {/* Dokumenty – tylko na >= sm */}
+  <td className="p-2 hidden sm:table-cell">
+    <div className="flex flex-wrap gap-2">
+      {m.commsByClub.home && (
+        <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />
+      )}
+      {m.rosterByClub.home && (
+        <DocBadge file={m.rosterByClub.home} label="Skład (Home)" disabled={!canDownload} />
+      )}
+      {m.rosterByClub.away && (
+        <DocBadge file={m.rosterByClub.away} label="Skład (Away)" disabled={!canDownload} />
+      )}
+      {m.matchReport && (
+        <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload} />
+      )}
+      {m.reportPhotos.length > 0 && (
+        <span className={classes.pill}>
+          <Image className="w-3.5 h-3.5" />
+          Zdjęcia: {m.reportPhotos.length}
+        </span>
+      )}
+    </div>
+  </td>
+
+  {user && (
+    <>
+      {/* Kary (Gospodarz) – tylko na >= lg */}
+      <td className="p-2 hidden lg:table-cell">
+        <div className="flex flex-wrap gap-1">
+          {(penaltyMap.get(m.id)?.home || []).map(p => (
+            <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")} title="Kara">
+              {p.name}
+              {(user.role === 'Admin' || user.role === 'Delegate') && (
+                <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+              )}
+            </span>
+          ))}
+        </div>
+      </td>
+
+      {/* Kary (Goście) – tylko na >= lg */}
+      <td className="p-2 hidden lg:table-cell">
+        <div className="flex flex-wrap gap-1">
+          {(penaltyMap.get(m.id)?.away || []).map(p => (
+            <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")} title="Kara">
+              {p.name}
+              {(user.role === 'Admin' || user.role === 'Delegate') && (
+                <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+              )}
+            </span>
+          ))}
+        </div>
+      </td>
+    </>
+  )}
+</tr>
             ))}
           </tbody>
         </table>
@@ -767,7 +748,7 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
   return (
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
       <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
+       <table className="min-w-full text-sm table-fixed">
           <thead>
             <tr className="text-left border-b bg-gray-50">
               <th className="p-2">Miejsce</th>
