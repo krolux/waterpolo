@@ -576,10 +576,10 @@ poczynając od następnego spotkania po meczu, w którym ją nałożono.
         <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
       </div>
     )}
-    </div>  {/* koniec: flex flex-col gap-3 */}
-  </div>    {/* koniec: grid gap-4 */}
-);           // koniec return
-}            // koniec komponentu PerMatchActions
+    </div>  
+  </div>    
+);           
+}            
 
 const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:readonly string[]; refereeNames:string[]; delegateNames:string[]; onAfterChange:()=>void; canWrite:boolean; }> = ({ state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite }) => {
   const blank: Match = { id:crypto.randomUUID(), date:new Date().toISOString().slice(0,10), time:"", round:"", location:"", home:"", away:"", referees:["",""], delegate:"", commsByClub:{home:null,away:null}, rosterByClub:{home:null,away:null}, matchReport:null, reportPhotos:[], notes:"", result:"", uploadsLog:[] };
