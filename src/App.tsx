@@ -167,7 +167,21 @@ const MatchesTable: React.FC<{
     arr.sort((a, b) => {
       const A = sortKey === "date" ? (a.date || "") : (a.round || "");
       const B = sortKey === "date" ? (b.date || "") : (b.round || "");
-      return sortDir === "asc" ? A.localeCompare(B) : B.localeCompare(A);
+     function renderResult(m: Match) {
+  const r = (m.result || "").trim();
+  if (!r) return "-";
+  if (!m.shootout) return r;
+
+  const [aStr, bStr] = r.split(":");
+  const a = parseInt(aStr, 10);
+  const b = parseInt(bStr, 10);
+  if (Number.isFinite(a) && Number.isFinite(b)) {
+    if (a > b) return `${a}★:${b}`;
+    if (b > a) return `${a}:${b}★`;
+  }
+  return `${r} ★`;
+}
+ return sortDir === "asc" ? A.localeCompare(B) : B.localeCompare(A);
     });
     return arr;
   }, [state.matches, sortKey, sortDir]);
@@ -562,6 +576,8 @@ poczynając od następnego spotkania po meczu, w którym ją nałożono.
     <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
   </div>
 )}
+    </div>  {/* <- zamyka główny div w return */}
+  </div>)  {/* <- koniec return */}
 }
 
 const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:readonly string[]; refereeNames:string[]; delegateNames:string[]; onAfterChange:()=>void; canWrite:boolean; }> = ({ state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite }) => {
@@ -878,22 +894,7 @@ const matches: Match[] = rows.map((r: any) => ({
     <main className="max-w-6xl mx-auto grid gap-6">
       {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin}/>}
  
-function renderResult(m: Match) {
-  const r = (m.result || "").trim();
-  if (!r) return "-";
-  if (!m.shootout) return r;
 
-  // spróbujmy sparsować "g:g"
-  const [aStr, bStr] = r.split(":");
-  const a = parseInt(aStr, 10);
-  const b = parseInt(bStr, 10);
-  if (Number.isFinite(a) && Number.isFinite(b)) {
-    if (a > b) return `${a}★:${b}`;
-    if (b > a) return `${a}:${b}★`;
-  }
-  // fallback gdy format inny — dołóż gwiazdkę na końcu
-  return `${r} ★`;
-}
 
 <MatchesTable
   state={state}
