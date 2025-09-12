@@ -549,38 +549,37 @@ poczynając od następnego spotkania po meczu, w którym ją nałożono.
   </div>
 )}
       
-    {match && canEditResult(user, match) && (
-  <div className="flex flex-wrap items-center gap-3">
-    <input
-      className={classes.input}
-      placeholder="Wynik (np. 10:9)"
-      value={resultDraft}
-      onChange={e => setResultDraft(e.target.value)}
-      style={{ maxWidth: 200 }}
-    />
+      {match && canEditResult(user, match) && (
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          className={classes.input}
+          placeholder="Wynik (np. 10:9)"
+          value={resultDraft}
+          onChange={(e) => setResultDraft(e.target.value)}
+          style={{ maxWidth: 200 }}
+        />
 
-    {/* NOWY CHECKBOX */}
-    <label className="inline-flex items-center gap-2 text-sm">
-      <input
-        type="checkbox"
-        checked={shootoutDraft}
-        onChange={(e) => setShootoutDraft(e.target.checked)}
-      />
-      Rzuty karne
-    </label>
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={shootoutDraft}
+            onChange={(e) => setShootoutDraft(e.target.checked)}
+          />
+          Rzuty karne
+        </label>
 
-      <button onClick={saveResult} className={clsx(classes.btnPrimary, "flex items-center gap-2")}>
-      <Check className="w-4 h-4" />
-      Zapisz wynik
-    </button>
-    <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
-  </div>
-)}  {/* koniec warunku z edycją wyniku */}
+        <button onClick={saveResult} className={clsx(classes.btnPrimary, "flex items-center gap-2")}>
+          <Check className="w-4 h-4" />
+          Zapisz wynik
+        </button>
 
-    </div>  {/* zamknięcie sekcji widocznej tylko gdy jest match */}
-  </div>    {/* zamknięcie wrappera grid */}
-)           {/* koniec return */}
-}
+        <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
+      </div>
+    )}
+    </div>  {/* koniec: flex flex-col gap-3 */}
+  </div>    {/* koniec: grid gap-4 */}
+);           // koniec return
+}            // koniec komponentu PerMatchActions
 
 const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:readonly string[]; refereeNames:string[]; delegateNames:string[]; onAfterChange:()=>void; canWrite:boolean; }> = ({ state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite }) => {
   const blank: Match = { id:crypto.randomUUID(), date:new Date().toISOString().slice(0,10), time:"", round:"", location:"", home:"", away:"", referees:["",""], delegate:"", commsByClub:{home:null,away:null}, rosterByClub:{home:null,away:null}, matchReport:null, reportPhotos:[], notes:"", result:"", uploadsLog:[] };
@@ -625,7 +624,16 @@ const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:
         <select className={classes.input} value={draft.delegate||""} onChange={e=>setDraft({...draft, delegate:e.target.value})}><option value="">Delegat</option>{delegateNames.map(n=><option key={n} value={n}>{n}</option>)}</select>
         <input className={classes.input} placeholder="Wynik (np. 10:9)" value={draft.result||""} onChange={e=>setDraft({...draft, result:e.target.value})}/>
         <textarea className={classes.input + " min-h-[80px]"} placeholder="Notatki" value={draft.notes||""} onChange={e=>setDraft({...draft, notes:e.target.value})}/>
-        <div className="flex gap-2"><button onClick={saveDraft} className={clsx(classes.btnPrimary,"flex items-center gap-2")}><Save className="w-4 h-4"/>{editId?"Zapisz zmiany":"Dodaj mecz"}</button>{editId && <button onClick={classes.btnSecondary as any} onClickCapture={()=>{ setDraft({ ...blank, id: crypto.randomUUID() }); setEditId(null); }}>Anuluj edycję</button>}</div>
+        <div className="flex gap-2"><button onClick={saveDraft} className={clsx(classes.btnPrimary,"flex items-center gap-2")}><Save className="w-4 h-4"/>{editId?"Zapisz zmiany":"Dodaj mecz"}</button>{editId && (
+  <button
+    className={classes.btnSecondary}
+    onClick={() => {
+      setDraft({ ...blank, id: crypto.randomUUID() });
+      setEditId(null);
+    }}
+  >
+    Anuluj edycję
+  </button>}</div>
         {!canWrite && <div className="text-xs text-amber-700">Zaloguj się jako Admin, aby dodać/edytować mecze.</div>}
       </div></div>
       <div><div className="font-medium mb-2">Istniejące mecze</div><div className="flex flex-col gap-2">
