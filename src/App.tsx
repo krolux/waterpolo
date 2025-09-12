@@ -40,9 +40,25 @@ const Badge: React.FC<{ children: React.ReactNode; tone?: "gray" | "green" | "bl
 // Types
 type StoredFile = { id:string; name:string; mime:string; size:number; path:string; uploadedBy:string; uploadedAt:string; label?:string; };
 type UploadLog = { id:string; type:"comms"|"roster"|"protocol"|"photos"; matchId:string; club?:string|null; user:string; at:string; fileName:string; };
-type Match = { id:string; date:string; time?:string; round?:string; location:string; home:string; away:string; result?:string; referees:string[]; delegate?:string;
-  commsByClub: Record<string, StoredFile | null>; rosterByClub: Record<string, StoredFile | null>;
-  matchReport?: StoredFile | null; reportPhotos: StoredFile[]; notes?:string; uploadsLog: UploadLog[]; };
+type Match = {
+  id: string;
+  date: string;
+  time?: string;
+  round?: string;
+  location: string;
+  home: string;
+  away: string;
+  result?: string;
+  shootout?: boolean;               // <— NOWE
+  referees: string[];
+  delegate?: string;
+  commsByClub: Record<string, StoredFile | null>;
+  rosterByClub: Record<string, StoredFile | null>;
+  matchReport?: StoredFile | null;
+  reportPhotos: StoredFile[];
+  notes?: string;
+  uploadsLog: UploadLog[];
+};
 type AppState = { matches: Match[]; users:{name:string; role:Role; club?:string}[]; };
 type ProfileRow = { id:string; display_name:string; role:Role; club_id:string|null; };
 
@@ -683,24 +699,25 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
     const rows = await listMatches();
 
     // zmapuj wiersze z DB na nasz kształt Match
-    const matches: Match[] = rows.map((r: any) => ({
-      id: r.id,
-      date: r.date,
-      time: r.time || "",
-      round: r.round || "",
-      location: r.location,
-      home: r.home,
-      away: r.away,
-      result: r.result || "",
-      referees: [r.referee1 || "", r.referee2 || ""],
-      delegate: r.delegate || "",
-      notes: r.notes || "",
-      commsByClub: { home: null, away: null },
-      rosterByClub: { home: null, away: null },
-      matchReport: null,
-      reportPhotos: [],
-      uploadsLog: [],
-    }));
+const matches: Match[] = rows.map((r: any) => ({
+  id: r.id,
+  date: r.date,
+  time: r.time || "",
+  round: r.round || "",
+  location: r.location,
+  home: r.home,
+  away: r.away,
+  result: r.result || "",
+  shootout: !!r.shootout,                 // <— NOWE
+  referees: [r.referee1 || "", r.referee2 || ""],
+  delegate: r.delegate || "",
+  notes: r.notes || "",
+  commsByClub: { home: null, away: null },
+  rosterByClub: { home: null, away: null },
+  matchReport: null,
+  reportPhotos: [],
+  uploadsLog: [],
+}));
 
     setState((s) => ({ ...s, matches }));
 
