@@ -167,20 +167,7 @@ const MatchesTable: React.FC<{
     arr.sort((a, b) => {
       const A = sortKey === "date" ? (a.date || "") : (a.round || "");
       const B = sortKey === "date" ? (b.date || "") : (b.round || "");
-     function renderResult(m: Match) {
-  const r = (m.result || "").trim();
-  if (!r) return "-";
-  if (!m.shootout) return r;
-
-  const [aStr, bStr] = r.split(":");
-  const a = parseInt(aStr, 10);
-  const b = parseInt(bStr, 10);
-  if (Number.isFinite(a) && Number.isFinite(b)) {
-    if (a > b) return `${a}★:${b}`;
-    if (b > a) return `${a}:${b}★`;
-  }
-  return `${r} ★`;
-}
+ 
  return sortDir === "asc" ? A.localeCompare(B) : B.localeCompare(A);
     });
     return arr;
@@ -198,7 +185,20 @@ const MatchesTable: React.FC<{
   );
 
   const canDownload = !!user && user.role !== "Guest";
+function renderResult(m: Match) {
+  const r = (m.result || "").trim();
+  if (!r) return "-";
+  if (!m.shootout) return r;
 
+  const [aStr, bStr] = r.split(":");
+  const a = parseInt(aStr, 10);
+  const b = parseInt(bStr, 10);
+  if (Number.isFinite(a) && Number.isFinite(b)) {
+    if (a > b) return `${a}★:${b}`;
+    if (b > a) return `${a}:${b}★`;
+  }
+  return `${r} ★`;
+}
   return (
     <Section title="Tabela meczów" icon={<Table className="w-5 h-5" />}>
       <div className="flex flex-wrap items-center gap-2 mb-3">
