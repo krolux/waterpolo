@@ -56,13 +56,12 @@ export async function deleteMatch(id: string) {
   if (error) throw error
 }
 
-export async function setMatchResult(id: string, result: string) {
-  const { data, error } = await supabase
+// zapisz wynik + informację czy były rzuty karne
+export async function setMatchResult(id: string, result: string, shootout: boolean) {
+  const { error } = await supabase
     .from('matches')
-    .update({ result })
-    .eq('id', id)
-    .select('id, result')
-    .single()
-  if (error) throw error
-  return data as { id: string; result: string | null }
+    .update({ result, shootout })
+    .eq('id', id);
+
+  if (error) throw error;
 }
