@@ -24,7 +24,7 @@ const classes = {
 type Role = SupaRole;
 type SectionProps = PropsWithChildren<{ title: string; icon?: React.ReactNode; className?: string }>;
 const Section: React.FC<SectionProps> = ({ title, icon, children, className }) => (
-  <div className={clsx("bg-white/70 backdrop-blur-sm rounded-2xl shadow p-4 md:p-6", className)}>
+<div className={clsx("rounded-2xl shadow p-3 sm:p-4 md:p-6 bg-white/90 md:bg-white/70 md:backdrop-blur-sm", className)}>
     <div className="flex items-center gap-2 mb-4">{icon}<h2 className="text-xl md:text-2xl font-semibold">{title}</h2></div>{children}
   </div>
 );
@@ -245,7 +245,7 @@ function renderResult(m: Match) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full text-sm table-fixed">
+        <table className="min-w-full text-xs sm:text-sm table-fixed">
 <thead>
   <tr className="text-left border-b bg-gray-50">
     <th className="p-2">Data</th>
@@ -512,10 +512,10 @@ const PerMatchActions: React.FC<{
 
             {canDelegateAct() && (
               <>
-                <button onClick={() => handleUpload("report")} className={clsx(classes.btnPrimary, "flex items-center gap-2")}>
+                <button onClick={() => handleUpload("report")} className={clsx(classes.btnPrimary, "flex items-center gap-2 w-full sm:w-auto")}>
                   <UploadCloud className="w-4 h-4" />Dodaj protokół
                 </button>
-                <button onClick={() => handleUpload("photos")} className={clsx(classes.btnOutline, "flex items-center gap-2")}>
+                <button onClick={() => handleUpload("photos")} className={clsx(classes.btnOutline, "flex items-center gap-2 w-full sm:w-auto")}>
                   <Image className="w-4 h-4" />Dodaj zdjęcia raportu
                 </button>
               </>
@@ -748,7 +748,7 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
   return (
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
       <div className="overflow-x-auto">
-       <table className="min-w-full text-sm table-fixed">
+       <table className="min-w-full text-xs sm:text-sm table-fixed">
           <thead>
             <tr className="text-left border-b bg-gray-50">
               <th className="p-2">Miejsce</th>
@@ -1004,9 +1004,11 @@ const matches: Match[] = rows.map((r: any) => ({
   return (<div className="min-h-screen bg-gradient-to-br from-sky-50 to-indigo-50 p-4 md:p-8">
     <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between">
       <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center"><Users className="w-5 h-5"/></div>
-        <div><h1 className="text-2xl md:text-3xl font-bold">Kolegium Sędziów Piłki Wodnej – Portal</h1><p className="text-sm text-gray-600">Tabela meczów • Dokumenty klubów • Raporty delegatów</p></div></div>
-      <div className="flex items-center gap-3">
-        <LoginBox classes={classes} />
+        <div><h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">Kolegium Sędziów Piłki Wodnej – Portal</h1><p className="text-sm text-gray-600">Tabela meczów • Dokumenty klubów • Raporty delegatów</p></div></div>
+<div className="flex items-center gap-3 w-full sm:w-auto">
+  <div className="w-full max-w-[360px]">
+    <LoginBox classes={classes} />
+  </div>
         {effectiveUser? (<div className="flex items-center gap-2">
           <Badge tone="blue">{effectiveUser.role}{effectiveUser.club?` • ${effectiveUser.club}`:""}</Badge>
           <span className="text-sm text-gray-700">{effectiveUser.name}</span>
