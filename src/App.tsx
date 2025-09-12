@@ -709,6 +709,86 @@ const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=r
     <ul className="text-sm space-y-1">{tests.map((t,i)=>(<li key={i} className={t.pass?"text-green-700":"text-red-700"}>• {t.name} — {t.pass?"PASS":"FAIL"}{t.details?` (${t.details})`:''}</li>))}</ul></Section>)
 }
 
+const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
+  // policz punkty, bramki itd
+  const table = useMemo(() => {
+    const stats: Record<string, { team: string; pts: number; played: number; goalsFor: number; goalsAgainst: number }> = {};
+
+    for (const m of matches) {
+      if (!m.result) continue; // pomijamy mecze bez wyniku
+
+      const [aStr, bStr] = m.result.split(":");
+      const a = parseInt(aStr, 10);
+      const b = parseInt(bStr, 10);
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+
+      if (!stats[m.home]) stats[m.home] = { team: m.home, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
+      if (!stats[m.away]) stats[m.away] = { team: m.away, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
+
+      stats[m.home].played++;
+      stats[m.away].played++;
+      stats[m.home].goalsFor += a;
+      stats[m.home].goalsAgainst += b;
+      stats[m.away].goalsFor += b;
+      stats[m.away].goalsAgainst += a;
+
+      if (m.shootout) {
+        if (a > b) {
+          stats[m.home].pts += 2;
+          stats[m.away].pts += 1;
+        } else {
+          stats[m.away].pts += 2;
+          stats[m.home].pts += 1;
+        }
+      } else {
+        if (a > b) {
+          stats[m.home].pts += 3;
+        } else if (b > a) {
+          stats[m.away].pts += 3;
+        }
+      }
+    }
+
+    return Object.values(stats).sort((x, y) =>
+      y.pts - x.pts || (y.goalsFor - y.goalsAgainst) - (x.goalsFor - x.goalsAgainst) || y.goalsFor - x.goalsFor
+    );
+  }, [matches]);
+
+  return (
+    <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="text-left border-b bg-gray-50">
+              <th className="p-2">Miejsce</th>
+              <th className="p-2">Drużyna</th>
+              <th className="p-2">Pkt</th>
+              <th className="p-2">M</th>
+              <th className="p-2">B</th>
+            </tr>
+          </thead>
+          <tbody>
+            {table.map((row, i) => {
+              let bg = "";
+              if (i === 0) bg = "bg-yellow-200"; // złote
+              if (i === 1) bg = "bg-gray-200";   // srebrne
+              if (i === 2) bg = "bg-orange-200"; // brązowe
+              return (
+                <tr key={row.team} className={`border-b ${bg}`}>
+                  <td className="p-2">{i + 1}</td>
+                  <td className="p-2">{row.team}</td>
+                  <td className="p-2">{row.pts}</td>
+                  <td className="p-2">{row.played}</td>
+                  <td className="p-2">{row.goalsFor}:{row.goalsAgainst}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Section>
+  );
+};
 
 export default function App(){
   const { userDisplay, role: sRole } = useSupabaseAuth()
@@ -947,7 +1027,7 @@ const matches: Match[] = rows.map((r: any) => ({
     <main className="max-w-6xl mx-auto grid gap-6">
       {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin}/>}
  
-
+<RankingTable matches={state.matches} />
 
 <MatchesTable
   state={state}
