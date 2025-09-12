@@ -394,192 +394,234 @@ const PerMatchActions: React.FC<{
   user: { name: string; role: Role; club?: string };
   onPenaltiesChange: () => void;
 }> = ({ state, setState, user, onPenaltiesChange }) => {
-  const [selectedId,setSelectedId]=useState<string>(state.matches[0]?.id??""); const match=state.matches.find(m=>m.id===selectedId)||null;
+  const [selectedId, setSelectedId] = useState<string>(state.matches[0]?.id ?? "");
+  const match = state.matches.find(m => m.id === selectedId) || null;
+
   const [resultDraft, setResultDraft] = useState<string>(match?.result || "");
-const [shootoutDraft, setShootoutDraft] = useState<boolean>(!!match?.shootout);   // <— NOWE
+  const [shootoutDraft, setShootoutDraft] = useState<boolean>(!!match?.shootout);
 
-useEffect(() => {
-  setResultDraft(match?.result || "");
-  setShootoutDraft(!!match?.shootout);                                            // <— NOWE
-}, [selectedId]);
-  function pushLog(next:Match, entry: Omit<UploadLog,"id"|"matchId"|"at">){ next.uploadsLog=[{ id:crypto.randomUUID(), matchId:next.id, at:new Date().toISOString(), ...entry }, ...next.uploadsLog] }
+  useEffect(() => {
+    setResultDraft(match?.result || "");
+    setShootoutDraft(!!match?.shootout);
+  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  
+  function pushLog(next: Match, entry: Omit<UploadLog, "id" | "matchId" | "at">) {
+    next.uploadsLog = [
+      { id: crypto.randomUUID(), matchId: next.id, at: new Date().toISOString(), ...entry },
+      ...next.uploadsLog,
+    ];
+  }
 
-  async function handleUpload(type:"comms"|"roster"|"report"|"photos"){
-    if(!match) return; const input=document.createElement("input"); input.type="file"; if(type==="photos") input.multiple=true;
-    input.onchange=async()=>{
-      const files=Array.from(input.files||[]); if(files.length===0) return; const next={...match} as Match;
-      if(type==="comms"||type==="roster"){
-        if(user.role!=="Club"||!user.club){ alert("Ta akcja jest dostępna tylko dla roli Klub (z ustawioną nazwą klubu)."); return; }
-        const key = user.club===match.home? "home" : user.club===match.away? "away": null; if(!key){ alert("Twój klub nie jest przypisany do tego meczu."); return; }
-        if(type==="comms"){
-          if(!canUploadComms(user, match)){ alert("Komunikat może dodać wyłącznie gospodarz meczu."); return; }
+  async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
+    if (!match) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    if (type === "photos") input.multiple = true;
+
+    input.onchange = async () => {
+      const files = Array.from(input.files || []);
+      if (files.length === 0) return;
+
+      const next = { ...match } as Match;
+
+      if (type === "comms" || type === "roster") {
+        if (user.role !== "Club" || !user.club) {
+          alert("Ta akcja jest dostępna tylko dla roli Klub (z ustawioną nazwą klubu).");
+          return;
+        }
+        const key = user.club === match.home ? "home" : user.club === match.away ? "away" : null;
+        if (!key) { alert("Twój klub nie jest przypisany do tego meczu."); return; }
+
+        if (type === "comms") {
+          if (!canUploadComms(user, match)) { alert("Komunikat może dodać wyłącznie gospodarz meczu."); return; }
           const sf = await toStoredFileUsingStorage(
-  "comms", match.id, match.home, files[0], user.name, `Komunikat - ${match.home} - ${match.date}`
-);
-next.commsByClub[key] = sf;
- pushLog(next,{type:'comms',club:user.club,user:user.name,fileName:sf.name});
+            "comms", match.id, match.home, files[0], user.name, `Komunikat - ${match.home} - ${match.date}`
+          );
+          next.commsByClub[key] = sf;
+          pushLog(next, { type: "comms", club: user.club, user: user.name, fileName: sf.name });
         } else {
-          if(!canUploadRoster(user, match)){ alert("Skład może dodać tylko klub biorący udział w meczu."); return; }
-          const clubName = key==="home"? match.home: match.away; const sf = await toStoredFileUsingStorage(
-  "roster", match.id, clubName, files[0], user.name, `Skład - ${clubName} - ${match.date}`
-);
-next.rosterByClub[key] = sf;
- pushLog(next,{type:'roster',club:user.club,user:user.name,fileName:sf.name});
+          if (!canUploadRoster(user, match)) { alert("Skład może dodać tylko klub biorący udział w meczu."); return; }
+          const clubName = key === "home" ? match.home : match.away;
+          const sf = await toStoredFileUsingStorage(
+            "roster", match.id, clubName, files[0], user.name, `Skład - ${clubName} - ${match.date}`
+          );
+          next.rosterByClub[key] = sf;
+          pushLog(next, { type: "roster", club: user.club, user: user.name, fileName: sf.name });
         }
       }
-      if(type==="report"){
-        if(!canUploadReport(user)){ alert("Protokół może dodać tylko Delegat."); return; }
+
+      if (type === "report") {
+        if (!canUploadReport(user)) { alert("Protokół może dodać tylko Delegat."); return; }
         const sf = await toStoredFileUsingStorage(
-  "report", match.id, "neutral", files[0], user.name, `Protokół - ${match.home} vs ${match.away} - ${match.date}`
-);
-next.matchReport = sf;
- pushLog(next,{type:'protocol',club:null,user:user.name,fileName:sf.name});
+          "report", match.id, "neutral", files[0], user.name, `Protokół - ${match.home} vs ${match.away} - ${match.date}`
+        );
+        next.matchReport = sf;
+        pushLog(next, { type: "protocol", club: null, user: user.name, fileName: sf.name });
       }
-      if(type==="photos"){
-        if(!canUploadReport(user)){ alert("Zdjęcia raportu może dodać tylko Delegat."); return; }
-       const sfs: StoredFile[] = [];
-for (const f of files) {
-  sfs.push(await toStoredFileUsingStorage(
-    "photos", match.id, "neutral", f, user.name, "Zdjęcie raportu"
-  ));
-}
-next.reportPhotos = [...next.reportPhotos, ...sfs];
- pushLog(next,{type:'photos',club:null,user:user.name,fileName:`${files.length} zdjęć`});
+
+      if (type === "photos") {
+        if (!canUploadReport(user)) { alert("Zdjęcia raportu może dodać tylko Delegat."); return; }
+        const sfs: StoredFile[] = [];
+        for (const f of files) {
+          sfs.push(await toStoredFileUsingStorage("photos", match.id, "neutral", f, user.name, "Zdjęcie raportu"));
+        }
+        next.reportPhotos = [...next.reportPhotos, ...sfs];
+        pushLog(next, { type: "photos", club: null, user: user.name, fileName: `${files.length} zdjęć` });
       }
-      const newState={...state, matches: state.matches.map(m=>m.id===match.id? next: m)}; setState(newState); 
-    }
+
+      const newState = { ...state, matches: state.matches.map(m => (m.id === match.id ? next : m)) };
+      setState(newState);
+    };
+
     input.click();
   }
 
   async function saveResult() {
-  if (!match) return;
-  if (!canEditResult(user, match)) {
-    alert("Wynik może ustawić tylko delegat tego meczu.");
-    return;
+    if (!match) return;
+    if (!canEditResult(user, match)) { alert("Wynik może ustawić tylko delegat tego meczu."); return; }
+    try {
+      await setMatchResult(match.id, resultDraft, shootoutDraft);
+      const newState = {
+        ...state,
+        matches: state.matches.map(m =>
+          m.id === match.id ? { ...m, result: resultDraft, shootout: shootoutDraft } : m
+        ),
+      };
+      setState(newState);
+    } catch (e: any) {
+      alert("Błąd zapisu wyniku: " + e.message);
+    }
   }
-  try {
-    await setMatchResult(match.id, resultDraft, shootoutDraft);  // <— TERAZ 3 ARGUMENTY
-    const newState = {
-      ...state,
-      matches: state.matches.map(m =>
-        m.id === match.id ? { ...m, result: resultDraft, shootout: shootoutDraft } : m
-      ),
-    };
-    setState(newState);
-  } catch (e: any) {
-    alert("Błąd zapisu wyniku: " + e.message);
-  }
-}
 
-  const canClubAct = ()=> user.role==="Club" && !!user.club; const canDelegateAct = ()=> user.role==="Delegate";
+  const canClubAct = () => user.role === "Club" && !!user.club;
+  const canDelegateAct = () => user.role === "Delegate";
 
-  return (<div className="grid gap-4">
-    <div className="flex items-center gap-2"><span className="text-sm text-gray-600">Wybierz mecz:</span>
-      <select className={classes.input} value={selectedId} onChange={e=>setSelectedId(e.target.value)}>{state.matches.map(m=>(<option key={m.id} value={m.id}>{m.date} {m.time? m.time+" • ":""}{m.home} vs {m.away}</option>))}</select>
-    </div>
-    {match && (<div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2">
-        {canClubAct() && (<>
-          {canUploadComms(user, match) && (<button onClick={()=>handleUpload("comms")} className={clsx(classes.btnOutline,"flex items-center gap-2")}><UploadCloud className="w-4 h-4"/>Dodaj komunikat (Gospodarz)</button>)}
-          {canUploadRoster(user, match)? (<button onClick={()=>handleUpload("roster")} className={clsx(classes.btnOutline,"flex items-center gap-2")}><UploadCloud className="w-4 h-4"/>Dodaj skład (Twój klub)</button>) : (<div className="text-sm text-gray-600">Twój klub nie jest uczestnikiem tego meczu.</div>)}
-        </>)}
-        {canDelegateAct() && (<>
-          <button onClick={()=>handleUpload("report")} className={clsx(classes.btnPrimary,"flex items-center gap-2")}><UploadCloud className="w-4 h-4"/>Dodaj protokół</button>
-          <button onClick={()=>handleUpload("photos")} className={clsx(classes.btnOutline,"flex items-center gap-2")}><Image className="w-4 h-4"/>Dodaj zdjęcia raportu</button>
-        </>)}
+  return (
+    <div className="grid gap-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-600">Wybierz mecz:</span>
+        <select className={classes.input} value={selectedId} onChange={e => setSelectedId(e.target.value)}>
+          {state.matches.map(m => (
+            <option key={m.id} value={m.id}>
+              {m.date} {m.time ? m.time + " • " : ""}{m.home} vs {m.away}
+            </option>
+          ))}
+        </select>
       </div>
-{canDelegateAct() && match && (
-  <div className="mt-4 border-t pt-3">
-    <div className="font-medium mb-2">Nałóż karę</div>
 
-    <div className="grid gap-2 md:grid-cols-3">
-      {/* Wybór klubu z tego meczu */}
-      <select id="pen-club" className={classes.input} defaultValue="">
-        <option value="" disabled>Wybierz klub</option>
-        <option value={match.home}>{match.home} (gospodarz)</option>
-        <option value={match.away}>{match.away} (goście)</option>
-      </select>
+      {match && (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            {canClubAct() && (
+              <>
+                {canUploadComms(user, match) && (
+                  <button onClick={() => handleUpload("comms")} className={clsx(classes.btnOutline, "flex items-center gap-2")}>
+                    <UploadCloud className="w-4 h-4" />Dodaj komunikat (Gospodarz)
+                  </button>
+                )}
+                {canUploadRoster(user, match) ? (
+                  <button onClick={() => handleUpload("roster")} className={clsx(classes.btnOutline, "flex items-center gap-2")}>
+                    <UploadCloud className="w-4 h-4" />Dodaj skład (Twój klub)
+                  </button>
+                ) : (
+                  <div className="text-sm text-gray-600">Twój klub nie jest uczestnikiem tego meczu.</div>
+                )}
+              </>
+            )}
 
-      {/* Nazwisko */}
-      <input id="pen-player" className={classes.input} placeholder="Nazwisko zawodnika" />
+            {canDelegateAct() && (
+              <>
+                <button onClick={() => handleUpload("report")} className={clsx(classes.btnPrimary, "flex items-center gap-2")}>
+                  <UploadCloud className="w-4 h-4" />Dodaj protokół
+                </button>
+                <button onClick={() => handleUpload("photos")} className={clsx(classes.btnOutline, "flex items-center gap-2")}>
+                  <Image className="w-4 h-4" />Dodaj zdjęcia raportu
+                </button>
+              </>
+            )}
+          </div>
 
-      {/* Liczba meczów */}
-      <input id="pen-games" className={classes.input} type="number" min={1} placeholder="Mecze kary" />
+          {canDelegateAct() && (
+            <div className="mt-4 border-t pt-3">
+              <div className="font-medium mb-2">Nałóż karę</div>
+
+              <div className="grid gap-2 md:grid-cols-3">
+                <select id="pen-club" className={classes.input} defaultValue="">
+                  <option value="" disabled>Wybierz klub</option>
+                  <option value={match.home}>{match.home} (gospodarz)</option>
+                  <option value={match.away}>{match.away} (goście)</option>
+                </select>
+                <input id="pen-player" className={classes.input} placeholder="Nazwisko zawodnika" />
+                <input id="pen-games" className={classes.input} type="number" min={1} placeholder="Mecze kary" />
+              </div>
+
+              <div className="mt-2">
+                <button
+                  className={clsx(classes.btnPrimary, "flex items-center gap-2")}
+                  onClick={async () => {
+                    const clubSel = document.getElementById("pen-club") as HTMLSelectElement;
+                    const playerInp = document.getElementById("pen-player") as HTMLInputElement;
+                    const gamesInp = document.getElementById("pen-games") as HTMLInputElement;
+
+                    const club = clubSel?.value || "";
+                    const player = playerInp?.value?.trim() || "";
+                    const games = parseInt(gamesInp?.value || "0", 10);
+
+                    if (!club || !player || !games || games < 1) {
+                      alert("Wypełnij wszystkie pola: Klub, Nazwisko, Liczba meczów (>=1).");
+                      return;
+                    }
+
+                    try {
+                      await addPenalty(match.id, club, player, games);
+                      onPenaltiesChange();
+                      alert("Kara dodana.");
+                      clubSel.value = "";
+                      playerInp.value = "";
+                      gamesInp.value = "";
+                    } catch (e: any) {
+                      alert("Błąd dodawania kary: " + e.message);
+                    }
+                  }}
+                >
+                  Dodaj karę
+                </button>
+                <div className="text-xs text-gray-500 mt-1">
+                  Kara będzie widoczna w najbliższych meczach danego klubu, poczynając od następnego spotkania po meczu, w którym ją nałożono.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {canEditResult(user, match) && (
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                className={classes.input}
+                placeholder="Wynik (np. 10:9)"
+                value={resultDraft}
+                onChange={(e) => setResultDraft(e.target.value)}
+                style={{ maxWidth: 200 }}
+              />
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={shootoutDraft}
+                  onChange={(e) => setShootoutDraft(e.target.checked)}
+                />
+                Rzuty karne
+              </label>
+              <button onClick={saveResult} className={clsx(classes.btnPrimary, "flex items-center gap-2")}>
+                <Check className="w-4 h-4" />
+                Zapisz wynik
+              </button>
+              <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
-
-    <div className="mt-2">
-      <button
-        className={clsx(classes.btnPrimary, "flex items-center gap-2")}
-        onClick={async () => {
-          const clubSel = (document.getElementById("pen-club") as HTMLSelectElement);
-          const playerInp = (document.getElementById("pen-player") as HTMLInputElement);
-          const gamesInp = (document.getElementById("pen-games") as HTMLInputElement);
-
-          const club = clubSel?.value || "";
-          const player = playerInp?.value?.trim() || "";
-          const games = parseInt(gamesInp?.value || "0", 10);
-
-          if (!club || !player || !games || games < 1) {
-            alert("Wypełnij wszystkie pola: Klub, Nazwisko, Liczba meczów (>=1).");
-            return;
-          }
-
-          try {
-          await addPenalty(match.id, club, player, games);
-onPenaltiesChange();
-alert("Kara dodana.");
-            // wyczyść pola
-            clubSel.value = "";
-            playerInp.value = "";
-            gamesInp.value = "";
-          } catch (e:any) {
-            alert("Błąd dodawania kary: " + e.message);
-          }
-        }}
-      >
-        Dodaj karę
-      </button>
-      <div className="text-xs text-gray-500 mt-1">
-      Kara będzie widoczna w najbliższych meczach danego klubu,
-poczynając od następnego spotkania po meczu, w którym ją nałożono.
-      </div>
-    </div>
-  </div>
-)}
-      
-      {match && canEditResult(user, match) && (
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          className={classes.input}
-          placeholder="Wynik (np. 10:9)"
-          value={resultDraft}
-          onChange={(e) => setResultDraft(e.target.value)}
-          style={{ maxWidth: 200 }}
-        />
-
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={shootoutDraft}
-            onChange={(e) => setShootoutDraft(e.target.checked)}
-          />
-          Rzuty karne
-        </label>
-
-        <button onClick={saveResult} className={clsx(classes.btnPrimary, "flex items-center gap-2")}>
-          <Check className="w-4 h-4" />
-          Zapisz wynik
-        </button>
-
-        <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
-      </div>
-    )}
-    </div>  
-  </div>    
-);           
-}            
+  );
+};         
 
 const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:readonly string[]; refereeNames:string[]; delegateNames:string[]; onAfterChange:()=>void; canWrite:boolean; }> = ({ state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite }) => {
   const blank: Match = { id:crypto.randomUUID(), date:new Date().toISOString().slice(0,10), time:"", round:"", location:"", home:"", away:"", referees:["",""], delegate:"", commsByClub:{home:null,away:null}, rosterByClub:{home:null,away:null}, matchReport:null, reportPhotos:[], notes:"", result:"", uploadsLog:[] };
