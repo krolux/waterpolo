@@ -633,7 +633,8 @@ const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:
     }}
   >
     Anuluj edycję
-  </button>}</div>
+  </button>
+)}</div>
         {!canWrite && <div className="text-xs text-amber-700">Zaloguj się jako Admin, aby dodać/edytować mecze.</div>}
       </div></div>
       <div><div className="font-medium mb-2">Istniejące mecze</div><div className="flex flex-col gap-2">
