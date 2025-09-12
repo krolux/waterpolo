@@ -194,8 +194,8 @@ function renderResult(m: Match) {
   const a = parseInt(aStr, 10);
   const b = parseInt(bStr, 10);
   if (Number.isFinite(a) && Number.isFinite(b)) {
-    if (a > b) return `${a}★:${b}`;
-    if (b > a) return `${a}:${b}★`;
+    if (a > b) return `k${a}:${b}`;
+    if (b > a) return `${a}:${b}k`;
   }
   return `${r} ★`;
 }
@@ -711,9 +711,14 @@ const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=r
 
 const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
   // policz punkty, bramki itd
-  const table = useMemo(() => {
+    const table = useMemo(() => {
+    // baza – wszystkie drużyny na start
     const stats: Record<string, { team: string; pts: number; played: number; goalsFor: number; goalsAgainst: number }> = {};
+    CLUBS.forEach(c => {
+      stats[c] = { team: c, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
+    });
 
+    // aktualizuj statystyki na podstawie rozegranych meczów
     for (const m of matches) {
       if (!m.result) continue; // pomijamy mecze bez wyniku
 
@@ -721,9 +726,6 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
       const a = parseInt(aStr, 10);
       const b = parseInt(bStr, 10);
       if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-
-      if (!stats[m.home]) stats[m.home] = { team: m.home, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
-      if (!stats[m.away]) stats[m.away] = { team: m.away, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
 
       stats[m.home].played++;
       stats[m.away].played++;
@@ -749,9 +751,17 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
       }
     }
 
-    return Object.values(stats).sort((x, y) =>
-      y.pts - x.pts || (y.goalsFor - y.goalsAgainst) - (x.goalsFor - x.goalsAgainst) || y.goalsFor - x.goalsFor
-    );
+    // sortowanie: najpierw wg punktów, potem różnicy bramek, potem liczby bramek,
+    // a jeśli drużyna nie ma żadnych meczów – alfabetycznie
+    return Object.values(stats).sort((x, y) => {
+      if (x.played === 0 && y.played === 0) return x.team.localeCompare(y.team);
+      return (
+        y.pts - x.pts ||
+        (y.goalsFor - y.goalsAgainst) - (x.goalsFor - x.goalsAgainst) ||
+        y.goalsFor - x.goalsFor ||
+        x.team.localeCompare(y.team)
+      );
+    });
   }, [matches]);
 
   return (
