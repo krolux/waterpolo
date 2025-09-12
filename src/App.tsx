@@ -225,7 +225,9 @@ const MatchesTable: React.FC<{
           Odśwież
         </button>
 
-        <ExportImport state={state} setState={setState} />
+       {user && user.role !== "Guest" && (
+  <ExportImport state={state} setState={setState} />
+)}
       </div>
 
       <div className="overflow-x-auto">
@@ -262,7 +264,7 @@ const MatchesTable: React.FC<{
                 <td className="p-2 hidden sm:table-cell">{m.location}</td>
                 <td className="p-2 hidden sm:table-cell">{m.home}</td>
                 <td className="p-2 hidden sm:table-cell">{m.away}</td>
-                <td className="p-2 hidden sm:table-cell">{m.result ?? "-"}</td>
+               <td className="p-2 hidden sm:table-cell">{renderResult(m)}</td>
                 <td className="p-2 hidden sm:table-cell">{m.referees.join(", ")}</td>
                 <td className="p-2 hidden sm:table-cell">{m.delegate ?? "-"}</td>
                 <td className="p-2 hidden sm:table-cell">
@@ -379,7 +381,13 @@ const PerMatchActions: React.FC<{
   onPenaltiesChange: () => void;
 }> = ({ state, setState, user, onPenaltiesChange }) => {
   const [selectedId,setSelectedId]=useState<string>(state.matches[0]?.id??""); const match=state.matches.find(m=>m.id===selectedId)||null;
-  const [resultDraft,setResultDraft]=useState<string>(match?.result||""); useEffect(()=>{ setResultDraft(match?.result||"") },[selectedId]);
+  const [resultDraft, setResultDraft] = useState<string>(match?.result || "");
+const [shootoutDraft, setShootoutDraft] = useState<boolean>(!!match?.shootout);   // <— NOWE
+
+useEffect(() => {
+  setResultDraft(match?.result || "");
+  setShootoutDraft(!!match?.shootout);                                            // <— NOWE
+}, [selectedId]);
   function pushLog(next:Match, entry: Omit<UploadLog,"id"|"matchId"|"at">){ next.uploadsLog=[{ id:crypto.randomUUID(), matchId:next.id, at:new Date().toISOString(), ...entry }, ...next.uploadsLog] }
 
   
@@ -431,10 +439,25 @@ next.reportPhotos = [...next.reportPhotos, ...sfs];
     input.click();
   }
 
-  async function saveResult(){ if(!match) return; if(!canEditResult(user, match)){ alert("Wynik może ustawić tylko delegat tego meczu."); return; }
-    try { await setMatchResult(match.id, resultDraft); const newState={...state, matches: state.matches.map(m=>m.id===match.id? {...m, result: resultDraft}: m)}; setState(newState) } 
-    catch(e:any){ alert("Błąd zapisu wyniku: " + e.message) }
+  async function saveResult() {
+  if (!match) return;
+  if (!canEditResult(user, match)) {
+    alert("Wynik może ustawić tylko delegat tego meczu.");
+    return;
   }
+  try {
+    await setMatchResult(match.id, resultDraft, shootoutDraft);  // <— TERAZ 3 ARGUMENTY
+    const newState = {
+      ...state,
+      matches: state.matches.map(m =>
+        m.id === match.id ? { ...m, result: resultDraft, shootout: shootoutDraft } : m
+      ),
+    };
+    setState(newState);
+  } catch (e: any) {
+    alert("Błąd zapisu wyniku: " + e.message);
+  }
+}
 
   const canClubAct = ()=> user.role==="Club" && !!user.club; const canDelegateAct = ()=> user.role==="Delegate";
 
@@ -512,18 +535,33 @@ poczynając od następnego spotkania po meczu, w którym ją nałożono.
   </div>
 )}
       
-      {match && canEditResult(user, match) && (<div className="flex items-center gap-2">
-        <input className={classes.input} placeholder="Wynik (np. 10:9)" value={resultDraft} onChange={e=>setResultDraft(e.target.value)} style={{maxWidth:200}}/>
-        <button onClick={saveResult} className={clsx(classes.btnPrimary,"flex items-center gap-2")}><Check className="w-4 h-4"/>Zapisz wynik</button>
-        <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
-      </div>)}
-      {(user.role==='Admin' || user.role==='Delegate') && (<div>
-        <div className="flex items-center gap-2 mb-2"><History className="w-4 h-4"/><span className="font-medium">Dziennik (log) uploadów</span></div>
-        {match.uploadsLog.length===0? (<div className="text-sm text-gray-500">Brak wpisów.</div>) : (<div className="border rounded-xl overflow-hidden"><table className="w-full text-sm"><thead className="bg-gray-50"><tr className="text-left"><th className="p-2">Czas</th><th className="p-2">Typ</th><th className="p-2">Klub</th><th className="p-2">Użytkownik</th><th className="p-2">Plik</th></tr></thead>
-          <tbody>{match.uploadsLog.map(l=>(<tr key={l.id} className="border-t"><td className="p-2 whitespace-nowrap">{new Date(l.at).toLocaleString()}</td><td className="p-2">{l.type}</td><td className="p-2">{l.club||'-'}</td><td className="p-2">{l.user}</td><td className="p-2">{l.fileName}</td></tr>))}</tbody></table></div>)}
-      </div>)}
-    </div>)}
-  </div>)
+    {match && canEditResult(user, match) && (
+  <div className="flex flex-wrap items-center gap-3">
+    <input
+      className={classes.input}
+      placeholder="Wynik (np. 10:9)"
+      value={resultDraft}
+      onChange={e => setResultDraft(e.target.value)}
+      style={{ maxWidth: 200 }}
+    />
+
+    {/* NOWY CHECKBOX */}
+    <label className="inline-flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={shootoutDraft}
+        onChange={(e) => setShootoutDraft(e.target.checked)}
+      />
+      Rzuty karne
+    </label>
+
+    <button onClick={saveResult} className={clsx(classes.btnPrimary, "flex items-center gap-2")}>
+      <Check className="w-4 h-4" />
+      Zapisz wynik
+    </button>
+    <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
+  </div>
+)}
 }
 
 const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:readonly string[]; refereeNames:string[]; delegateNames:string[]; onAfterChange:()=>void; canWrite:boolean; }> = ({ state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite }) => {
@@ -839,7 +877,25 @@ const matches: Match[] = rows.map((r: any) => ({
 
     <main className="max-w-6xl mx-auto grid gap-6">
       {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin}/>}
- <MatchesTable
+ 
+function renderResult(m: Match) {
+  const r = (m.result || "").trim();
+  if (!r) return "-";
+  if (!m.shootout) return r;
+
+  // spróbujmy sparsować "g:g"
+  const [aStr, bStr] = r.split(":");
+  const a = parseInt(aStr, 10);
+  const b = parseInt(bStr, 10);
+  if (Number.isFinite(a) && Number.isFinite(b)) {
+    if (a > b) return `${a}★:${b}`;
+    if (b > a) return `${a}:${b}★`;
+  }
+  // fallback gdy format inny — dołóż gwiazdkę na końcu
+  return `${r} ★`;
+}
+
+<MatchesTable
   state={state}
   setState={setState}
   user={effectiveUser}
