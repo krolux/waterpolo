@@ -569,14 +569,17 @@ poczynając od następnego spotkania po meczu, w którym ją nałożono.
       Rzuty karne
     </label>
 
-    <button onClick={saveResult} className={clsx(classes.btnPrimary, "flex items-center gap-2")}>
+      <button onClick={saveResult} className={clsx(classes.btnPrimary, "flex items-center gap-2")}>
       <Check className="w-4 h-4" />
       Zapisz wynik
     </button>
     <span className="text-xs text-gray-500">(Dostępne tylko dla delegata tego meczu)</span>
   </div>
-)}
-  );
+)}  {/* koniec warunku z edycją wyniku */}
+
+    </div>  {/* zamknięcie sekcji widocznej tylko gdy jest match */}
+  </div>    {/* zamknięcie wrappera grid */}
+)           {/* koniec return */}
 }
 
 const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:readonly string[]; refereeNames:string[]; delegateNames:string[]; onAfterChange:()=>void; canWrite:boolean; }> = ({ state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite }) => {
