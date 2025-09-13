@@ -273,29 +273,26 @@ function renderResult(m: Match) {
       </div>
 
 <div
-  className="relative max-w-full overflow-x-auto overscroll-x-contain touch-pan-x"
-  style={{ WebkitOverflowScrolling: 'touch' }}    
+  className="relative max-w-full overflow-x-auto touch-pan-x"
+  style={{ WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain' }}
 >
   <div className="sm:hidden text-[11px] text-gray-600 mb-1">
     Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
   </div>
-  <table className="table-auto w-max text-xs sm:text-sm">
+  <table className="table-fixed min-w-[1200px] text-xs sm:text-sm">
 <thead className="sticky top-0 z-10 bg-white shadow-sm">
   <tr className="text-left border-b">
 <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Data</th>
 <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Nr meczu</th>
 
-<th className="px-2 py-1 whitespace-normal break-words max-w-[140px]">Miejsce</th>
-<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Gospodarz</th>
-<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Goście</th>
-
-<th className="px-2 py-1 whitespace-nowrap w-0 text-center">Wynik</th>
-
-<th className="px-2 py-1 whitespace-normal break-words max-w-[180px]">Sędziowie</th>
-<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Delegat</th>
-<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Kary (Gospodarz)</th>
-<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Kary (Goście)</th>
-<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Dokumenty</th>
+<th className="px-2 py-1 whitespace-normal break-words min-w-[140px]">Miejsce</th>
+<th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Gospodarz</th>
+<th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Goście</th>
+<th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Sędziowie</th>
+<th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Delegat</th>
+<th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Gospodarz)</th>
+<th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Goście)</th>
+<th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Dokumenty</th>
   </tr>
 </thead>
 
@@ -314,19 +311,19 @@ function renderResult(m: Match) {
 <td className="px-2 py-1 whitespace-nowrap w-0">{m.round ?? "-"}</td>
 
 {/* Miejsce / Drużyny (WSZYSTKO WIDOCZNE TAKŻE NA MOBILE) */}
-<td className="px-2 py-1 break-words max-w-[140px]">{m.location}</td>
-<td className="px-2 py-1 break-words max-w-[160px]">{m.home}</td>
-<td className="px-2 py-1 break-words max-w-[160px]">{m.away}</td>
+<td className="px-2 py-1 whitespace-normal break-words min-w-[140px]">{m.location}</td>
+<td className="px-2 py-1 whitespace-normal break-words min-w-[160px]">{m.home}</td>
+<td className="px-2 py-1 whitespace-normal break-words min-w-[160px]">{m.away}</td>
 
 {/* Wynik */}
 <td className="px-2 py-1 whitespace-nowrap w-0">{renderResult(m)}</td>
 
 {/* Sędziowie / Delegat */}
-<td className="px-2 py-1 break-words max-w-[180px]">{m.referees.join(", ")}</td>
-<td className="px-2 py-1 break-words max-w-[160px]">{m.delegate ?? "-"}</td>
+<td className="px-2 py-1 whitespace-normal break-words min-w-[180px]">{m.referees.join(", ")}</td>
+<td className="px-2 py-1 whitespace-normal break-words min-w-[160px]">{m.delegate ?? "-"}</td>
 
 {/* Kary (GOSPODARZ) */}
-<td className="px-2 py-1">
+<td className="px-2 py-1 min-w-[180px]">
   <div className="flex flex-wrap gap-1">
     {(penaltyMap.get(m.id)?.home || []).map(p => (
       <span
@@ -351,7 +348,7 @@ function renderResult(m: Match) {
 </td>
 
 {/* Kary (GOŚCIE) */}
-<td className="px-2 py-1">
+<td className="px-2 py-1 min-w-[180px]">
   <div className="flex flex-wrap gap-1">
     {(penaltyMap.get(m.id)?.away || []).map(p => (
       <span
@@ -377,7 +374,7 @@ function renderResult(m: Match) {
 
 
 {/* Dokumenty – NA KOŃCU, aby zgadzało się z thead */}
-<td className="px-2 py-1">
+<td className="px-2 py-1 min-w-[160px]">
   <div className="flex flex-wrap gap-2">
     {m.commsByClub.home && (
       <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />
@@ -1082,7 +1079,7 @@ const matches: Match[] = rows.map((r: any) => ({
     alert("Błąd usuwania kary: " + e.message);
   }
 }
- return (<div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-slate-100 via-sky-200 to-[#0a1a3f] bg-fixed p-4 md:p-8">
+ return (<div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-slate-100 via-sky-200 to-[#0a1a3f] p-4 md:p-8">
    <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
   <div className="flex items-center gap-3">
     <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
