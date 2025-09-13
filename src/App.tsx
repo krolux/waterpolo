@@ -272,14 +272,9 @@ function renderResult(m: Match) {
 )}
       </div>
 
-<div
-  className="relative w-full overflow-x-auto overscroll-x-contain touch-pan-x"
-  style={{ WebkitOverflowScrolling: 'touch' }}
->
-  <div className="sm:hidden text-[11px] text-gray-600 mb-1 px-2">
-    Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
-  </div>
-   <div className="inline-block min-w-[1100px] align-top">
+<div className="w-full overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+
+
     <table className="table-auto w-full text-xs sm:text-sm">
 <thead className="sticky top-0 z-10 bg-white shadow-sm">
   <tr className="text-left border-b">
@@ -403,7 +398,6 @@ function renderResult(m: Match) {
     </tbody>
   </table>
 </div>
-  </div>
     </Section>
   );
 };
