@@ -1,121 +1,73 @@
-import React, { useState } from "react";
-import { useSupabaseAuth } from "../hooks/useSupabaseAuth";
+import React, { useState } from 'react'
+import { useSupabaseAuth } from '../hooks/useSupabaseAuth'
 
-export const LoginBox: React.FC<{ classes: Record<string, string> }> = ({
-  // przyjmujemy prop, ale nie używamy go – unikamy konfliktu z globalnym `classes`
-  classes: _classes,
-}) => {
-  const { role, userDisplay, signIn, signOut, changePassword } =
-    useSupabaseAuth();
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [newPass, setNewPass] = useState("");
-  const [loading, setLoading] = useState(false);
+export const LoginBox: React.FC<{ classes: Record<string, string> }> = ({ classes }) => {
+  const { role, userDisplay, signIn, signOut, changePassword } = useSupabaseAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [newPass, setNewPass] = useState('')
 
   async function handleSignIn() {
-    try {
-      setLoading(true);
-      await signIn(email, password);
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setLoading(false);
-    }
+    try { await signIn(email, password) } catch (e: any) { alert(e.message) }
   }
-
   async function handleChangePass() {
-    try {
-      if (!newPass.trim()) {
-        alert("Podaj nowe hasło");
-        return;
-      }
-      setLoading(true);
-      await changePassword(newPass);
-      alert("Hasło zmienione");
-      setNewPass("");
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setLoading(false);
-    }
+    try { await changePassword(newPass); alert('Hasło zmienione'); setNewPass('') } catch (e: any) { alert(e.message) }
   }
 
-  // --- ZALOGOWANY ---
-  if (role !== "Guest") {
+  if (role !== 'Guest') {
     return (
-      <div className="w-full max-w-[440px]">
-        {/* mobile: kolumna • desktop: wiersz */}
-        <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
-          <span className="text-sm text-gray-700 sm:mr-1 truncate">
-            {userDisplay}
-          </span>
+      <div className="w-full">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:gap-2">
+          <span className="text-sm text-gray-700 sm:mr-1">{userDisplay}</span>
 
-          {/* input: pełna szerokość na mobile, stała na desktopie */}
           <input
-            className="w-full sm:w-[180px] px-4 py-3 rounded-lg border bg-white text-base focus:outline-none focus:ring-2 focus:ring-sky-400"
+            className={`${classes.input} w-full sm:w-[200px] text-[16px]`}
             placeholder="Nowe hasło"
             value={newPass}
             onChange={(e) => setNewPass(e.target.value)}
             type="password"
             autoComplete="new-password"
-            onKeyDown={(e) => e.key === "Enter" && handleChangePass()}
+            onKeyDown={(e) => e.key === 'Enter' && handleChangePass()}
           />
 
-          <button
-            disabled={loading}
-            onClick={handleChangePass}
-            className="px-4 py-3 rounded-lg bg-amber-600 text-white hover:bg-amber-700 shadow w-full sm:w-auto shrink-0 whitespace-nowrap disabled:opacity-60"
-          >
+          <button className={`${classes.btnSecondary} w-full sm:w-auto`} onClick={handleChangePass}>
             Zmień hasło
           </button>
 
-          <button
-            disabled={loading}
-            onClick={() => signOut()}
-            className="px-4 py-3 rounded-lg border bg-white hover:bg-gray-50 w-full sm:w-auto shrink-0 whitespace-nowrap disabled:opacity-60"
-          >
+          <button className={`${classes.btnSecondary} w-full sm:w-auto`} onClick={() => signOut()}>
             Wyloguj
           </button>
         </div>
       </div>
-    );
+    )
   }
 
-  // --- GOŚĆ (formularz logowania) ---
   return (
-    <div className="w-full max-w-[440px]">
-      {/* mobile: kolumna • desktop: wiersz */}
-      <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
+    <div className="w-full">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:gap-2">
         <input
-          className="w-full px-4 py-3 rounded-lg border bg-white text-base focus:outline-none focus:ring-2 focus:ring-sky-400"
+          className={`${classes.input} w-full text-[16px]`}
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
           autoComplete="username"
           inputMode="email"
-          onKeyDown={(e) => e.key === "Enter" && handleSignIn()}
+          onKeyDown={(e) => e.key === 'Enter' && handleSignIn()}
         />
-
         <input
-          className="w-full px-4 py-3 rounded-lg border bg-white text-base focus:outline-none focus:ring-2 focus:ring-sky-400"
+          type="password"
+          className={`${classes.input} w-full text-[16px]`}
           placeholder="Hasło"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          type="password"
           autoComplete="current-password"
-          onKeyDown={(e) => e.key === "Enter" && handleSignIn()}
+          onKeyDown={(e) => e.key === 'Enter' && handleSignIn()}
         />
-
-        <button
-          disabled={loading}
-          onClick={handleSignIn}
-          className="px-4 py-3 rounded-lg bg-amber-600 text-white hover:bg-amber-700 shadow w-full sm:w-auto shrink-0 whitespace-nowrap disabled:opacity-60"
-        >
+        <button className={`${classes.btnPrimary} w-full sm:w-auto`} onClick={handleSignIn}>
           Zaloguj
         </button>
       </div>
     </div>
-  );
-};
+  )
+}
