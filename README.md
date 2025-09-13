@@ -1,7 +1,7 @@
 bo# WPR Portal – Supabase Auth (v1.1.2)
 
 - Vite + React + TS + Tailwind
-- Dodane: Supabase Auth (email/hasło), LoginBox w headerze,
+- Dodane2: Supabase Auth (email/hasło), LoginBox w headerze,
 - Env na Vercel: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 
 Build:
