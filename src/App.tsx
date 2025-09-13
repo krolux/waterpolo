@@ -794,19 +794,19 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
             </tr>
           </thead>
           <tbody>
-            {table.map((row, i) => {
-              let bg = "";
-              if (i === 0) bg = "bg-yellow-200"; // złote
-              if (i === 1) bg = "bg-gray-200";   // srebrne
-              if (i === 2) bg = "bg-orange-200"; // brązowe
-              return (
-                <tr
-  key={row.team}
-  className={clsx(
-    "border-b odd:bg-white even:bg-slate-50/60 hover:bg-sky-50 transition-colors",
-    bg
-  )}
->
+            {table.map((row, i) => (
+  <tr
+    key={row.team}
+    className={clsx(
+      "border-b hover:bg-sky-50 transition-colors",
+      // zebra
+      i % 2 ? "bg-white" : "bg-slate-50/60",
+      // podium – nadpisuje zebrę
+      i === 0 && "bg-amber-100/80",
+      i === 1 && "bg-gray-100/80",
+      i === 2 && "bg-orange-100/80"
+    )}
+  >
                   <td className="p-2">{i + 1}</td>
                   <td className="p-2">{row.team}</td>
                   <td className="p-2">{row.pts}</td>
@@ -1042,12 +1042,12 @@ const matches: Match[] = rows.map((r: any) => ({
     alert("Błąd usuwania kary: " + e.message);
   }
 }
-  return (<div className="min-h-screen bg-gradient-to-br from-sky-50 to-indigo-50 p-4 md:p-8">
+  return (<div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 p-4 md:p-8">
     <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between
   bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
       <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center"><Users className="w-5 h-5"/></div>
         <div><h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">Kolegium Sędziów Piłki Wodnej – Portal</h1><p className="text-sm text-gray-600">Tabela meczów • Dokumenty klubów • Raporty delegatów</p></div></div>
-<div className="flex items-center gap-3 w-full sm:w-auto">
+<div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
   <LoginBox classes={classes} />
   {effectiveUser ? (
     <div className="flex items-center gap-2 shrink-0">
@@ -1062,6 +1062,10 @@ const matches: Match[] = rows.map((r: any) => ({
         </button>
       )}
     </div>
+  ) : (
+    <span className="text-sm text-gray-600">Niezalogowany</span>
+  )}
+</div>
   ) : (
     <span className="hidden sm:inline text-sm text-gray-600">Niezalogowany</span>
   )}
