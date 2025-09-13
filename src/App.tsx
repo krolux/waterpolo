@@ -1079,7 +1079,7 @@ const matches: Match[] = rows.map((r: any) => ({
     alert("Błąd usuwania kary: " + e.message);
   }
 }
- return (<div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-slate-100 via-sky-200 to-[#0a1a3f] p-4 md:p-8">
+ return (<div className="min-h-screen bg-gradient-to-b from-slate-100 via-sky-200 to-[#0a1a3f] p-4 md:p-8">
    <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
   <div className="flex items-center gap-3">
     <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
