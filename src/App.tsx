@@ -822,6 +822,30 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
   );
 };
 
+const UserChip: React.FC<{
+  effectiveUser: { name: string; role: Role; club?: string } | null;
+  supaUser: any;
+  demoLogout: () => void;
+}> = ({ effectiveUser, supaUser, demoLogout }) => (
+  effectiveUser ? (
+    <div className="flex items-center gap-2 shrink-0">
+      <Badge tone="blue">
+        {effectiveUser.role}
+        {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
+      </Badge>
+      <span className="text-sm text-gray-700">{effectiveUser.name}</span>
+      {!supaUser && (
+        <button onClick={demoLogout} className={classes.btnSecondary}>
+          <LogOut className="w-4 h-4 inline mr-1" />
+          Wyloguj (demo)
+        </button>
+      )}
+    </div>
+  ) : (
+    <span className="text-sm text-gray-600">Niezalogowany</span>
+  )
+);
+
 export default function App(){
   const { userDisplay, role: sRole } = useSupabaseAuth()
   const supaUser = sRole !== 'Guest' ? { name: userDisplay, role: sRole as Role, club: undefined as string|undefined } : null
@@ -1058,14 +1082,14 @@ const matches: Match[] = rows.map((r: any) => ({
     </div>
   </div>
 
-  <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+   <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
     {/* LoginBox po lewej */}
     <div className="w-full sm:w-auto">
       <LoginBox classes={classes} />
     </div>
 
-    {/* Prawa część: badge użytkownika albo "Niezalogowany" */}
-    {effectiveUser ? (
+    {/* Prawa część: badge użytkownika */}
+    {effectiveUser && (
       <div className="flex items-center gap-2 shrink-0">
         <Badge tone="blue">
           {effectiveUser.role}
@@ -1079,7 +1103,10 @@ const matches: Match[] = rows.map((r: any) => ({
           </button>
         )}
       </div>
-    ) : (
+    )}
+
+    {/* Wersja dla niezalogowanego – osobny blok, bez ternary */}
+    {!effectiveUser && (
       <span className="text-sm text-gray-600">Niezalogowany</span>
     )}
   </div>
