@@ -272,11 +272,14 @@ function renderResult(m: Match) {
 )}
       </div>
 
-<div className="overflow-x-auto w-full">
-  <div className="sm:hidden text-[11px] text-gray-600 mb-1">
+<div
+  className="relative w-full overflow-x-auto overscroll-x-contain touch-pan-x"
+  style={{ WebkitOverflowScrolling: 'touch' }}
+>
+  <div className="sm:hidden text-[11px] text-gray-600 mb-1 px-2">
     Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
   </div>
-  <table className="min-w-[1200px] text-xs sm:text-sm table-auto">
+  <table className="table-auto w-max text-xs sm:text-sm">
 <thead className="sticky top-0 z-10 bg-white shadow-sm">
   <tr className="text-left border-b">
 <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Data</th>
@@ -791,7 +794,7 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
   return (
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
 <div
-  className="overflow-x-auto w-full touch-pan-x"
+  className="w-full overflow-x-auto overscroll-x-contain touch-pan-x"
   style={{ WebkitOverflowScrolling: 'touch' }}
 >
   <table className="table-auto w-max text-xs sm:text-sm">
