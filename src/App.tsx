@@ -276,21 +276,21 @@ function renderResult(m: Match) {
   <div className="sm:hidden text-[11px] text-gray-600 mb-1">
   Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
 </div>
-  <table className="w-full min-w-[1000px] text-xs sm:text-sm table-auto">
+  <table className="w-full min-w-full text-xs sm:text-sm table-auto">
   <thead className="sticky top-0 z-10 bg-white shadow-sm">
-  <tr className="text-left border-b">
-    <th scope="col" className="p-2">Data</th>
-    <th scope="col" className="p-2">Nr meczu</th>
-    <th scope="col" className="p-2">Miejsce</th>
-    <th scope="col" className="p-2">Gospodarz</th>
-    <th scope="col" className="p-2">Goście</th>
-    <th scope="col" className="p-2">Wynik</th>
-    <th scope="col" className="p-2">Sędziowie</th>
-    <th scope="col" className="p-2">Delegat</th>
-    <th scope="col" className="p-2">Kary (Gospodarz)</th>
-    <th scope="col" className="p-2">Kary (Goście)</th>
-    <th scope="col" className="p-2">Dokumenty</th>
-  </tr>
+<tr className="text-left border-b">
+  <th className="px-2 py-1 whitespace-nowrap w-0">Data</th>
+  <th className="px-2 py-1 whitespace-nowrap w-0">Nr meczu</th>
+  <th className="px-2 py-1">Miejsce</th>
+  <th className="px-2 py-1">Gospodarz</th>
+  <th className="px-2 py-1">Goście</th>
+  <th className="px-2 py-1 whitespace-nowrap w-0">Wynik</th>
+  <th className="px-2 py-1">Sędziowie</th>
+  <th className="px-2 py-1">Delegat</th>
+  <th className="px-2 py-1">Kary (Gospodarz)</th>
+  <th className="px-2 py-1">Kary (Goście)</th>
+  <th className="px-2 py-1">Dokumenty</th>
+</tr>
 </thead>
 
     <tbody>
@@ -300,27 +300,27 @@ function renderResult(m: Match) {
           className="border-b odd:bg-white even:bg-slate-50/60 hover:bg-sky-50 transition-colors"
         >
 {/* Data */}
-<td className="p-2 whitespace-nowrap">
+<td className="px-2 py-1 whitespace-nowrap w-0">
   {m.date}{m.time ? ` ${m.time}` : ""}
 </td>
 
 {/* Nr meczu */}
-<td className="p-2 whitespace-nowrap">{m.round ?? "-"}</td>
+<td className="px-2 py-1 whitespace-nowrap w-0">{m.round ?? "-"}</td>
 
 {/* Miejsce / Drużyny (WSZYSTKO WIDOCZNE TAKŻE NA MOBILE) */}
-<td className="p-2 whitespace-normal break-words">{m.location}</td>
-<td className="p-2 whitespace-normal break-words">{m.home}</td>
-<td className="p-2 whitespace-normal break-words">{m.away}</td>
+<td className="px-2 py-1 break-words">{m.location}</td>
+<td className="px-2 py-1 break-words">{m.home}</td>
+<td className="px-2 py-1 break-words">{m.away}</td>
 
 {/* Wynik */}
-<td className="p-2">{renderResult(m)}</td>
+<td className="px-2 py-1 whitespace-nowrap w-0">{renderResult(m)}</td>
 
 {/* Sędziowie / Delegat */}
-<td className="p-2">{m.referees.join(", ")}</td>
-<td className="p-2">{m.delegate ?? "-"}</td>
+<td className="px-2 py-1 break-words">{m.referees.join(", ")}</td>
+<td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
 
 {/* Kary (GOSPODARZ) */}
-<td className="p-2">
+<td className="px-2 py-1">
   <div className="flex flex-wrap gap-1">
     {(penaltyMap.get(m.id)?.home || []).map(p => (
       <span
@@ -345,7 +345,7 @@ function renderResult(m: Match) {
 </td>
 
 {/* Kary (GOŚCIE) */}
-<td className="p-2">
+<td className="px-2 py-1">
   <div className="flex flex-wrap gap-1">
     {(penaltyMap.get(m.id)?.away || []).map(p => (
       <span
@@ -371,7 +371,7 @@ function renderResult(m: Match) {
 
 
 {/* Dokumenty – NA KOŃCU, aby zgadzało się z thead */}
-<td className="p-2">
+<td className="px-2 py-1">
   <div className="flex flex-wrap gap-2">
     {m.commsByClub.home && (
       <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />
@@ -792,7 +792,7 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
 <div className="overflow-x-auto w-full touch-pan-x">
   
-  <table className="w-full min-w-[1000px] text-xs sm:text-sm table-auto">
+  <table className="w-full min-w-full text-xs sm:text-sm table-auto">
        <thead className="sticky top-0 z-10 bg-white shadow-sm">
   <tr className="text-left border-b bg-gray-50">
     <th className="p-2">Miejsce</th>
@@ -1074,7 +1074,7 @@ const matches: Match[] = rows.map((r: any) => ({
     alert("Błąd usuwania kary: " + e.message);
   }
 }
-  return (<div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 p-4 md:p-8">
+  return (<div className="min-h-screen bg-gradient-to-br from-slate-100 via-sky-200 to-sky-300 p-4 md:p-8">
    <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
   <div className="flex items-center gap-3">
     <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
