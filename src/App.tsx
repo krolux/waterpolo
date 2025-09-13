@@ -304,27 +304,25 @@ function renderResult(m: Match) {
 )}
       </div>
 
-<HorizontalScroller>
-
-  <table className="table-auto w-max text-xs sm:text-sm">
-    <thead className="bg-white">
-      <tr className="text-left border-b">
-        <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Data</th>
-        <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Nr meczu</th>
-
-        <th className="px-2 py-1 whitespace-normal break-words min-w-[140px]">Miejsce</th>
-        <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Gospodarz</th>
-        <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Goście</th>
-        <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Wynik</th>
-        <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Sędziowie</th>
-        <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Delegat</th>
-        <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Gospodarz)</th>
-        <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Goście)</th>
-        <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Dokumenty</th>
-      </tr>
-    </thead>
-
-    <tbody>
+<HorizontalScroller className="pb-2">
+<div className="min-w-[1200px]">
+    <table className="table-auto w-full text-xs sm:text-sm">
+      <thead className="bg-white">
+        <tr className="text-left border-b">
+          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Data</th>
+          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Nr meczu</th>
+          <th className="px-2 py-1 whitespace-normal break-words min-w-[140px]">Miejsce</th>
+          <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Gospodarz</th>
+          <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Goście</th>
+          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Wynik</th>
+          <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Sędziowie</th>
+          <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Delegat</th>
+          <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Gospodarz)</th>
+          <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Goście)</th>
+          <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Dokumenty</th>
+        </tr>
+      </thead>
+      <tbody>
       {filtered.map((m) => (
         <tr
           key={m.id}
@@ -428,6 +426,7 @@ function renderResult(m: Match) {
       ))}
     </tbody>
   </table>
+  </div>
 </HorizontalScroller>
     </Section>
   );
@@ -821,21 +820,20 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
 
   return (
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
-<div
-  className="w-full overflow-x-auto overscroll-x-contain touch-pan-x"
-  style={{ WebkitOverflowScrolling: 'touch' }}
->
-  <table className="table-auto w-max text-xs sm:text-sm">
-       <thead className="sticky top-0 z-10 bg-white shadow-sm">
-  <tr className="text-left border-b bg-gray-50">
-<th className="px-2 py-1 whitespace-nowrap w-0 text-center">Miejsce</th>
-<th className="px-2 py-1 whitespace-normal break-words max-w-[200px]">Drużyna</th>
-<th className="px-2 py-1 whitespace-nowrap w-0 text-center">Pkt</th>
-<th className="px-2 py-1 whitespace-nowrap w-0 text-center">M</th>
-<th className="px-2 py-1 whitespace-nowrap w-0 text-center">B</th>
-  </tr>
-</thead>
-          <tbody>
+<HorizontalScroller className="pb-2">
+  <div className="min-w-[900px]">
+    <table className="table-auto w-full text-xs sm:text-sm">
+      {/* jeśli „sticky” sprawia problemy na niektórych przeglądarkach, usuń sticky: */}
+      <thead className="bg-white shadow-sm">
+        <tr className="text-left border-b bg-gray-50">
+          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Miejsce</th>
+          <th className="px-2 py-1 whitespace-normal break-words max-w-[200px]">Drużyna</th>
+          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Pkt</th>
+          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">M</th>
+          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">B</th>
+        </tr>
+      </thead>
+      <tbody>
             {table.map((row, i) => (
   <tr
     key={row.team}
@@ -856,9 +854,10 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
 <td className="px-2 py-1 whitespace-nowrap w-0 text-center">{row.goalsFor}:{row.goalsAgainst}</td>
                                 </tr>
               ))}
-          </tbody>
-        </table>
-      </div>
+                </tbody>
+    </table>
+  </div>
+</HorizontalScroller>
     </Section>
   );
 };
