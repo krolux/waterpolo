@@ -288,9 +288,9 @@ function renderResult(m: Match) {
         <th scope="col" className="p-2 hidden sm:table-cell">Goście</th>
 
         <th scope="col" className="p-2">Wynik</th>
-        <th scope="col" className="p-2 hidden md:table-cell">Sędziowie</th>
-        <th scope="col" className="p-2 hidden md:table-cell">Delegat</th>
-        <th scope="col" className="p-2 hidden lg:table-cell">Dokumenty</th>
+        <th scope="col" className="p-2 hidden sm:table-cell">Sędziowie</th>
+<th scope="col" className="p-2 hidden sm:table-cell">Delegat</th>
+<th scope="col" className="p-2 hidden sm:table-cell">Dokumenty</th>
 
        {user && (
   <>
