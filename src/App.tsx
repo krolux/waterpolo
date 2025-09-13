@@ -195,8 +195,7 @@ const MatchesTable: React.FC<{
   onRemovePenalty: (id: string) => void;
 }> = ({ state, setState, user, onRefresh, loading, penaltyMap, onRemovePenalty }) => {
 const [q, setQ] = useState("");
-const defaultSortKey: "date" | "round" = user?.role === "Guest" ? "round" : "date";
-const [sortKey, setSortKey] = useState<"date" | "round">(defaultSortKey);
+const [sortKey, setSortKey] = useState<"date" | "round">("round");
 const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
 const sorted = useMemo(() => {
