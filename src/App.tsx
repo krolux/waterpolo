@@ -272,26 +272,31 @@ function renderResult(m: Match) {
 )}
       </div>
 
-<div className="w-full overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+<div
+  className="w-full overflow-x-scroll touch-pan-x"
+  style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pinch-zoom' }}
+>
+  <div className="sm:hidden text-[11px] text-gray-600 mb-1 px-2">
+    Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
+  </div>
 
+  <table className="table-auto w-max text-xs sm:text-sm">
+    <thead className="md:sticky top-0 z-10 bg-white shadow-sm touch-pan-x">
+      <tr className="text-left border-b">
+        <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Data</th>
+        <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Nr meczu</th>
 
-    <table className="table-auto w-full text-xs sm:text-sm">
-<thead className="sticky top-0 z-10 bg-white shadow-sm">
-  <tr className="text-left border-b">
-<th className="px-2 py-1 whitespace-nowrap w-0 text-center">Data</th>
-<th className="px-2 py-1 whitespace-nowrap w-0 text-center">Nr meczu</th>
-
-<th className="px-2 py-1 whitespace-normal break-words min-w-[140px]">Miejsce</th>
-<th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Gospodarz</th>
-<th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Goście</th>
-    <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Wynik</th>
-<th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Sędziowie</th>
-<th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Delegat</th>
-<th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Gospodarz)</th>
-<th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Goście)</th>
-<th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Dokumenty</th>
-  </tr>
-</thead>
+        <th className="px-2 py-1 whitespace-normal break-words min-w-[140px]">Miejsce</th>
+        <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Gospodarz</th>
+        <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Goście</th>
+        <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Wynik</th> 
+        <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Sędziowie</th>
+        <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Delegat</th>
+        <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Gospodarz)</th>
+        <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Goście)</th>
+        <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Dokumenty</th>
+      </tr>
+    </thead>
 
     <tbody>
       {filtered.map((m) => (
