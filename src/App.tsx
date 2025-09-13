@@ -21,6 +21,38 @@ const classes = {
   pill: "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white",
 };
 
+const HorizontalScroller: React.FC<React.PropsWithChildren<{ className?: string }>> = ({ className, children }) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        el.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={clsx("w-full overflow-x-auto", className)}
+      style={{
+        WebkitOverflowScrolling: "touch",
+        touchAction: "pan-x pinch-zoom",
+        overscrollBehaviorX: "contain",
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
 type Role = SupaRole;
 type SectionProps = PropsWithChildren<{ title: string; icon?: React.ReactNode; className?: string }>;
 const Section: React.FC<SectionProps> = ({ title, icon, children, className }) => (
@@ -272,16 +304,10 @@ function renderResult(m: Match) {
 )}
       </div>
 
-<div
-  className="w-full overflow-x-scroll touch-pan-x"
-  style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pinch-zoom' }}
->
-  <div className="sm:hidden text-[11px] text-gray-600 mb-1 px-2">
-    Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
-  </div>
+<HorizontalScroller>
 
   <table className="table-auto w-max text-xs sm:text-sm">
-    <thead className="md:sticky top-0 z-10 bg-white shadow-sm touch-pan-x">
+    <thead className="bg-white">
       <tr className="text-left border-b">
         <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Data</th>
         <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Nr meczu</th>
@@ -289,7 +315,7 @@ function renderResult(m: Match) {
         <th className="px-2 py-1 whitespace-normal break-words min-w-[140px]">Miejsce</th>
         <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Gospodarz</th>
         <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Goście</th>
-        <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Wynik</th> 
+        <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Wynik</th>
         <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Sędziowie</th>
         <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Delegat</th>
         <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Gospodarz)</th>
@@ -402,7 +428,7 @@ function renderResult(m: Match) {
       ))}
     </tbody>
   </table>
-</div>
+</HorizontalScroller>
     </Section>
   );
 };
