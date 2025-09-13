@@ -274,23 +274,23 @@ function renderResult(m: Match) {
 
 <div className="overflow-x-auto w-full touch-pan-x">
   <div className="sm:hidden text-[11px] text-gray-600 mb-1">
-  Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
-</div>
-  <table className="w-full min-w-full text-xs sm:text-sm table-auto">
-  <thead className="sticky top-0 z-10 bg-white shadow-sm">
-<tr className="text-left border-b">
-  <th className="px-2 py-1 whitespace-nowrap w-0">Data</th>
-  <th className="px-2 py-1 whitespace-nowrap w-0">Nr meczu</th>
-  <th className="px-2 py-1">Miejsce</th>
-  <th className="px-2 py-1">Gospodarz</th>
-  <th className="px-2 py-1">Goście</th>
-  <th className="px-2 py-1 whitespace-nowrap w-0">Wynik</th>
-  <th className="px-2 py-1">Sędziowie</th>
-  <th className="px-2 py-1">Delegat</th>
-  <th className="px-2 py-1">Kary (Gospodarz)</th>
-  <th className="px-2 py-1">Kary (Goście)</th>
-  <th className="px-2 py-1">Dokumenty</th>
-</tr>
+    Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
+  </div>
+  <table className="table-auto w-max min-w-full text-xs sm:text-sm">
+<thead className="sticky top-0 z-10 bg-white shadow-sm">
+  <tr className="text-left border-b">
+    <th className="px-2 py-1 whitespace-nowrap w-0">Data</th>
+    <th className="px-2 py-1 whitespace-nowrap w-0">Nr meczu</th>
+    <th className="px-2 py-1">Miejsce</th>
+    <th className="px-2 py-1">Gospodarz</th>
+    <th className="px-2 py-1">Goście</th>
+    <th className="px-2 py-1 whitespace-nowrap w-0">Wynik</th>
+    <th className="px-2 py-1">Sędziowie</th>
+    <th className="px-2 py-1">Delegat</th>
+    <th className="px-2 py-1">Kary (Gospodarz)</th>
+    <th className="px-2 py-1">Kary (Goście)</th>
+    <th className="px-2 py-1">Dokumenty</th>
+  </tr>
 </thead>
 
     <tbody>
@@ -316,7 +316,7 @@ function renderResult(m: Match) {
 <td className="px-2 py-1 whitespace-nowrap w-0">{renderResult(m)}</td>
 
 {/* Sędziowie / Delegat */}
-<td className="px-2 py-1 break-words">{m.referees.join(", ")}</td>
+<td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
 <td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
 
 {/* Kary (GOSPODARZ) */}
@@ -791,15 +791,14 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
   return (
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
 <div className="overflow-x-auto w-full touch-pan-x">
-  
-  <table className="w-full min-w-full text-xs sm:text-sm table-auto">
+  <table className="table-auto w-max min-w-full text-xs sm:text-sm">
        <thead className="sticky top-0 z-10 bg-white shadow-sm">
   <tr className="text-left border-b bg-gray-50">
-    <th className="p-2">Miejsce</th>
-    <th className="p-2">Drużyna</th>
-    <th className="p-2">Pkt</th>
-    <th className="p-2">M</th>
-    <th className="p-2">B</th>
+<th className="px-2 py-1 whitespace-nowrap w-0">Miejsce</th>
+<th className="px-2 py-1">Drużyna</th>
+<th className="px-2 py-1 whitespace-nowrap w-0">Pkt</th>
+<th className="px-2 py-1 whitespace-nowrap w-0">M</th>
+<th className="px-2 py-1 whitespace-nowrap w-0">B</th>
   </tr>
 </thead>
           <tbody>
@@ -816,11 +815,11 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
       i === 2 && "!bg-orange-200"
     )}
   >
-                  <td className="p-2">{i + 1}</td>
-                  <td className="p-2">{row.team}</td>
-                  <td className="p-2">{row.pts}</td>
-                  <td className="p-2">{row.played}</td>
-                  <td className="p-2">{row.goalsFor}:{row.goalsAgainst}</td>
+                 <td className="px-2 py-1 whitespace-nowrap w-0">{i + 1}</td>
+<td className="px-2 py-1">{row.team}</td>
+<td className="px-2 py-1 whitespace-nowrap w-0">{row.pts}</td>
+<td className="px-2 py-1 whitespace-nowrap w-0">{row.played}</td>
+<td className="px-2 py-1 whitespace-nowrap w-0">{row.goalsFor}:{row.goalsAgainst}</td>
                                 </tr>
               ))}
           </tbody>
@@ -1074,7 +1073,7 @@ const matches: Match[] = rows.map((r: any) => ({
     alert("Błąd usuwania kary: " + e.message);
   }
 }
-  return (<div className="min-h-screen bg-gradient-to-br from-slate-100 via-sky-200 to-sky-300 p-4 md:p-8">
+  return (<div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-slate-100 via-sky-200 to-[#0a1a3f] bg-fixed p-4 md:p-8">
    <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
   <div className="flex items-center gap-3">
     <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
