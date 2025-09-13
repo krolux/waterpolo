@@ -305,7 +305,7 @@ function renderResult(m: Match) {
       </div>
 
 <HorizontalScroller className="pb-2">
-<div className="min-w-[1200px]">
+<div style={{ minWidth: 1200 }}>
     <table className="table-auto w-full text-xs sm:text-sm">
       <thead className="bg-white">
         <tr className="text-left border-b">
@@ -545,7 +545,7 @@ const PerMatchActions: React.FC<{
   return (
     <div className="grid gap-4">
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-600">Wybierz mecz:</span>
+        <span className="text-sm text-amber-700">Wybierz mecz:</span>
         <select className={classes.input} value={selectedId} onChange={e => setSelectedId(e.target.value)}>
           {state.matches.map(m => (
             <option key={m.id} value={m.id}>
@@ -821,7 +821,7 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
   return (
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
 <HorizontalScroller className="pb-2">
-  <div className="min-w-[900px]">
+  <div style={{ minWidth: 900 }}>
     <table className="table-auto w-full text-xs sm:text-sm">
       {/* jeśli „sticky” sprawia problemy na niektórych przeglądarkach, usuń sticky: */}
       <thead className="bg-white shadow-sm">
@@ -923,6 +923,13 @@ async function refreshPenalties() {
 
 // ładujemy kary przy starcie
 useEffect(() => { refreshPenalties(); }, []);
+
+  // po zmianie roli/sesji dociągnij kary jeszcze raz (ważne, gdy początkowo był Guest)
+useEffect(() => {
+  if (effectiveUser && effectiveUser.role !== "Guest") {
+    refreshPenalties();
+  }
+}, [effectiveUser?.role]);
 
 // Wylicz: dla każdego meczu listy kar (z id) dla gospodarzy i gości,
 // przy czym kara zaczyna obowiązywać OD NASTĘPNEGO meczu tej drużyny.
