@@ -812,9 +812,8 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
                   <td className="p-2">{row.pts}</td>
                   <td className="p-2">{row.played}</td>
                   <td className="p-2">{row.goalsFor}:{row.goalsAgainst}</td>
-                </tr>
-              );
-            })}
+                                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -1083,12 +1082,12 @@ const matches: Match[] = rows.map((r: any) => ({
   </div>
 
    <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-    {/* LoginBox po lewej */}
+    
     <div className="w-full sm:w-auto">
       <LoginBox classes={classes} />
     </div>
 
-    {/* Prawa część: badge użytkownika */}
+    
     {effectiveUser && (
       <div className="flex items-center gap-2 shrink-0">
         <Badge tone="blue">
