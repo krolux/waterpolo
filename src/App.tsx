@@ -272,14 +272,11 @@ function renderResult(m: Match) {
 )}
       </div>
 
-<div
-  className="relative max-w-full overflow-x-auto touch-pan-x"
-  style={{ WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain' }}
->
+<div className="overflow-x-auto w-full">
   <div className="sm:hidden text-[11px] text-gray-600 mb-1">
     Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
   </div>
-  <table className="table-fixed min-w-[1200px] text-xs sm:text-sm">
+  <table className="min-w-[1200px] text-xs sm:text-sm table-auto">
 <thead className="sticky top-0 z-10 bg-white shadow-sm">
   <tr className="text-left border-b">
 <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Data</th>
