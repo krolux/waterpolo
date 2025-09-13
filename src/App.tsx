@@ -843,15 +843,38 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
       <div className="overflow-x-auto">
        <table className="w-full text-xs sm:text-sm table-auto">
-          <thead className="sticky top-0 z-10 bg-white shadow-sm">
-            <tr className="text-left border-b bg-gray-50">
-              <th className="p-2">Miejsce</th>
-              <th className="p-2">Drużyna</th>
-              <th className="p-2">Pkt</th>
-              <th className="p-2">M</th>
-              <th className="p-2">B</th>
-            </tr>
-          </thead>
+         <thead className="sticky top-0 z-10 bg-white shadow-sm">
+  <tr className="text-left border-b">
+    <th scope="col" className="p-2">Data</th>
+    <th scope="col" className="p-2">Nr meczu</th>
+
+    {/* MOBILE */}
+    <th scope="col" className="p-2 sm:hidden">Mecz</th>
+
+    {/* DESKTOP */}
+    <th scope="col" className="p-2 hidden sm:table-cell">Miejsce</th>
+    <th scope="col" className="p-2 hidden sm:table-cell">Gospodarz</th>
+    <th scope="col" className="p-2 hidden sm:table-cell">Goście</th>
+
+    <th scope="col" className="p-2">Wynik</th>
+
+    <th scope="col" className="p-2 hidden sm:table-cell">Sędziowie</th>
+    <th scope="col" className="p-2 hidden sm:table-cell">Delegat</th>
+
+    <th scope="col" className="p-2 hidden sm:table-cell">Dokumenty</th>
+
+    {user && (
+      <>
+        {/* MOBILE */}
+        <th scope="col" className="p-2 sm:hidden">Kary</th>
+
+        {/* DESKTOP */}
+        <th scope="col" className="p-2 hidden sm:table-cell">Kary (Gospodarz)</th>
+        <th scope="col" className="p-2 hidden sm:table-cell">Kary (Goście)</th>
+      </>
+    )}
+  </tr>
+</thead>
           <tbody>
             {table.map((row, i) => (
   <tr
