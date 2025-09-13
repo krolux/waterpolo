@@ -1043,34 +1043,47 @@ const matches: Match[] = rows.map((r: any) => ({
   }
 }
   return (<div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 p-4 md:p-8">
-    <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between
-  bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
-      <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center"><Users className="w-5 h-5"/></div>
-        <div><h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">Kolegium Sędziów Piłki Wodnej – Portal</h1><p className="text-sm text-gray-600">Tabela meczów • Dokumenty klubów • Raporty delegatów</p></div></div>
-<div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-  <LoginBox classes={classes} />
-  {effectiveUser ? (
-    <div className="flex items-center gap-2 shrink-0">
-      <Badge tone="blue">
-        {effectiveUser.role}{effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
-      </Badge>
-      <span className="text-sm text-gray-700">{effectiveUser.name}</span>
-      {!supaUser && (
-        <button onClick={demoLogout} className={classes.btnSecondary}>
-          <LogOut className="w-4 h-4 inline mr-1" />
-          Wyloguj (demo)
-        </button>
-      )}
+   <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
+  <div className="flex items-center gap-3">
+    <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
+      <Users className="w-5 h-5" />
     </div>
-  ) : (
-    <span className="text-sm text-gray-600">Niezalogowany</span>
-  )}
-</div>
-  ) : (
-    <span className="hidden sm:inline text-sm text-gray-600">Niezalogowany</span>
-  )}
-</div>
-    </header>
+    <div>
+      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">
+        Kolegium Sędziów Piłki Wodnej – Portal
+      </h1>
+      <p className="text-sm text-gray-600">
+        Tabela meczów • Dokumenty klubów • Raporty delegatów
+      </p>
+    </div>
+  </div>
+
+  <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+    {/* LoginBox po lewej */}
+    <div className="w-full sm:w-auto">
+      <LoginBox classes={classes} />
+    </div>
+
+    {/* Prawa część: badge użytkownika albo "Niezalogowany" */}
+    {effectiveUser ? (
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge tone="blue">
+          {effectiveUser.role}
+          {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
+        </Badge>
+        <span className="text-sm text-gray-700">{effectiveUser.name}</span>
+        {!supaUser && (
+          <button onClick={demoLogout} className={classes.btnSecondary}>
+            <LogOut className="w-4 h-4 inline mr-1" />
+            Wyloguj (demo)
+          </button>
+        )}
+      </div>
+    ) : (
+      <span className="text-sm text-gray-600">Niezalogowany</span>
+    )}
+  </div>
+</header>
 
     <main className="max-w-6xl mx-auto grid gap-6">
       {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin}/>}
