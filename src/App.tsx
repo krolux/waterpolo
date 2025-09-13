@@ -292,12 +292,16 @@ function renderResult(m: Match) {
         <th scope="col" className="p-2 hidden md:table-cell">Delegat</th>
         <th scope="col" className="p-2 hidden lg:table-cell">Dokumenty</th>
 
-        {user && (
-          <>
-            <th scope="col" className="p-2 hidden lg:table-cell">Kary (Gospodarz)</th>
-            <th scope="col" className="p-2 hidden lg:table-cell">Kary (Goście)</th>
-          </>
-        )}
+       {user && (
+  <>
+    {/* MOBILE: jedna kolumna „Kary” */}
+    <th scope="col" className="p-2 md:hidden">Kary</th>
+
+    {/* DESKTOP od md: dwie osobne kolumny */}
+    <th scope="col" className="p-2 hidden md:table-cell">Kary (Gospodarz)</th>
+    <th scope="col" className="p-2 hidden md:table-cell">Kary (Goście)</th>
+  </>
+)}
       </tr>
     </thead>
 
@@ -355,35 +359,91 @@ function renderResult(m: Match) {
           </td>
 
           {/* Kary */}
-          {user && (
-            <>
-              <td className="p-2 hidden lg:table-cell">
-                <div className="flex flex-wrap gap-1">
-                  {(penaltyMap.get(m.id)?.home || []).map(p => (
-                    <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")} title="Kara">
-                      {p.name}
-                      {(user.role === 'Admin' || user.role === 'Delegate') && (
-                        <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </td>
+         {user && (
+  <>
+    {/* MOBILE: jedna kolumna z tymi samymi „pigułkami” (H i G razem) */}
+    <td className="p-2 md:hidden">
+      <div className="flex flex-wrap gap-1">
+        {(penaltyMap.get(m.id)?.home || []).map(p => (
+          <span
+            key={`h-${p.id}`}
+            className={clsx(
+              classes.pill,
+              "border-red-300 text-red-700 bg-red-50 flex items-center gap-1"
+            )}
+            title="Kara – gospodarze"
+          >
+            <span className="font-semibold">H:</span> {p.name}
+            {(user.role === 'Admin' || user.role === 'Delegate') && (
+              <button
+                onClick={() => onRemovePenalty(p.id)}
+                className="ml-1 rounded px-1 leading-none hover:bg-red-100"
+                title="Usuń karę"
+              >
+                ×
+              </button>
+            )}
+          </span>
+        ))}
 
-              <td className="p-2 hidden lg:table-cell">
-                <div className="flex flex-wrap gap-1">
-                  {(penaltyMap.get(m.id)?.away || []).map(p => (
-                    <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")} title="Kara">
-                      {p.name}
-                      {(user.role === 'Admin' || user.role === 'Delegate') && (
-                        <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </td>
-            </>
-          )}
+        {(penaltyMap.get(m.id)?.away || []).map(p => (
+          <span
+            key={`a-${p.id}`}
+            className={clsx(
+              classes.pill,
+              "border-red-300 text-red-700 bg-red-50 flex items-center gap-1"
+            )}
+            title="Kara – goście"
+          >
+            <span className="font-semibold">G:</span> {p.name}
+            {(user.role === 'Admin' || user.role === 'Delegate') && (
+              <button
+                onClick={() => onRemovePenalty(p.id)}
+                className="ml-1 rounded px-1 leading-none hover:bg-red-100"
+                title="Usuń karę"
+              >
+                ×
+              </button>
+            )}
+          </span>
+        ))}
+
+        {/* brak kar */}
+        {((penaltyMap.get(m.id)?.home || []).length === 0 &&
+          (penaltyMap.get(m.id)?.away || []).length === 0) && (
+          <span className="text-gray-500">–</span>
+        )}
+      </div>
+    </td>
+
+    {/* DESKTOP od md: dwie osobne kolumny jak wcześniej */}
+    <td className="p-2 hidden md:table-cell">
+      <div className="flex flex-wrap gap-1">
+        {(penaltyMap.get(m.id)?.home || []).map(p => (
+          <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")} title="Kara">
+            {p.name}
+            {(user.role === 'Admin' || user.role === 'Delegate') && (
+              <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+            )}
+          </span>
+        ))}
+      </div>
+    </td>
+
+    <td className="p-2 hidden md:table-cell">
+      <div className="flex flex-wrap gap-1">
+        {(penaltyMap.get(m.id)?.away || []).map(p => (
+          <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")} title="Kara">
+            {p.name}
+            {(user.role === 'Admin' || user.role === 'Delegate') && (
+              <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+            )}
+          </span>
+        ))}
+      </div>
+    </td>
+  </>
+)}
         </tr>
       ))}
     </tbody>
