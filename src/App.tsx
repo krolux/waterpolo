@@ -272,8 +272,11 @@ function renderResult(m: Match) {
 )}
       </div>
 
-<div className="overflow-x-auto">
-  <table className="w-full min-w-[1100px] text-xs sm:text-sm table-auto">
+<div className="overflow-x-auto w-full touch-pan-x">
+  <div className="sm:hidden text-[11px] text-gray-600 mb-1">
+  Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
+</div>
+  <table className="w-full min-w-[1000px] text-xs sm:text-sm table-auto">
   <thead className="sticky top-0 z-10 bg-white shadow-sm">
   <tr className="text-left border-b">
     <th scope="col" className="p-2">Data</th>
@@ -365,9 +368,7 @@ function renderResult(m: Match) {
     {((penaltyMap.get(m.id)?.away || []).length === 0) && <span className="text-gray-500">–</span>}
   </div>
 </td>
-) : (
-  <td className="p-2">–</td>
-)}
+
 
 {/* Dokumenty – NA KOŃCU, aby zgadzało się z thead */}
 <td className="p-2">
@@ -789,8 +790,9 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
 
   return (
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
-      <div className="overflow-x-auto">
-       <table className="w-full min-w-[1100px] text-xs sm:text-sm table-auto">
+<div className="overflow-x-auto w-full touch-pan-x">
+  
+  <table className="w-full min-w-[1000px] text-xs sm:text-sm table-auto">
        <thead className="sticky top-0 z-10 bg-white shadow-sm">
   <tr className="text-left border-b bg-gray-50">
     <th className="p-2">Miejsce</th>
@@ -1072,7 +1074,7 @@ const matches: Match[] = rows.map((r: any) => ({
     alert("Błąd usuwania kary: " + e.message);
   }
 }
-  return (<div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 p-4 md:p-8 overflow-x-hidden">
+  return (<div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 p-4 md:p-8">
    <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
   <div className="flex items-center gap-3">
     <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
