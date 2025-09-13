@@ -272,24 +272,30 @@ function renderResult(m: Match) {
 )}
       </div>
 
-<div className="overflow-x-auto w-full touch-pan-x">
+<div
+  className="overflow-x-auto w-full touch-pan-x"
+  style={{ WebkitOverflowScrolling: 'touch' }}   // iOS: płynny scroll poziomy
+>
   <div className="sm:hidden text-[11px] text-gray-600 mb-1">
     Przewiń w prawo, aby zobaczyć kolumny „Kary” i „Dokumenty” →
   </div>
-  <table className="table-auto w-max min-w-full text-xs sm:text-sm">
+  <table className="table-auto w-max text-xs sm:text-sm">
 <thead className="sticky top-0 z-10 bg-white shadow-sm">
   <tr className="text-left border-b">
-    <th className="px-2 py-1 whitespace-nowrap w-0">Data</th>
-    <th className="px-2 py-1 whitespace-nowrap w-0">Nr meczu</th>
-    <th className="px-2 py-1">Miejsce</th>
-    <th className="px-2 py-1">Gospodarz</th>
-    <th className="px-2 py-1">Goście</th>
-    <th className="px-2 py-1 whitespace-nowrap w-0">Wynik</th>
-    <th className="px-2 py-1">Sędziowie</th>
-    <th className="px-2 py-1">Delegat</th>
-    <th className="px-2 py-1">Kary (Gospodarz)</th>
-    <th className="px-2 py-1">Kary (Goście)</th>
-    <th className="px-2 py-1">Dokumenty</th>
+<th className="px-2 py-1 whitespace-nowrap w-0 text-center">Data</th>
+<th className="px-2 py-1 whitespace-nowrap w-0 text-center">Nr meczu</th>
+
+<th className="px-2 py-1 whitespace-normal break-words max-w-[140px]">Miejsce</th>
+<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Gospodarz</th>
+<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Goście</th>
+
+<th className="px-2 py-1 whitespace-nowrap w-0 text-center">Wynik</th>
+
+<th className="px-2 py-1 whitespace-normal break-words max-w-[180px]">Sędziowie</th>
+<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Delegat</th>
+<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Kary (Gospodarz)</th>
+<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Kary (Goście)</th>
+<th className="px-2 py-1 whitespace-normal break-words max-w-[160px]">Dokumenty</th>
   </tr>
 </thead>
 
@@ -308,16 +314,16 @@ function renderResult(m: Match) {
 <td className="px-2 py-1 whitespace-nowrap w-0">{m.round ?? "-"}</td>
 
 {/* Miejsce / Drużyny (WSZYSTKO WIDOCZNE TAKŻE NA MOBILE) */}
-<td className="px-2 py-1 break-words">{m.location}</td>
-<td className="px-2 py-1 break-words">{m.home}</td>
-<td className="px-2 py-1 break-words">{m.away}</td>
+<td className="px-2 py-1 break-words max-w-[140px]">{m.location}</td>
+<td className="px-2 py-1 break-words max-w-[160px]">{m.home}</td>
+<td className="px-2 py-1 break-words max-w-[160px]">{m.away}</td>
 
 {/* Wynik */}
 <td className="px-2 py-1 whitespace-nowrap w-0">{renderResult(m)}</td>
 
 {/* Sędziowie / Delegat */}
-<td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
-<td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
+<td className="px-2 py-1 break-words max-w-[180px]">{m.referees.join(", ")}</td>
+<td className="px-2 py-1 break-words max-w-[160px]">{m.delegate ?? "-"}</td>
 
 {/* Kary (GOSPODARZ) */}
 <td className="px-2 py-1">
