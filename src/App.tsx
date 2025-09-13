@@ -273,7 +273,7 @@ function renderResult(m: Match) {
       </div>
 
 <div className="overflow-x-auto">
-  <table className="w-full text-xs sm:text-sm table-fixed">
+  <table className="w-full text-xs sm:text-sm table-auto">
     <thead className="sticky top-0 z-10 bg-white shadow-sm">
       <tr className="text-left border-b">
         <th scope="col" className="p-2">Data</th>
@@ -321,10 +321,9 @@ function renderResult(m: Match) {
           </td>
 
           {/* DESKTOP */}
-          <td className="p-2 hidden sm:table-cell">{m.location}</td>
-          <td className="p-2 hidden sm:table-cell">{m.home}</td>
-          <td className="p-2 hidden sm:table-cell">{m.away}</td>
-
+         <td className="p-2 hidden sm:table-cell whitespace-normal break-words">{m.location}</td>
+<td className="p-2 hidden sm:table-cell whitespace-normal break-words">{m.home}</td>
+<td className="p-2 hidden sm:table-cell whitespace-normal break-words">{m.away}</td>
           {/* Wynik */}
           <td className="p-2">{renderResult(m)}</td>
 
@@ -783,7 +782,7 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
   return (
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
       <div className="overflow-x-auto">
-       <table className="w-full text-xs sm:text-sm table-fixed">
+       <table className="w-full text-xs sm:text-sm table-auto">
           <thead className="sticky top-0 z-10 bg-white shadow-sm">
             <tr className="text-left border-b bg-gray-50">
               <th className="p-2">Miejsce</th>
