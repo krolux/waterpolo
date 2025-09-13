@@ -194,9 +194,10 @@ const MatchesTable: React.FC<{
   penaltyMap: Map<string, { home: { id: string; name: string }[]; away: { id: string; name: string }[] }>;
   onRemovePenalty: (id: string) => void;
 }> = ({ state, setState, user, onRefresh, loading, penaltyMap, onRemovePenalty }) => {
-  const [q, setQ] = useState("");
-  const [sortKey, setSortKey] = useState<"date" | "round">("date");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+const [q, setQ] = useState("");
+const defaultSortKey: "date" | "round" = user?.role === "Guest" ? "round" : "date";
+const [sortKey, setSortKey] = useState<"date" | "round">(defaultSortKey);
+const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
 const sorted = useMemo(() => {
   const arr = [...state.matches];
@@ -304,8 +305,8 @@ function renderResult(m: Match) {
 )}
       </div>
 
-<HorizontalScroller>
-{/* MOBILE: karty zamiast tabeli */}
+
+{/* MOBILE: karty */}
 <div className="md:hidden space-y-3">
   {filtered.map((m) => {
     const homePens = penaltyMap.get(m.id)?.home || [];
@@ -313,26 +314,28 @@ function renderResult(m: Match) {
     return (
       <div key={m.id} className="rounded-xl border bg-white p-3 shadow-sm">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-xs text-gray-500">
+          <div className="min-w-0">
+            <div className="text-xs text-gray-500 truncate">
               {m.date}{m.time ? ` ${m.time}` : ""} • {m.location}
             </div>
-            <div className="font-medium">{m.home} vs {m.away}</div>
-            <div className="text-xs text-gray-600">
+            <div className="font-medium break-words">{m.home} vs {m.away}</div>
+            <div className="text-xs text-gray-600 break-words">
               Sędziowie: {m.referees.filter(Boolean).join(", ") || "–"}
               {m.delegate ? ` • Delegat: ${m.delegate}` : ""}
             </div>
           </div>
-          <div className="text-right text-sm font-semibold">
+          <div className="text-right text-sm font-semibold shrink-0">
             {renderResult(m)}
           </div>
         </div>
 
-        {/* Kary */}
+        {/* Kary – tylko dla zalogowanych */}
         <div className="mt-2 grid grid-cols-1 gap-2">
           <div className="text-xs">
             <span className="font-semibold">Kary (Gospodarz): </span>
-            {homePens.length === 0 ? (
+            {user?.role === "Guest" ? (
+              <span className="text-gray-500">–</span>
+            ) : homePens.length === 0 ? (
               <span className="text-gray-500">–</span>
             ) : (
               <span className="inline-flex flex-wrap gap-1 align-top">
@@ -340,13 +343,7 @@ function renderResult(m: Match) {
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
                     {(user?.role === 'Admin' || user?.role === 'Delegate') && (
-                      <button
-                        onClick={() => onRemovePenalty(p.id)}
-                        className="ml-1 rounded px-1 leading-none hover:bg-red-100"
-                        title="Usuń karę"
-                      >
-                        ×
-                      </button>
+                      <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
                     )}
                   </span>
                 ))}
@@ -356,7 +353,9 @@ function renderResult(m: Match) {
 
           <div className="text-xs">
             <span className="font-semibold">Kary (Goście): </span>
-            {awayPens.length === 0 ? (
+            {user?.role === "Guest" ? (
+              <span className="text-gray-500">–</span>
+            ) : awayPens.length === 0 ? (
               <span className="text-gray-500">–</span>
             ) : (
               <span className="inline-flex flex-wrap gap-1 align-top">
@@ -364,13 +363,7 @@ function renderResult(m: Match) {
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
                     {(user?.role === 'Admin' || user?.role === 'Delegate') && (
-                      <button
-                        onClick={() => onRemovePenalty(p.id)}
-                        className="ml-1 rounded px-1 leading-none hover:bg-red-100"
-                        title="Usuń karę"
-                      >
-                        ×
-                      </button>
+                      <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
                     )}
                   </span>
                 ))}
@@ -381,23 +374,12 @@ function renderResult(m: Match) {
 
         {/* Dokumenty */}
         <div className="mt-2 flex flex-wrap gap-2">
-          {m.commsByClub.home && (
-            <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />
-          )}
-          {m.rosterByClub.home && (
-            <DocBadge file={m.rosterByClub.home} label="Skład (Home)" disabled={!canDownload} />
-          )}
-          {m.rosterByClub.away && (
-            <DocBadge file={m.rosterByClub.away} label="Skład (Away)" disabled={!canDownload} />
-          )}
-          {m.matchReport && (
-            <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload} />
-          )}
+          {m.commsByClub.home && <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />}
+          {m.rosterByClub.home && <DocBadge file={m.rosterByClub.home} label="Skład (Home)" disabled={!canDownload} />}
+          {m.rosterByClub.away && <DocBadge file={m.rosterByClub.away} label="Skład (Away)" disabled={!canDownload} />}
+          {m.matchReport && <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload} />}
           {m.reportPhotos.length > 0 && (
-            <span className={classes.pill}>
-              <Image className="w-3.5 h-3.5" />
-              Zdjęcia: {m.reportPhotos.length}
-            </span>
+            <span className={classes.pill}><Image className="w-3.5 h-3.5" />Zdjęcia: {m.reportPhotos.length}</span>
           )}
         </div>
       </div>
@@ -405,42 +387,45 @@ function renderResult(m: Match) {
   })}
 </div>
 
-{/* DESKTOP: klasyczna tabela */}
+{/* DESKTOP: tabela bez scrolla, węższe kolumny + zawijanie */}
 <div className="hidden md:block">
-  <div className="w-full overflow-x-auto">
-    <table className="table-auto min-w-[1100px] w-full text-xs sm:text-sm">
-      <thead className="sticky top-0 z-10 bg-white shadow-sm">
-        <tr className="text-left border-b">
-          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Data</th>
-          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Nr meczu</th>
-          <th className="px-2 py-1 whitespace-normal break-words min-w-[140px]">Miejsce</th>
-          <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Gospodarz</th>
-          <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Goście</th>
-          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Wynik</th>
-          <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Sędziowie</th>
-          <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Delegat</th>
-          <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Gospodarz)</th>
-          <th className="px-2 py-1 whitespace-normal break-words min-w-[180px]">Kary (Goście)</th>
-          <th className="px-2 py-1 whitespace-normal break-words min-w-[160px]">Dokumenty</th>
-        </tr>
-      </thead>
+  <table className="table-auto w-full text-xs sm:text-sm">
+    <thead className="bg-white">
+      <tr className="text-left border-b">
+        <th className="px-2 py-1 whitespace-nowrap w-[90px] text-center">Data</th>
+        <th className="px-2 py-1 whitespace-nowrap w-[64px] text-center">Nr</th>
+        <th className="px-2 py-1 break-words w-[120px]">Miejsce</th>
+        <th className="px-2 py-1 break-words w-[150px]">Gospodarz</th>
+        <th className="px-2 py-1 break-words w-[150px]">Goście</th>
+        <th className="px-2 py-1 whitespace-nowrap w-[72px] text-center">Wynik</th>
+        <th className="px-2 py-1 break-words w-[160px]">Sędziowie</th>
+        <th className="px-2 py-1 break-words w-[120px]">Delegat</th>
+        <th className="px-2 py-1 break-words w-[140px]">Kary (Gospodarz)</th>
+        <th className="px-2 py-1 break-words w-[140px]">Kary (Goście)</th>
+        <th className="px-2 py-1 break-words w-[140px]">Dokumenty</th>
+      </tr>
+    </thead>
 
-      <tbody>
-        {filtered.map((m) => (
-          <tr key={m.id} className="border-b odd:bg-white even:bg-slate-50/60 hover:bg-sky-50 transition-colors">
-            <td className="px-2 py-1 whitespace-nowrap w-0">{m.date}{m.time ? ` ${m.time}` : ""}</td>
-            <td className="px-2 py-1 whitespace-nowrap w-0">{m.round ?? "-"}</td>
-            <td className="px-2 py-1 whitespace-normal break-words min-w-[140px]">{m.location}</td>
-            <td className="px-2 py-1 whitespace-normal break-words min-w-[160px]">{m.home}</td>
-            <td className="px-2 py-1 whitespace-normal break-words min-w-[160px]">{m.away}</td>
-            <td className="px-2 py-1 whitespace-nowrap w-0 text-center">{renderResult(m)}</td>
-            <td className="px-2 py-1 whitespace-normal break-words min-w-[180px]">{m.referees.join(", ")}</td>
-            <td className="px-2 py-1 whitespace-normal break-words min-w-[160px]">{m.delegate ?? "-"}</td>
+    <tbody>
+      {filtered.map((m) => (
+        <tr key={m.id} className="border-b odd:bg-white even:bg-slate-50/60 hover:bg-sky-50 transition-colors align-top">
+          <td className="px-2 py-1 whitespace-nowrap text-center">{m.date}{m.time ? ` ${m.time}` : ""}</td>
+          <td className="px-2 py-1 whitespace-nowrap text-center">{m.round ?? "-"}</td>
+          <td className="px-2 py-1 break-words">{m.location}</td>
+          <td className="px-2 py-1 break-words">{m.home}</td>
+          <td className="px-2 py-1 break-words">{m.away}</td>
+          <td className="px-2 py-1 whitespace-nowrap text-center">{renderResult(m)}</td>
+          <td className="px-2 py-1 break-words">{m.referees.join(", ")}</td>
+          <td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
 
-            <td className="px-2 py-1 min-w-[180px]">
+          {/* Kary – tylko dla zalogowanych */}
+          <td className="px-2 py-1">
+            {user?.role === "Guest" ? (
+              <span className="text-gray-500">–</span>
+            ) : (
               <div className="flex flex-wrap gap-1">
                 {(penaltyMap.get(m.id)?.home || []).map(p => (
-                  <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")}>
+                  <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
                     {(user?.role === 'Admin' || user?.role === 'Delegate') && (
                       <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
@@ -449,12 +434,16 @@ function renderResult(m: Match) {
                 ))}
                 {((penaltyMap.get(m.id)?.home || []).length === 0) && <span className="text-gray-500">–</span>}
               </div>
-            </td>
+            )}
+          </td>
 
-            <td className="px-2 py-1 min-w-[180px]">
+          <td className="px-2 py-1">
+            {user?.role === "Guest" ? (
+              <span className="text-gray-500">–</span>
+            ) : (
               <div className="flex flex-wrap gap-1">
                 {(penaltyMap.get(m.id)?.away || []).map(p => (
-                  <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50 flex items-center gap-1")}>
+                  <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
                     {(user?.role === 'Admin' || user?.role === 'Delegate') && (
                       <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
@@ -463,29 +452,25 @@ function renderResult(m: Match) {
                 ))}
                 {((penaltyMap.get(m.id)?.away || []).length === 0) && <span className="text-gray-500">–</span>}
               </div>
-            </td>
+            )}
+          </td>
 
-            <td className="px-2 py-1 min-w-[160px]">
-              <div className="flex flex-wrap gap-2">
-                {m.commsByClub.home && <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />}
-                {m.rosterByClub.home && <DocBadge file={m.rosterByClub.home} label="Skład (Home)" disabled={!canDownload} />}
-                {m.rosterByClub.away && <DocBadge file={m.rosterByClub.away} label="Skład (Away)" disabled={!canDownload} />}
-                {m.matchReport && <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload} />}
-                {m.reportPhotos.length > 0 && (
-                  <span className={classes.pill}>
-                    <Image className="w-3.5 h-3.5" />
-                    Zdjęcia: {m.reportPhotos.length}
-                  </span>
-                )}
-              </div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
+          <td className="px-2 py-1">
+            <div className="flex flex-wrap gap-2">
+              {m.commsByClub.home && <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />}
+              {m.rosterByClub.home && <DocBadge file={m.rosterByClub.home} label="Skład (Home)" disabled={!canDownload} />}
+              {m.rosterByClub.away && <DocBadge file={m.rosterByClub.away} label="Skład (Away)" disabled={!canDownload} />}
+              {m.matchReport && <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload} />}
+              {m.reportPhotos.length > 0 && (
+                <span className={classes.pill}><Image className="w-3.5 h-3.5" />Zdjęcia: {m.reportPhotos.length}</span>
+              )}
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
 </div>
-</HorizontalScroller>
     </Section>
   );
 };
@@ -876,48 +861,41 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
     });
   }, [matches]);
 
-  return (
-    <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
-<HorizontalScroller className="pb-2">
-  <div style={{ minWidth: 900 }}>
+return (
+  <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
     <table className="table-auto w-full text-xs sm:text-sm">
-      {/* jeśli „sticky” sprawia problemy na niektórych przeglądarkach, usuń sticky: */}
       <thead className="bg-white shadow-sm">
         <tr className="text-left border-b bg-gray-50">
-          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Miejsce</th>
-          <th className="px-2 py-1 whitespace-normal break-words max-w-[200px]">Drużyna</th>
-          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">Pkt</th>
-          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">M</th>
-          <th className="px-2 py-1 whitespace-nowrap w-0 text-center">B</th>
+          <th className="px-2 py-1 whitespace-nowrap w-[80px] text-center">Miejsce</th>
+          <th className="px-2 py-1 break-words">Drużyna</th>
+          <th className="px-2 py-1 whitespace-nowrap w-[70px] text-center">Pkt</th>
+          <th className="px-2 py-1 whitespace-nowrap w-[70px] text-center">M</th>
+          <th className="px-2 py-1 whitespace-nowrap w-[90px] text-center">B</th>
         </tr>
       </thead>
       <tbody>
-            {table.map((row, i) => (
-  <tr
-    key={row.team}
-    className={clsx(
-      "border-b hover:bg-sky-50 transition-colors",
-      // zebra
-      i % 2 ? "bg-white" : "bg-slate-50/60",
-      // podium – nadpisuje zebrę
-      i === 0 && "!bg-amber-200",
-      i === 1 && "!bg-gray-200",
-      i === 2 && "!bg-orange-200"
-    )}
-  >
-                <td className="px-2 py-1 whitespace-nowrap w-0 text-center">{i + 1}</td>
-<td className="px-2 py-1 break-words max-w-[200px]">{row.team}</td>
-<td className="px-2 py-1 whitespace-nowrap w-0 text-center">{row.pts}</td>
-<td className="px-2 py-1 whitespace-nowrap w-0 text-center">{row.played}</td>
-<td className="px-2 py-1 whitespace-nowrap w-0 text-center">{row.goalsFor}:{row.goalsAgainst}</td>
-                                </tr>
-              ))}
-                </tbody>
+        {table.map((row, i) => (
+          <tr
+            key={row.team}
+            className={clsx(
+              "border-b hover:bg-sky-50 transition-colors",
+              i % 2 ? "bg-white" : "bg-slate-50/60",
+              i === 0 && "!bg-amber-200",
+              i === 1 && "!bg-gray-200",
+              i === 2 && "!bg-orange-200"
+            )}
+          >
+            <td className="px-2 py-1 whitespace-nowrap text-center">{i + 1}</td>
+            <td className="px-2 py-1 break-words">{row.team}</td>
+            <td className="px-2 py-1 whitespace-nowrap text-center">{row.pts}</td>
+            <td className="px-2 py-1 whitespace-nowrap text-center">{row.played}</td>
+            <td className="px-2 py-1 whitespace-nowrap text-center">{row.goalsFor}:{row.goalsAgainst}</td>
+          </tr>
+        ))}
+      </tbody>
     </table>
-  </div>
-</HorizontalScroller>
-    </Section>
-  );
+  </Section>
+);
 };
 
 const UserChip: React.FC<{
