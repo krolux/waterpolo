@@ -1108,7 +1108,7 @@ const matches: Match[] = rows.map((r: any) => ({
     </main>
 
     <footer className="max-w-6xl mx-auto mt-8 text-xs text-gray-500">
-      <p>Lukasz Krol 2025, krol.lukasz@hotmail.com</p>
+      <p>copyright Lukasz Krol 2025, krol.lukasz@hotmail.com</p>
     </footer>
   </div>)
 }
