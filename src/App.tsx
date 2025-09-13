@@ -1048,13 +1048,24 @@ const matches: Match[] = rows.map((r: any) => ({
       <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center"><Users className="w-5 h-5"/></div>
         <div><h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">Kolegium Sędziów Piłki Wodnej – Portal</h1><p className="text-sm text-gray-600">Tabela meczów • Dokumenty klubów • Raporty delegatów</p></div></div>
 <div className="flex items-center gap-3 w-full sm:w-auto">
- <LoginBox classes={classes} />
-        {effectiveUser? (<div className="flex items-center gap-2">
-          <Badge tone="blue">{effectiveUser.role}{effectiveUser.club?` • ${effectiveUser.club}`:""}</Badge>
-          <span className="text-sm text-gray-700">{effectiveUser.name}</span>
-          {!supaUser && (<button onClick={demoLogout} className={classes.btnSecondary}><LogOut className="w-4 h-4 inline mr-1"/>Wyloguj (demo)</button>)}
-        </div>) : (<span className="text-sm text-gray-600">Niezalogowany</span>)}
-      </div>
+  <LoginBox classes={classes} />
+  {effectiveUser ? (
+    <div className="flex items-center gap-2 shrink-0">
+      <Badge tone="blue">
+        {effectiveUser.role}{effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
+      </Badge>
+      <span className="text-sm text-gray-700">{effectiveUser.name}</span>
+      {!supaUser && (
+        <button onClick={demoLogout} className={classes.btnSecondary}>
+          <LogOut className="w-4 h-4 inline mr-1" />
+          Wyloguj (demo)
+        </button>
+      )}
+    </div>
+  ) : (
+    <span className="hidden sm:inline text-sm text-gray-600">Niezalogowany</span>
+  )}
+</div>
     </header>
 
     <main className="max-w-6xl mx-auto grid gap-6">
