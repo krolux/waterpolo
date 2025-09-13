@@ -273,7 +273,7 @@ function renderResult(m: Match) {
       </div>
 
 <div className="overflow-x-auto">
-  <table className="min-w-full text-xs sm:text-sm table-fixed">
+  <table className="w-full text-xs sm:text-sm table-fixed">
     <thead className="sticky top-0 z-10 bg-white shadow-sm">
       <tr className="text-left border-b">
         <th scope="col" className="p-2">Data</th>
@@ -783,7 +783,7 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
   return (
     <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
       <div className="overflow-x-auto">
-       <table className="min-w-full text-xs sm:text-sm table-fixed">
+       <table className="w-full text-xs sm:text-sm table-fixed">
           <thead className="sticky top-0 z-10 bg-white shadow-sm">
             <tr className="text-left border-b bg-gray-50">
               <th className="p-2">Miejsce</th>
@@ -802,9 +802,9 @@ const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
       // zebra
       i % 2 ? "bg-white" : "bg-slate-50/60",
       // podium – nadpisuje zebrę
-      i === 0 && "bg-amber-100/80",
-      i === 1 && "bg-gray-100/80",
-      i === 2 && "bg-orange-100/80"
+      i === 0 && "!bg-amber-200",
+      i === 1 && "!bg-gray-200",
+      i === 2 && "!bg-orange-200"
     )}
   >
                   <td className="p-2">{i + 1}</td>
@@ -1065,7 +1065,7 @@ const matches: Match[] = rows.map((r: any) => ({
     alert("Błąd usuwania kary: " + e.message);
   }
 }
-  return (<div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 p-4 md:p-8">
+  return (<div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 p-4 md:p-8 overflow-x-hidden">
    <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
   <div className="flex items-center gap-3">
     <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
