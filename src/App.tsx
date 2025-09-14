@@ -221,9 +221,6 @@ const [q, setQ] = useState("");
 const [sortKey, setSortKey] = useState<"date" | "round">("round");
 const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-const sorted = useMemo(() => {
-  const arr = [...state.matches];
-
 const cardBg =
   variant === "finished"
     ? "bg-sky-50 border-sky-200"      // zakończone – pastelowy błękit
@@ -232,33 +229,29 @@ const cardBg =
 const rowStriping =
   variant === "finished"
     ? "odd:bg-sky-50/70 even:bg-sky-100/70"  // zakończone
-    : "odd:bg-white even:bg-slate-50/60";    // nadchodzące (jak było)
+    : "odd:bg-white even:bg-slate-50/60";    // nadchodzące
+
+const sorted = useMemo(() => {
+  const arr = [...state.matches];
 
   arr.sort((a, b) => {
-    // sort po dacie (YYYY-MM-DD) – działa leksykograficznie, ale dodajmy kierunek
     if (sortKey === "date") {
       const A = (a.date || "");
       const B = (b.date || "");
-      const cmp = A.localeCompare(B); // ISO data sortuje się poprawnie
+      const cmp = A.localeCompare(B);
       return sortDir === "asc" ? cmp : -cmp;
     }
 
-    // sort po numerze meczu (round) – NUMERYCZNIE, z bezpiecznymi fallbackami
     const An = Number((a.round || "").toString().trim());
     const Bn = Number((b.round || "").toString().trim());
     const aIsNum = Number.isFinite(An);
     const bIsNum = Number.isFinite(Bn);
 
     let cmp = 0;
-    if (aIsNum && bIsNum) {
-      cmp = An - Bn;                         // czysty sort numeryczny
-    } else if (aIsNum && !bIsNum) {
-      cmp = -1;                              // liczby przed nienumerycznymi
-    } else if (!aIsNum && bIsNum) {
-      cmp = 1;
-    } else {
-      cmp = (a.round || "").localeCompare(b.round || ""); // oba nienumeryczne
-    }
+    if (aIsNum && bIsNum) cmp = An - Bn;
+    else if (aIsNum && !bIsNum) cmp = -1;
+    else if (!aIsNum && bIsNum) cmp = 1;
+    else cmp = (a.round || "").localeCompare(b.round || "");
 
     return sortDir === "asc" ? cmp : -cmp;
   });
@@ -332,8 +325,8 @@ function renderResult(m: Match) {
           Odśwież
         </button>
 
-    {showExport && user && user.role !== "Guest" && (
-  <ExportImport state={exportState ?? state} setState={setState} />
+   {showExport && user && user.role !== "Guest" && (
+  <ExportImport state={state} setState={setState} />
 )}
       </div>
 
