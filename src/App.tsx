@@ -221,15 +221,16 @@ const [q, setQ] = useState("");
 const [sortKey, setSortKey] = useState<"date" | "round">("round");
 const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-const cardBg =
-  variant === "finished"
-    ? "bg-sky-50 border-sky-200"      // zakończone – pastelowy błękit
-    : "bg-white border-sky-100";      // nadchodzące – białe
+  // Kolory kart i paskowanie w zależności od wariantu
+  const cardBg =
+    variant === "finished"
+      ? "bg-[#e6f0ff] border-[#bcd4ff]"   // zakończone: jasny błękit
+      : "bg-white border-sky-100";        // nadchodzące: biały
 
-const rowStriping =
-  variant === "finished"
-    ? "odd:bg-sky-50/70 even:bg-sky-100/70"  // zakończone
-    : "odd:bg-white even:bg-slate-50/60";    // nadchodzące
+  const rowStriping =
+    variant === "finished"
+      ? "odd:bg-[#e6f0ff]/70 even:bg-[#d9e8ff]/70" // zakończone: błękitne pasy
+      : "odd:bg-white even:bg-slate-50/60";        // nadchodzące: jak było
 
 const sorted = useMemo(() => {
   const arr = [...state.matches];
@@ -325,7 +326,7 @@ function renderResult(m: Match) {
           Odśwież
         </button>
 
-   {showExport && user && user.role !== "Guest" && (
+ {showExport && user && user.role !== "Guest" && (
   <ExportImport state={state} setState={setState} />
 )}
       </div>
@@ -1191,11 +1192,11 @@ const matches: Match[] = rows.map((r: any) => ({
   }
 }
  return (
- <div className="relative min-h-screen p-4 md:p-8 overflow-hidden">
-  <div className="absolute inset-0 -z-10 bg-gradient-to-b from-sky-50 via-sky-100 to-blue-200" />
-  <div className="pointer-events-none absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-sky-300/30 blur-3xl" />
-  <div className="pointer-events-none absolute top-1/3 -right-24 w-[520px] h-[520px] rounded-full bg-cyan-300/25 blur-3xl" />
-  <div className="pointer-events-none absolute -bottom-32 left-1/4 w-[560px] h-[560px] rounded-full bg-blue-400/20 blur-3xl" />
+<div className="relative min-h-screen p-4 md:p-8 overflow-hidden">
+  <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#dff3ff] via-[#6ba8ff] to-[#001f54]" />
+  <div className="pointer-events-none absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-[#5fb3ff]/25 blur-3xl" />
+  <div className="pointer-events-none absolute top-1/3 -right-24 w-[520px] h-[520px] rounded-full bg-[#2ea7ff]/20 blur-3xl" />
+  <div className="pointer-events-none absolute -bottom-32 left-1/4 w-[560px] h-[560px] rounded-full bg-[#001f54]/30 blur-3xl" />
  <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between rounded-2xl p-3 sm:p-4 border border-white/40 bg-white/50 backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
   <div className="flex items-center gap-3">
     <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
