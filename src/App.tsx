@@ -974,17 +974,16 @@ const UserChip: React.FC<{
 );
 
 export default function App(){
-  const { userDisplay, role: sRole } = useSupabaseAuth()
-  const supaUser = sRole !== 'Guest' ? { name: userDisplay, role: sRole as Role, club: undefined as string|undefined } : null
-
-  // demo fallback
+const { userDisplay, role: sRole } = useSupabaseAuth()
+const supaUser = sRole !== 'Guest' ? { name: userDisplay, role: sRole as Role } as { name:string; role:Role } : null
+// demo fallback
   const [demoUser, setDemoUser] = useState<{name:string; role:Role; club?:string}|null>(()=>{
     const raw = localStorage.getItem("wpr-auth-user"); return raw? JSON.parse(raw): null
   });
   function demoLogin(n:string,r:Role,c?:string){ const u={name:n, role:r, club:c}; setDemoUser(u); localStorage.setItem("wpr-auth-user", JSON.stringify(u)); }
   function demoLogout(){ setDemoUser(null); localStorage.removeItem("wpr-auth-user"); }
 
-  const effectiveUser = supaUser ?? demoUser
+
 
   const [state,setState]=useState<AppState>({ matches: [], users:[
     {name:"Admin", role:"Admin"}, {name:"AZS Szczecin – Klub", role:"Club", club:"AZS Szczecin"}, {name:"KS Warszawa – Klub", role:"Club", club:"KS Warszawa"}, {name:"Anna Delegat", role:"Delegate"}, {name:"Sędzia – Demo", role:"Referee"}, {name:"Gość", role:"Guest"}
@@ -994,8 +993,27 @@ export default function App(){
   const [profiles,setProfiles]=useState<ProfileRow[]>([])
   const [loadingProfiles,setLoadingProfiles]=useState(false)
   async function refreshProfiles(){ setLoadingProfiles(true); const { data, error } = await supabase.from("profiles").select("id, display_name, role, club_id").order("display_name",{ascending:true}); if(!error) setProfiles((data as any)||[]); setLoadingProfiles(false) }
-  useEffect(()=>{ if(effectiveUser?.role==="Admin"){ refreshProfiles() } },[effectiveUser?.role])
+// Pobierz profiles dla Admina i Klubu (Klub potrzebuje club_id)
+useEffect(() => {
+  if (sRole === "Admin" || sRole === "Club") {
+    refreshProfiles();
+  }
+}, [sRole]);
 
+// Wyprowadź klub dla zalogowanego (Supabase) z tabeli profiles
+const effectiveUser = useMemo(() => {
+  if (supaUser) {
+    let club: string | undefined = undefined;
+    if (supaUser.role === "Club") {
+      const profile = profiles.find(p => p.display_name === userDisplay);
+      club = profile?.club_id ?? undefined; // zakładamy, że w profiles.club_id trzymasz nazwę klubu
+    }
+    return { ...supaUser, club };
+  }
+  return demoUser;
+}, [supaUser, profiles, userDisplay, demoUser]);
+
+  
 // --- Penalties state (+load)
 const [penalties, setPenalties] = useState<Penalty[]>([]);
 
