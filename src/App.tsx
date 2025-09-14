@@ -326,7 +326,7 @@ function renderResult(m: Match) {
           Odśwież
         </button>
 
- {showExport && user && user.role !== "Guest" && (
+{showExport && user && user.role !== "Guest" && (
   <ExportImport state={state} setState={setState} />
 )}
       </div>
@@ -514,8 +514,24 @@ const PerMatchActions: React.FC<{
   user: { name: string; role: Role; club?: string };
   onPenaltiesChange: () => void;
 }> = ({ state, setState, user, onPenaltiesChange }) => {
-  const [selectedId, setSelectedId] = useState<string>(state.matches[0]?.id ?? "");
-  const match = state.matches.find(m => m.id === selectedId) || null;
+  const availableMatches = useMemo(() => {
+  if (user.role === "Delegate") {
+    return state.matches.filter(m => m.delegate === user.name);
+  }
+  if (user.role === "Club" && user.club) {
+    return state.matches.filter(m => m.home === user.club || m.away === user.club);
+  }
+  // Admin (lub inne role) widzą wszystko
+  return state.matches;
+}, [state.matches, user.role, user.name, user.club]);
+
+const [selectedId, setSelectedId] = useState<string>(availableMatches[0]?.id ?? "");
+useEffect(() => {
+  // gdy zmieni się lista dostępnych meczów, ustaw pierwszy jako domyślny
+  setSelectedId(availableMatches[0]?.id ?? "");
+}, [availableMatches]);
+
+const match = availableMatches.find(m => m.id === selectedId) || null;
 
   const [resultDraft, setResultDraft] = useState<string>(match?.result || "");
   const [shootoutDraft, setShootoutDraft] = useState<boolean>(!!match?.shootout);
@@ -620,13 +636,17 @@ const PerMatchActions: React.FC<{
     <div className="grid gap-4">
       <div className="flex items-center gap-2">
         <span className="text-sm text-amber-600">Wybierz mecz:</span>
-        <select className={classes.input} value={selectedId} onChange={e => setSelectedId(e.target.value)}>
-          {state.matches.map(m => (
-            <option key={m.id} value={m.id}>
-              {m.date} {m.time ? m.time + " • " : ""}{m.home} vs {m.away}
-            </option>
-          ))}
-        </select>
+       <select className={classes.input} value={selectedId} onChange={e => setSelectedId(e.target.value)}>
+  {availableMatches.length === 0 ? (
+    <option value="" disabled>Brak meczów do wyboru</option>
+  ) : (
+    availableMatches.map(m => (
+      <option key={m.id} value={m.id}>
+        {m.date} {m.time ? m.time + " • " : ""}{m.home} vs {m.away}
+      </option>
+    ))
+  )}
+</select>
       </div>
 
       {match && (
@@ -663,7 +683,7 @@ const PerMatchActions: React.FC<{
 
           {canDelegateAct() && (
             <div className="mt-4 border-t pt-3">
-              <div className="font-medium mb-2">Nałóż karę</div>
+             <div className="text-sm text-amber-600 font-medium mb-2">Nałóż karę</div>
 
               <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
                 <select id="pen-club" className={classes.input + " w-full"} defaultValue="">
@@ -1247,6 +1267,16 @@ const matches: Match[] = rows.map((r: any) => ({
  
 <RankingTable matches={state.matches} />
 
+ {effectiveUser && effectiveUser.role !== "Guest" && (
+  <div>
+    <PerMatchActions
+      state={state}
+      setState={setState}
+      user={effectiveUser}
+      onPenaltiesChange={refreshPenalties}
+    />
+  </div>
+)}
 
 <MatchesTable
   title="Nadchodzące mecze"
@@ -1274,16 +1304,7 @@ variant="finished"
   penaltyMap={penaltiesByMatch}
   onRemovePenalty={handleRemovePenalty}
 />
-      {effectiveUser && effectiveUser.role !== "Guest" && (
-  <div>
-    <PerMatchActions
-      state={state}
-      setState={setState}
-      user={effectiveUser}
-      onPenaltiesChange={refreshPenalties}
-    />
-  </div>
-)}
+     
   {effectiveUser?.role === "Admin" && (
   <AdminPanel state={state} setState={setState} clubs={CLUBS}
     refereeNames={refereeNames} delegateNames={delegateNames}
