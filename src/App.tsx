@@ -203,7 +203,7 @@ const MatchesTable: React.FC<{
   title?: string;
   sectionClassName?: string;
   showExport?: boolean;
-exportState?: AppState;
+  variant?: "upcoming" | "finished";
 }> = ({
   state,
   setState,
@@ -215,7 +215,7 @@ exportState?: AppState;
   title = "Tabela meczów",
   sectionClassName,
   showExport = false,
-exportState,
+  variant = "upcoming",
 }) => {
 const [q, setQ] = useState("");
 const [sortKey, setSortKey] = useState<"date" | "round">("round");
@@ -223,6 +223,16 @@ const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
 const sorted = useMemo(() => {
   const arr = [...state.matches];
+
+const cardBg =
+  variant === "finished"
+    ? "bg-sky-50 border-sky-200"      // zakończone – pastelowy błękit
+    : "bg-white border-sky-100";      // nadchodzące – białe
+
+const rowStriping =
+  variant === "finished"
+    ? "odd:bg-sky-50/70 even:bg-sky-100/70"  // zakończone
+    : "odd:bg-white even:bg-slate-50/60";    // nadchodzące (jak było)
 
   arr.sort((a, b) => {
     // sort po dacie (YYYY-MM-DD) – działa leksykograficznie, ale dodajmy kierunek
@@ -339,7 +349,7 @@ function renderResult(m: Match) {
     const homePens = penaltyMap.get(m.id)?.home || [];
     const awayPens  = penaltyMap.get(m.id)?.away || [];
     return (
-      <div key={m.id} className="rounded-xl border bg-white p-3 shadow-sm">
+    <div key={m.id} className={clsx("rounded-xl border p-3 shadow-sm", cardBg)}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs text-gray-500 truncate">
@@ -435,7 +445,7 @@ function renderResult(m: Match) {
 
     <tbody>
       {filtered.map((m) => (
-        <tr key={m.id} className="border-b odd:bg-white even:bg-slate-50/60 hover:bg-sky-50 transition-colors align-top">
+      <tr key={m.id} className={clsx("border-b hover:bg-sky-50 transition-colors align-top", rowStriping)}>
           <td className="px-2 py-1 whitespace-nowrap text-center">{m.date}{m.time ? ` ${m.time}` : ""}</td>
           <td className="px-2 py-1 whitespace-nowrap text-center">{m.round ?? "-"}</td>
           <td className="px-2 py-1 break-words">{m.location}</td>
@@ -1188,12 +1198,12 @@ const matches: Match[] = rows.map((r: any) => ({
   }
 }
  return (
-  <div className="relative min-h-screen p-4 md:p-8 overflow-hidden">
-    <div className="absolute inset-0 -z-10 bg-gradient-to-b from-slate-100 via-sky-100 to-sky-200" />
-    <div className="pointer-events-none absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-amber-400/30 blur-3xl" />
-    <div className="pointer-events-none absolute top-1/3 -right-24 w-[520px] h-[520px] rounded-full bg-sky-400/30 blur-3xl" />
-    <div className="pointer-events-none absolute -bottom-32 left-1/4 w-[560px] h-[560px] rounded-full bg-fuchsia-400/25 blur-3xl" />
-  <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between rounded-2xl p-3 sm:p-4 border border-white/40 bg-white/50 backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
+ <div className="relative min-h-screen p-4 md:p-8 overflow-hidden">
+  <div className="absolute inset-0 -z-10 bg-gradient-to-b from-sky-50 via-sky-100 to-blue-200" />
+  <div className="pointer-events-none absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-sky-300/30 blur-3xl" />
+  <div className="pointer-events-none absolute top-1/3 -right-24 w-[520px] h-[520px] rounded-full bg-cyan-300/25 blur-3xl" />
+  <div className="pointer-events-none absolute -bottom-32 left-1/4 w-[560px] h-[560px] rounded-full bg-blue-400/20 blur-3xl" />
+ <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between rounded-2xl p-3 sm:p-4 border border-white/40 bg-white/50 backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
   <div className="flex items-center gap-3">
     <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
       <Users className="w-5 h-5" />
@@ -1246,8 +1256,8 @@ const matches: Match[] = rows.map((r: any) => ({
 
 <MatchesTable
   title="Nadchodzące mecze"
+variant="upcoming"
   showExport
-exportState={state}
   state={{ ...state, matches: upcomingMatches }}
   setState={setState}
   user={effectiveUser}
@@ -1260,6 +1270,7 @@ exportState={state}
 
 <MatchesTable
   title="Zakończone mecze"
+variant="finished"
   sectionClassName="bg-white/60"
   state={{ ...state, matches: finishedMatches }}
   setState={setState}
