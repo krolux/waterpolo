@@ -56,7 +56,14 @@ const HorizontalScroller: React.FC<React.PropsWithChildren<{ className?: string 
 type Role = SupaRole;
 type SectionProps = PropsWithChildren<{ title: string; icon?: React.ReactNode; className?: string }>;
 const Section: React.FC<SectionProps> = ({ title, icon, children, className }) => (
-  <div className={clsx("rounded-2xl shadow p-3 sm:p-4 md:p-6", "bg-white/80 backdrop-blur-sm", className)}>
+  <div
+    className={clsx(
+      "rounded-2xl p-3 sm:p-4 md:p-6",
+      "bg-white/50 backdrop-blur-xl backdrop-saturate-150",
+      "border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.08)]",
+      className
+    )}
+  >
     <div className="flex items-center gap-2 mb-4">
       {icon}
       <h2 className="text-xl md:text-2xl font-semibold">{title}</h2>
@@ -193,7 +200,23 @@ const MatchesTable: React.FC<{
   loading: boolean;
   penaltyMap: Map<string, { home: { id: string; name: string }[]; away: { id: string; name: string }[] }>;
   onRemovePenalty: (id: string) => void;
-}> = ({ state, setState, user, onRefresh, loading, penaltyMap, onRemovePenalty }) => {
+  title?: string;
+  sectionClassName?: string;
+  showExport?: boolean;
+exportState?: AppState;
+}> = ({
+  state,
+  setState,
+  user,
+  onRefresh,
+  loading,
+  penaltyMap,
+  onRemovePenalty,
+  title = "Tabela meczów",
+  sectionClassName,
+  showExport = false,
+exportState,
+}) => {
 const [q, setQ] = useState("");
 const [sortKey, setSortKey] = useState<"date" | "round">("round");
 const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -260,7 +283,7 @@ function renderResult(m: Match) {
   return r;
 }
   return (
-    <Section title="Tabela meczów" icon={<Table className="w-5 h-5" />}>
+  <Section title={title} icon={<Table className="w-5 h-5" />} className={sectionClassName}>
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -299,11 +322,16 @@ function renderResult(m: Match) {
           Odśwież
         </button>
 
-       {user && user.role !== "Guest" && (
-  <ExportImport state={state} setState={setState} />
+    {showExport && user && user.role !== "Guest" && (
+  <ExportImport state={exportState ?? state} setState={setState} />
 )}
       </div>
 
+{filtered.length === 0 && (
+  <div className="text-sm text-gray-600">
+    Brak meczów do wyświetlenia.
+  </div>
+)}
 
 {/* MOBILE: karty */}
 <div className="md:hidden space-y-3">
@@ -1015,6 +1043,17 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
   [penalties, state.matches]
 );
   
+// Podział na nadchodzące i zakończone (prosto: po obecności wyniku)
+const upcomingMatches = useMemo(
+  () => state.matches.filter(m => !m.result || m.result.trim() === ""),
+  [state.matches]
+);
+
+const finishedMatches = useMemo(
+  () => state.matches.filter(m => !!m.result && m.result.trim() !== ""),
+  [state.matches]
+);
+
   // Load matches from Supabase and merge docs from localStorage
   const [loadingMatches,setLoadingMatches]=useState(false)
   
@@ -1148,8 +1187,13 @@ const matches: Match[] = rows.map((r: any) => ({
     alert("Błąd usuwania kary: " + e.message);
   }
 }
- return (<div className="min-h-screen bg-gradient-to-b from-slate-100 via-sky-200 to-[#0a1a3f] p-4 md:p-8">
-   <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm">
+ return (
+  <div className="relative min-h-screen p-4 md:p-8 overflow-hidden">
+    <div className="absolute inset-0 -z-10 bg-gradient-to-b from-slate-100 via-sky-100 to-sky-200" />
+    <div className="pointer-events-none absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-amber-400/30 blur-3xl" />
+    <div className="pointer-events-none absolute top-1/3 -right-24 w-[520px] h-[520px] rounded-full bg-sky-400/30 blur-3xl" />
+    <div className="pointer-events-none absolute -bottom-32 left-1/4 w-[560px] h-[560px] rounded-full bg-fuchsia-400/25 blur-3xl" />
+  <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between rounded-2xl p-3 sm:p-4 border border-white/40 bg-white/50 backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
   <div className="flex items-center gap-3">
     <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
       <Users className="w-5 h-5" />
@@ -1199,8 +1243,25 @@ const matches: Match[] = rows.map((r: any) => ({
  
 <RankingTable matches={state.matches} />
 
+
 <MatchesTable
-  state={state}
+  title="Nadchodzące mecze"
+  showExport
+exportState={state}
+  state={{ ...state, matches: upcomingMatches }}
+  setState={setState}
+  user={effectiveUser}
+  onRefresh={refreshMatches}
+  loading={loadingMatches}
+  penaltyMap={penaltiesByMatch}
+  onRemovePenalty={handleRemovePenalty}
+/>
+
+
+<MatchesTable
+  title="Zakończone mecze"
+  sectionClassName="bg-white/60"
+  state={{ ...state, matches: finishedMatches }}
   setState={setState}
   user={effectiveUser}
   onRefresh={refreshMatches}
