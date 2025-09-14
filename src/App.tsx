@@ -103,7 +103,13 @@ type Match = {
   uploadsLog: UploadLog[];
 };
 type AppState = { matches: Match[]; users:{name:string; role:Role; club?:string}[]; };
-type ProfileRow = { id:string; display_name:string; role:Role; club_id:string|null; };
+type ProfileRow = {
+  id: string;
+  display_name: string;
+  role: Role;
+  club_id: string | null;
+  club_name?: string | null;
+};
 
 const CLUBS = ["Waterpolo Poznań","AZS UW","KSZO Ostrowiec Św.","Alfa Gorzów Wlkp","UKS Neptun UŁ","ŁSTW PŁ","Arkonia Szczecin","WTS Polonia Bytom"] as const;
 
@@ -992,7 +998,31 @@ const supaUser = sRole !== 'Guest' ? { name: userDisplay, role: sRole as Role } 
   // Load profiles (for admin select lists)
   const [profiles,setProfiles]=useState<ProfileRow[]>([])
   const [loadingProfiles,setLoadingProfiles]=useState(false)
-  async function refreshProfiles(){ setLoadingProfiles(true); const { data, error } = await supabase.from("profiles").select("id, display_name, role, club_id").order("display_name",{ascending:true}); if(!error) setProfiles((data as any)||[]); setLoadingProfiles(false) }
+  async function refreshProfiles() {
+  setLoadingProfiles(true);
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`
+      id,
+      display_name,
+      role,
+      club_id,
+      club:clubs ( name )
+    `)
+    .order("display_name", { ascending: true });
+
+  if (!error && data) {
+    const rows = (data as any[]).map(r => ({
+      id: r.id,
+      display_name: r.display_name,
+      role: r.role as Role,
+      club_id: r.club_id,
+      club_name: r.club?.name ?? null,
+    })) as ProfileRow[];
+    setProfiles(rows);
+  }
+  setLoadingProfiles(false);
+}
 // Pobierz profiles dla Admina i Klubu (Klub potrzebuje club_id)
 useEffect(() => {
   if (sRole === "Admin" || sRole === "Club") {
@@ -1006,7 +1036,8 @@ const effectiveUser = useMemo(() => {
     let club: string | undefined = undefined;
     if (supaUser.role === "Club") {
       const profile = profiles.find(p => p.display_name === userDisplay);
-      club = profile?.club_id ?? undefined; // zakładamy, że w profiles.club_id trzymasz nazwę klubu
+      // używamy nazwy klubu pobranej z joinu
+      club = (profile?.club_name ?? undefined) as string | undefined;
     }
     return { ...supaUser, club };
   }
