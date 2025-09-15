@@ -554,7 +554,7 @@ const match = availableMatches.find(m => m.id === selectedId) || null;
     ];
   }
 
- async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
+async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
   if (!match) return;
   const input = document.createElement("input");
   input.type = "file";
@@ -582,15 +582,7 @@ const match = availableMatches.find(m => m.id === selectedId) || null;
         next.commsByClub[key] = sf;
         pushLog(next, { type: "comms", club: user.club, user: user.name, fileName: sf.name });
 
-        // ZAPIS METADANYCH do docs_meta
-        const { error: dErr1 } = await supabase.from("docs_meta").insert({
-          match_id: match.id,
-          kind: "comms",
-          club_or_neutral: match.home,   // komunikat tylko gospodarza
-          path: sf.path,
-          label: sf.label || "Komunikat"
-        });
-        if (dErr1) alert("Błąd zapisu metadanych (comms): " + dErr1.message);
+        // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
       } else {
         if (!canUploadRoster(user, match)) { alert("Skład może dodać tylko klub biorący udział w meczu."); return; }
         const clubName = key === "home" ? match.home : match.away;
@@ -600,15 +592,7 @@ const match = availableMatches.find(m => m.id === selectedId) || null;
         next.rosterByClub[key] = sf;
         pushLog(next, { type: "roster", club: user.club, user: user.name, fileName: sf.name });
 
-        // ZAPIS METADANYCH do docs_meta
-        const { error: dErr2 } = await supabase.from("docs_meta").insert({
-          match_id: match.id,
-          kind: "roster",
-          club_or_neutral: clubName,     // nazwa klubu: home/away
-          path: sf.path,
-          label: sf.label || `Skład - ${clubName}`
-        });
-        if (dErr2) alert("Błąd zapisu metadanych (roster): " + dErr2.message);
+        // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
       }
     }
 
@@ -620,15 +604,7 @@ const match = availableMatches.find(m => m.id === selectedId) || null;
       next.matchReport = sf;
       pushLog(next, { type: "protocol", club: null, user: user.name, fileName: sf.name });
 
-      // ZAPIS METADANYCH do docs_meta
-      const { error: dErr3 } = await supabase.from("docs_meta").insert({
-        match_id: match.id,
-        kind: "report",
-        club_or_neutral: "neutral",
-        path: sf.path,
-        label: sf.label || "Protokół"
-      });
-      if (dErr3) alert("Błąd zapisu metadanych (report): " + dErr3.message);
+      // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
     }
 
     if (type === "photos") {
@@ -640,16 +616,7 @@ const match = availableMatches.find(m => m.id === selectedId) || null;
       next.reportPhotos = [...next.reportPhotos, ...sfs];
       pushLog(next, { type: "photos", club: null, user: user.name, fileName: `${files.length} zdjęć` });
 
-      // ZAPIS METADANYCH do docs_meta (po jednym rekordzie na zdjęcie)
-      const rows = sfs.map(x => ({
-        match_id: match.id,
-        kind: "photos",
-        club_or_neutral: "neutral",
-        path: x.path,
-        label: x.label || "Zdjęcie raportu"
-      }));
-      const { error: dErr4 } = await supabase.from("docs_meta").insert(rows);
-      if (dErr4) alert("Błąd zapisu metadanych (photos): " + dErr4.message);
+      // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
     }
 
     // lokalny stan – żeby od razu było widać bez odświeżania
