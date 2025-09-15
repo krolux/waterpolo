@@ -554,69 +554,111 @@ const match = availableMatches.find(m => m.id === selectedId) || null;
     ];
   }
 
-  async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
-    if (!match) return;
-    const input = document.createElement("input");
-    input.type = "file";
-    if (type === "photos") input.multiple = true;
+ async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
+  if (!match) return;
+  const input = document.createElement("input");
+  input.type = "file";
+  if (type === "photos") input.multiple = true;
 
-    input.onchange = async () => {
-      const files = Array.from(input.files || []);
-      if (files.length === 0) return;
+  input.onchange = async () => {
+    const files = Array.from(input.files || []);
+    if (files.length === 0) return;
 
-      const next = { ...match } as Match;
+    const next = { ...match } as Match;
 
-      if (type === "comms" || type === "roster") {
-        if (user.role !== "Club" || !user.club) {
-          alert("Ta akcja jest dostępna tylko dla roli Klub (z ustawioną nazwą klubu).");
-          return;
-        }
-        const key = user.club === match.home ? "home" : user.club === match.away ? "away" : null;
-        if (!key) { alert("Twój klub nie jest przypisany do tego meczu."); return; }
-
-        if (type === "comms") {
-          if (!canUploadComms(user, match)) { alert("Komunikat może dodać wyłącznie gospodarz meczu."); return; }
-          const sf = await toStoredFileUsingStorage(
-            "comms", match.id, match.home, files[0], user.name, `Komunikat - ${match.home} - ${match.date}`
-          );
-          next.commsByClub[key] = sf;
-          pushLog(next, { type: "comms", club: user.club, user: user.name, fileName: sf.name });
-        } else {
-          if (!canUploadRoster(user, match)) { alert("Skład może dodać tylko klub biorący udział w meczu."); return; }
-          const clubName = key === "home" ? match.home : match.away;
-          const sf = await toStoredFileUsingStorage(
-            "roster", match.id, clubName, files[0], user.name, `Skład - ${clubName} - ${match.date}`
-          );
-          next.rosterByClub[key] = sf;
-          pushLog(next, { type: "roster", club: user.club, user: user.name, fileName: sf.name });
-        }
+    if (type === "comms" || type === "roster") {
+      if (user.role !== "Club" || !user.club) {
+        alert("Ta akcja jest dostępna tylko dla roli Klub (z ustawioną nazwą klubu).");
+        return;
       }
+      const key = user.club === match.home ? "home" : user.club === match.away ? "away" : null;
+      if (!key) { alert("Twój klub nie jest przypisany do tego meczu."); return; }
 
-      if (type === "report") {
-        if (!canUploadReport(user)) { alert("Protokół może dodać tylko Delegat."); return; }
+      if (type === "comms") {
+        if (!canUploadComms(user, match)) { alert("Komunikat może dodać wyłącznie gospodarz meczu."); return; }
         const sf = await toStoredFileUsingStorage(
-          "report", match.id, "neutral", files[0], user.name, `Protokół - ${match.home} vs ${match.away} - ${match.date}`
+          "comms", match.id, match.home, files[0], user.name, `Komunikat - ${match.home} - ${match.date}`
         );
-        next.matchReport = sf;
-        pushLog(next, { type: "protocol", club: null, user: user.name, fileName: sf.name });
+        next.commsByClub[key] = sf;
+        pushLog(next, { type: "comms", club: user.club, user: user.name, fileName: sf.name });
+
+        // ZAPIS METADANYCH do docs_meta
+        const { error: dErr1 } = await supabase.from("docs_meta").insert({
+          match_id: match.id,
+          kind: "comms",
+          club_or_neutral: match.home,   // komunikat tylko gospodarza
+          path: sf.path,
+          label: sf.label || "Komunikat"
+        });
+        if (dErr1) alert("Błąd zapisu metadanych (comms): " + dErr1.message);
+      } else {
+        if (!canUploadRoster(user, match)) { alert("Skład może dodać tylko klub biorący udział w meczu."); return; }
+        const clubName = key === "home" ? match.home : match.away;
+        const sf = await toStoredFileUsingStorage(
+          "roster", match.id, clubName, files[0], user.name, `Skład - ${clubName} - ${match.date}`
+        );
+        next.rosterByClub[key] = sf;
+        pushLog(next, { type: "roster", club: user.club, user: user.name, fileName: sf.name });
+
+        // ZAPIS METADANYCH do docs_meta
+        const { error: dErr2 } = await supabase.from("docs_meta").insert({
+          match_id: match.id,
+          kind: "roster",
+          club_or_neutral: clubName,     // nazwa klubu: home/away
+          path: sf.path,
+          label: sf.label || `Skład - ${clubName}`
+        });
+        if (dErr2) alert("Błąd zapisu metadanych (roster): " + dErr2.message);
       }
+    }
 
-      if (type === "photos") {
-        if (!canUploadReport(user)) { alert("Zdjęcia raportu może dodać tylko Delegat."); return; }
-        const sfs: StoredFile[] = [];
-        for (const f of files) {
-          sfs.push(await toStoredFileUsingStorage("photos", match.id, "neutral", f, user.name, "Zdjęcie raportu"));
-        }
-        next.reportPhotos = [...next.reportPhotos, ...sfs];
-        pushLog(next, { type: "photos", club: null, user: user.name, fileName: `${files.length} zdjęć` });
+    if (type === "report") {
+      if (!canUploadReport(user)) { alert("Protokół może dodać tylko Delegat."); return; }
+      const sf = await toStoredFileUsingStorage(
+        "report", match.id, "neutral", files[0], user.name, `Protokół - ${match.home} vs ${match.away} - ${match.date}`
+      );
+      next.matchReport = sf;
+      pushLog(next, { type: "protocol", club: null, user: user.name, fileName: sf.name });
+
+      // ZAPIS METADANYCH do docs_meta
+      const { error: dErr3 } = await supabase.from("docs_meta").insert({
+        match_id: match.id,
+        kind: "report",
+        club_or_neutral: "neutral",
+        path: sf.path,
+        label: sf.label || "Protokół"
+      });
+      if (dErr3) alert("Błąd zapisu metadanych (report): " + dErr3.message);
+    }
+
+    if (type === "photos") {
+      if (!canUploadReport(user)) { alert("Zdjęcia raportu może dodać tylko Delegat."); return; }
+      const sfs: StoredFile[] = [];
+      for (const f of files) {
+        sfs.push(await toStoredFileUsingStorage("photos", match.id, "neutral", f, user.name, "Zdjęcie raportu"));
       }
+      next.reportPhotos = [...next.reportPhotos, ...sfs];
+      pushLog(next, { type: "photos", club: null, user: user.name, fileName: `${files.length} zdjęć` });
 
-      const newState = { ...state, matches: state.matches.map(m => (m.id === match.id ? next : m)) };
-      setState(newState);
-    };
+      // ZAPIS METADANYCH do docs_meta (po jednym rekordzie na zdjęcie)
+      const rows = sfs.map(x => ({
+        match_id: match.id,
+        kind: "photos",
+        club_or_neutral: "neutral",
+        path: x.path,
+        label: x.label || "Zdjęcie raportu"
+      }));
+      const { error: dErr4 } = await supabase.from("docs_meta").insert(rows);
+      if (dErr4) alert("Błąd zapisu metadanych (photos): " + dErr4.message);
+    }
 
-    input.click();
-  }
+    // lokalny stan – żeby od razu było widać bez odświeżania
+    const newState = { ...state, matches: state.matches.map(m => (m.id === match.id ? next : m)) };
+    setState(newState);
+  };
+
+  input.click();
+}
 
   async function saveResult() {
     if (!match) return;
