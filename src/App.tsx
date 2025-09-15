@@ -1187,27 +1187,27 @@ try {
     const nextMatches = matches.map((m) => {
       const mm = { ...m };
       const d = (docs || []).filter((x) => x.match_id === m.id);
-
+const norm = (s: string) => (s || "").replace(/\//g, "-").replace(/ /g, "_");
       for (const x of d) {
-        if (x.kind === "comms" && x.club_or_neutral === m.home) {
-          mm.commsByClub.home = {
-            id: crypto.randomUUID(),
-            name: x.label || "Komunikat",
-            mime: "application/octet-stream",
-            size: 0,
-            path: x.path,
-            uploadedBy: "",
-            uploadedAt: "",
-            label: x.label || "Komunikat",
-          };
-        }
-        if (x.kind === "roster") {
-          const target =
-            x.club_or_neutral === m.home
-              ? "home"
-              : x.club_or_neutral === m.away
-              ? "away"
-              : null;
+ if (x.kind === "comms" && x.club_or_neutral === norm(m.home)) {
+  mm.commsByClub.home = {
+    id: crypto.randomUUID(),
+    name: x.label || "Komunikat",
+    mime: "application/octet-stream",
+    size: 0,
+    path: x.path,
+    uploadedBy: "",
+    uploadedAt: "",
+    label: x.label || "Komunikat",
+  };
+}
+
+const target =
+  x.club_or_neutral === norm(m.home)
+    ? "home"
+    : x.club_or_neutral === norm(m.away)
+    ? "away"
+    : null;
           if (target) {
             mm.rosterByClub[target] = {
               id: crypto.randomUUID(),
