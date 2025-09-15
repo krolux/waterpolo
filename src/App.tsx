@@ -1167,96 +1167,105 @@ const matches: Match[] = rows.map((r: any) => ({
 
     setState((s) => ({ ...s, matches }));
 
-    // Dociągnij metadane dokumentów z docs_meta i scal
-    try {
-      const matchIds = matches.map((m) => m.id);
-      if (matchIds.length > 0) {
-        const { data: docs, error: docsErr } = await supabase
-          .from("docs_meta")
-          .select("match_id, kind, club_or_neutral, path, label")
-          .in("match_id", matchIds);
+// Dociągnij metadane dokumentów z docs_meta i scal
+try {
+  // 👇 Jeśli jesteśmy Gościem, nie czytamy docs_meta (RLS i tak nie pozwoli).
+  if (sRole === "Guest") {
+    setLoadingMatches(false);
+    return;
+  }
 
-        if (docsErr) throw docsErr;
+  const matchIds = matches.map((m) => m.id);
+  if (matchIds.length > 0) {
+    const { data: docs, error: docsErr } = await supabase
+      .from("docs_meta")
+      .select("match_id, kind, club_or_neutral, path, label")
+      .in("match_id", matchIds);
 
-        const nextMatches = matches.map((m) => {
-          const mm = { ...m };
-          const d = (docs || []).filter((x) => x.match_id === m.id);
+    if (docsErr) throw docsErr;
 
-          for (const x of d) {
-            if (x.kind === "comms" && x.club_or_neutral === m.home) {
-              mm.commsByClub.home = {
-                id: crypto.randomUUID(),
-                name: x.label || "Komunikat",
-                mime: "application/octet-stream",
-                size: 0,
-                path: x.path,
-                uploadedBy: "",
-                uploadedAt: "",
-                label: x.label || "Komunikat",
-              };
-            }
-            if (x.kind === "roster") {
-              const target =
-                x.club_or_neutral === m.home
-                  ? "home"
-                  : x.club_or_neutral === m.away
-                  ? "away"
-                  : null;
-              if (target) {
-                mm.rosterByClub[target] = {
-                  id: crypto.randomUUID(),
-                  name: x.label || `Skład (${target})`,
-                  mime: "application/octet-stream",
-                  size: 0,
-                  path: x.path,
-                  uploadedBy: "",
-                  uploadedAt: "",
-                  label: x.label || `Skład (${target})`,
-                };
-              }
-            }
-            if (x.kind === "report") {
-              mm.matchReport = {
-                id: crypto.randomUUID(),
-                name: x.label || "Protokół",
-                mime: "application/pdf",
-                size: 0,
-                path: x.path,
-                uploadedBy: "",
-                uploadedAt: "",
-                label: x.label || "Protokół",
-              };
-            }
-            if (x.kind === "photos") {
-              mm.reportPhotos = [
-                ...(mm.reportPhotos || []),
-                {
-                  id: crypto.randomUUID(),
-                  name: x.label || "Zdjęcie raportu",
-                  mime: "image/*",
-                  size: 0,
-                  path: x.path,
-                  uploadedBy: "",
-                  uploadedAt: "",
-                  label: x.label || "Zdjęcie raportu",
-                },
-              ];
-            }
+    const nextMatches = matches.map((m) => {
+      const mm = { ...m };
+      const d = (docs || []).filter((x) => x.match_id === m.id);
+
+      for (const x of d) {
+        if (x.kind === "comms" && x.club_or_neutral === m.home) {
+          mm.commsByClub.home = {
+            id: crypto.randomUUID(),
+            name: x.label || "Komunikat",
+            mime: "application/octet-stream",
+            size: 0,
+            path: x.path,
+            uploadedBy: "",
+            uploadedAt: "",
+            label: x.label || "Komunikat",
+          };
+        }
+        if (x.kind === "roster") {
+          const target =
+            x.club_or_neutral === m.home
+              ? "home"
+              : x.club_or_neutral === m.away
+              ? "away"
+              : null;
+          if (target) {
+            mm.rosterByClub[target] = {
+              id: crypto.randomUUID(),
+              name: x.label || `Skład (${target})`,
+              mime: "application/octet-stream",
+              size: 0,
+              path: x.path,
+              uploadedBy: "",
+              uploadedAt: "",
+              label: x.label || `Skład (${target})`,
+            };
           }
-          return mm;
-        });
-
-        setState((s) => ({ ...s, matches: nextMatches }));
+        }
+        if (x.kind === "report") {
+          mm.matchReport = {
+            id: crypto.randomUUID(),
+            name: x.label || "Protokół",
+            mime: "application/pdf",
+            size: 0,
+            path: x.path,
+            uploadedBy: "",
+            uploadedAt: "",
+            label: x.label || "Protokół",
+          };
+        }
+        if (x.kind === "photos") {
+          mm.reportPhotos = [
+            ...(mm.reportPhotos || []),
+            {
+              id: crypto.randomUUID(),
+              name: x.label || "Zdjęcie raportu",
+              mime: "image/*",
+              size: 0,
+              path: x.path,
+              uploadedBy: "",
+              uploadedAt: "",
+              label: x.label || "Zdjęcie raportu",
+            },
+          ];
+        }
       }
-    } catch (e: any) {
-      alert("Błąd pobierania dokumentów: " + e.message);
-    }
+      return mm;
+    });
+
+    setState((s) => ({ ...s, matches: nextMatches }));
+  }
+} catch (e: any) {
+  alert("Błąd pobierania dokumentów: " + e.message);
+}
   } catch (e: any) {
     alert("Błąd pobierania meczów: " + e.message);
   }
   setLoadingMatches(false);
 }
-  useEffect(()=>{ refreshMatches() }, [])
+
+useEffect(() => {
+  refreshMatches();
+}, [sRole]);
 
   const refereeNames = profiles.filter(p=>p.role==="Referee").map(p=>p.display_name).filter(Boolean)
   const delegateNames = profiles.filter(p=>p.role==="Delegate").map(p=>p.display_name).filter(Boolean)
