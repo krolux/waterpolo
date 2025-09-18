@@ -71,11 +71,17 @@ export function useSupabaseAuth() {
     }
   }
 
-  async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    // na tym etapie onAuthStateChange i tak przełączy stan
-  }
+async function signIn(email: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password,
+  });
+  if (error) throw error;
+
+  // Od razu dociągnij profil, żeby role przestało być "Guest" bez czekania na event
+  const uid = data.user?.id;
+  if (uid) await loadProfile(uid);
+}
 
   async function signOut() {
     await supabase.auth.signOut()
