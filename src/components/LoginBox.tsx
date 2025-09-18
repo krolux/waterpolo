@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth'
 
 export const LoginBox: React.FC<{ classes: Record<string, string> }> = ({ classes }) => {
-  const { role, userDisplay, signIn, signOut, changePassword, userId  } = useSupabaseAuth()
+  const { role, userDisplay, signIn, signOut, changePassword  } = useSupabaseAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [newPass, setNewPass] = useState('')
@@ -28,7 +28,7 @@ export const LoginBox: React.FC<{ classes: Record<string, string> }> = ({ classe
     }
   }
 
-if (userId) {  
+if (role !== 'Guest') {
     return (
       <div className="w-full">
         <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:gap-2">
