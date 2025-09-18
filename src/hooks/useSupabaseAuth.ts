@@ -3,8 +3,6 @@ import { supabase } from '../lib/supabase'
 
 export type Role = 'Guest' | 'Club' | 'Delegate' | 'Admin' | 'Referee'
 
-type Profile = { id: string; display_name: string | null; role: Role | null }
-
 export function useSupabaseAuth() {
   const [userId, setUserId] = useState<string | null>(null)
   const [userDisplay, setUserDisplay] = useState<string>('Użytkownik')
@@ -14,22 +12,13 @@ export function useSupabaseAuth() {
     supabase.auth.getUser().then(({ data, error }) => {
       if (error) console.warn('[auth.getUser] error', error)
       const u = data?.user
-      if (u?.id) {
-        setUserId(u.id)
-        loadProfile(u.id)
-      }
+      if (u?.id) { setUserId(u.id); loadProfile(u.id) }
     })
     const { data: sub } = supabase.auth.onAuthStateChange((evt, session) => {
       const u = session?.user
-      console.log('[onAuthStateChange]', evt, !!u && u.id)
-      if (u?.id) {
-        setUserId(u.id)
-        loadProfile(u.id)
-      } else {
-        setUserId(null)
-        setUserDisplay('Użytkownik')
-        setRole('Guest')
-      }
+      console.log('[onAuthStateChange]', evt, u?.id)
+      if (u?.id) { setUserId(u.id); loadProfile(u.id) }
+      else { setUserId(null); setUserDisplay('Użytkownik'); setRole('Guest') }
     })
     return () => { sub.subscription.unsubscribe() }
   }, [])
@@ -43,16 +32,12 @@ export function useSupabaseAuth() {
       .maybeSingle()
 
     if (error) {
-      console.warn('[loadProfile] RLS/SELECT error:', error)
-      setUserDisplay('Użytkownik')
-      setRole('Guest')
-      return
+      console.warn('[loadProfile] error (RLS?):', error)
+      setUserDisplay('Użytkownik'); setRole('Guest'); return
     }
     if (!data) {
-      console.warn('[loadProfile] no row in profiles for id', id)
-      setUserDisplay('Użytkownik')
-      setRole('Guest')
-      return
+      console.warn('[loadProfile] no row in profiles for', id)
+      setUserDisplay('Użytkownik'); setRole('Guest'); return
     }
     setUserDisplay(data.display_name || 'Użytkownik')
     setRole((data.role as Role) || 'Guest')
@@ -61,21 +46,14 @@ export function useSupabaseAuth() {
   async function signIn(email: string, password: string) {
     console.log('[signIn] try', email)
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
+      email: email.trim(), password
     })
-    if (error) {
-      console.error('[signIn] error', error)
-      throw error
-    }
-    console.log('[signIn] ok, user id:', data.user?.id)
-    if (data.user?.id) await loadProfile(data.user.id) // ← natychmiast wczytaj profil
+    if (error) { console.error('[signIn] error', error); throw error }
+    console.log('[signIn] ok', data.user?.id)
+    if (data.user?.id) await loadProfile(data.user.id) // natychmiast dociągnij profil
   }
 
-  async function signOut() {
-    await supabase.auth.signOut()
-  }
-
+  async function signOut() { await supabase.auth.signOut() }
   async function changePassword(newPassword: string) {
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) throw error
