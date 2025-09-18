@@ -112,16 +112,7 @@ type ProfileRow = {
   club_name?: string | null;
 };
 
-const [clubs, setClubs] = useState<string[]>([]);
 
-async function refreshClubs() {
-  const { data, error } = await supabase
-    .from("clubs")
-    .select("name")
-    .order("name", { ascending: true });
-
-  if (!error && data) setClubs(data.map(r => r.name));
-}
 
 // na starcie pobierz listę klubów
 useEffect(() => { refreshClubs(); }, []);
@@ -198,6 +189,20 @@ const LoginPanel: React.FC<{ users: AppState["users"]; onLogin: (n: string, r: R
     </Section>
   );
 };
+
+// --- Kluby z DB (do list i rankingów)
+const [clubs, setClubs] = useState<string[]>([]);
+
+const refreshClubs = React.useCallback(async () => {
+  const { data, error } = await supabase
+    .from("clubs")
+    .select("name")
+    .order("name", { ascending: true });
+
+  if (!error && data) setClubs(data.map(r => r.name));
+}, []);
+
+useEffect(() => { refreshClubs(); }, [refreshClubs]);
 
 
 const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = ({ state, setState }) => {
@@ -1012,7 +1017,8 @@ seeded.forEach(c => {
         x.team.localeCompare(y.team)
       );
     });
-  }, [matches]);
+  }, [matches, clubs]);
+
 
 return (
   <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
@@ -1470,21 +1476,50 @@ variant="finished"
   onRemovePenalty={handleRemovePenalty}
 />
      
-  {effectiveUser?.role === "Admin" && (
-<AdminPanel
-  state={state}
-  setState={setState}
-  clubs={clubs}
-  refereeNames={refereeNames}
-  delegateNames={delegateNames}
-  onAfterChange={() => { refreshMatches(); refreshClubs(); }}
-  canWrite={true}
-/>
+{effectiveUser?.role === "Admin" && (
+  <AdminPanel
+    state={state}
+    setState={setState}
+    clubs={clubs}
+    refereeNames={refereeNames}
+    delegateNames={delegateNames}
+    onAfterChange={() => { refreshMatches(); refreshClubs(); }}
+    canWrite={true}
+  />
+)}
 
-
-      {/* Panel importu użytkowników (Admin) */}
+{/* Panel importu użytkowników (Admin) */}
 {effectiveUser?.role === "Admin" && (
   <Section title="Import użytkowników (CSV)" icon={<Upload className="w-5 h-5" />}>
+    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+      <input id="csv-file" type="file" accept=".csv,text/csv" className={classes.input} />
+      <button
+        className={classes.btnPrimary}
+        onClick={async () => {
+          const input = document.getElementById("csv-file") as HTMLInputElement;
+          const file = input?.files?.[0];
+          if (!file) { alert("Wybierz plik users.csv"); return; }
+          try {
+            await uploadImportCSV(file);
+            const res = await triggerBulkImport();
+            alert("Import zakończony.\n" + JSON.stringify(res, null, 2));
+          } catch (e:any) {
+            alert("Błąd importu: " + (e?.message || String(e)));
+          }
+        }}
+      >
+        Wyślij i zaimportuj
+      </button>
+    </div>
+    <div className="text-xs text-gray-600 mt-2">
+      Oczekiwane kolumny w <code>users.csv</code>:
+      <code> email,name,password,role,club</code>.
+    </div>
+  </Section>
+)}
+
+{effectiveUser?.role === "Admin" && <Diagnostics state={state} />}
+
     <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
       <input id="csv-file" type="file" accept=".csv,text/csv" className={classes.input} />
       <button
