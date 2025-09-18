@@ -1057,8 +1057,10 @@ const UserChip: React.FC<{
 );
 
 export default function App(){
-const { userId, userDisplay, role: sRole } = useSupabaseAuth()
-const supaUser = userId ? ({ name: userDisplay, role: sRole as Role } as { name: string; role: Role }) : null
+const { userDisplay, role: sRole } = useSupabaseAuth()
+const supaUser = sRole !== 'Guest'
+  ? ({ name: userDisplay, role: sRole as Role } as { name: string; role: Role })
+  : null
 // demo fallback
   const [demoUser, setDemoUser] = useState<{name:string; role:Role; club?:string}|null>(()=>{
     const raw = localStorage.getItem("wpr-auth-user"); return raw? JSON.parse(raw): null
