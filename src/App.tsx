@@ -944,122 +944,112 @@ const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=r
 }
 
 const RankingTable: React.FC<{ matches: Match[]; clubs: string[] }> = ({ matches, clubs }) => {
+  const table = useMemo(() => {
+    type Row = { team: string; pts: number; played: number; goalsFor: number; goalsAgainst: number };
+    const stats: Record<string, Row> = {};
 
-const table = useMemo(() => {
-  type Row = { team: string; pts: number; played: number; goalsFor: number; goalsAgainst: number };
-  const stats: Record<string, Row> = {};
+    // normalizacja nazw (usuwa kropki na końcu, podwójne spacje, NBSP itd.)
+    const normalizeTeam = (s: string) =>
+      (s || "")
+        .replace(/\u00A0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/\.+$/, "");
 
-  const seeded = (clubs?.length
-    ? clubs
-    : Array.from(new Set(matches.flatMap(m => [m.home, m.away])))
-  );
+    const seeded =
+      clubs?.length
+        ? clubs
+        : Array.from(new Set(matches.flatMap(m => [m.home, m.away])));
 
-// 🔧 normalizacja nazw: trim, spacje, NBSP, usunięcie kropek na końcu
-  const normalizeTeam = (s: string) =>
-    (s || "")
-      .replace(/\u00A0/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .replace(/\.+$/, ""); // usuń wszystkie kropki na końcu
+    // zainicjuj z listy klubów
+    seeded.forEach(raw => {
+      const name = normalizeTeam(raw);
+      if (!name) return;
+      stats[name] = { team: raw || name, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
+    });
 
-  const seeded = (clubs?.length
-    ? clubs
-    : Array.from(new Set(matches.flatMap(m => [m.home, m.away])))
-  );
+    const ensure = (raw: string) => {
+      const name = normalizeTeam(raw);
+      if (!name) return null;
+      if (!stats[name]) {
+        stats[name] = { team: raw || name, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
+      }
+      return name;
+    };
 
-  // zainicjuj znane drużyny
-  seeded.forEach((c) => {
-    const name = (c || "").trim();
-    if (!name) return;
-    stats[name] = { team: name, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
-  });
+    for (const m of matches) {
+      if (!m?.result) continue;
 
-  // helper: doinicjalizuj jeśli drużyna pojawiła się tylko w meczach
-  const ensure = (raw: string) => {
-    const team = (raw || "").trim();
-    if (!team) return null;
-    if (!stats[team]) {
-      stats[team] = { team, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
+      const home = ensure(m.home);
+      const away = ensure(m.away);
+      if (!home || !away) continue;
+
+      const [aStr, bStr] = String(m.result).split(":");
+      const a = Number(aStr), b = Number(bStr);
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+
+      const H = stats[home];
+      const A = stats[away];
+
+      H.played++; A.played++;
+      H.goalsFor += a; H.goalsAgainst += b;
+      A.goalsFor += b; A.goalsAgainst += a;
+
+      if (m.shootout) {
+        if (a > b) { H.pts += 2; A.pts += 1; }
+        else       { A.pts += 2; H.pts += 1; }
+      } else {
+        if (a > b) H.pts += 3;
+        else if (b > a) A.pts += 3;
+      }
     }
-    return team;
-  };
 
-  for (const m of matches) {
-    if (!m?.result) continue;
+    return Object.values(stats).sort((x, y) => {
+      if (x.played === 0 && y.played === 0) return x.team.localeCompare(y.team);
+      return (
+        y.pts - x.pts ||
+        (y.goalsFor - y.goalsAgainst) - (x.goalsFor - x.goalsAgainst) ||
+        y.goalsFor - x.goalsFor ||
+        x.team.localeCompare(y.team)
+      );
+    });
+  }, [matches, clubs]);
 
-    const home = ensure(m.home);
-    const away = ensure(m.away);
-    if (!home || !away) continue; // pomiń mecze z pustą nazwą
-
-    const [aStr, bStr] = String(m.result).split(":");
-    const a = Number(aStr), b = Number(bStr);
-    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-
-    const H = stats[home];
-    const A = stats[away];
-    if (!H || !A) continue; // ekstra bezpiecznik
-
-    H.played++; A.played++;
-    H.goalsFor += a; H.goalsAgainst += b;
-    A.goalsFor += b; A.goalsAgainst += a;
-
-    if (m.shootout) {
-      if (a > b) { H.pts += 2; A.pts += 1; }
-      else       { A.pts += 2; H.pts += 1; }
-    } else {
-      if (a > b) H.pts += 3;
-      else if (b > a) A.pts += 3;
-    }
-  }
-
-  return Object.values(stats).sort((x, y) => {
-    if (x.played === 0 && y.played === 0) return x.team.localeCompare(y.team);
-    return (
-      y.pts - x.pts ||
-      (y.goalsFor - y.goalsAgainst) - (x.goalsFor - x.goalsAgainst) ||
-      y.goalsFor - x.goalsFor ||
-      x.team.localeCompare(y.team)
-    );
-  });
-}, [matches, clubs]);
-
-
-
-return (
-  <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
-    <table className="table-auto w-full text-xs sm:text-sm">
-      <thead className="bg-white shadow-sm">
-        <tr className="text-left border-b bg-gray-50">
-          <th className="px-2 py-1 whitespace-nowrap w-[80px] text-center">Miejsce</th>
-          <th className="px-2 py-1 break-words">Drużyna</th>
-          <th className="px-2 py-1 whitespace-nowrap w-[70px] text-center">Pkt</th>
-          <th className="px-2 py-1 whitespace-nowrap w-[70px] text-center">M</th>
-          <th className="px-2 py-1 whitespace-nowrap w-[90px] text-center">B</th>
-        </tr>
-      </thead>
-      <tbody>
-        {table.map((row, i) => (
-          <tr
-            key={row.team}
-            className={clsx(
-              "border-b hover:bg-sky-50 transition-colors",
-              i % 2 ? "bg-white" : "bg-slate-50/60",
-              i === 0 && "!bg-amber-200",
-              i === 1 && "!bg-gray-200",
-              i === 2 && "!bg-orange-200"
-            )}
-          >
-            <td className="px-2 py-1 whitespace-nowrap text-center">{i + 1}</td>
-            <td className="px-2 py-1 break-words">{row.team}</td>
-            <td className="px-2 py-1 whitespace-nowrap text-center">{row.pts}</td>
-            <td className="px-2 py-1 whitespace-nowrap text-center">{row.played}</td>
-            <td className="px-2 py-1 whitespace-nowrap text-center">{row.goalsFor}:{row.goalsAgainst}</td>
+  return (
+    <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
+      <table className="table-auto w-full text-xs sm:text-sm">
+        <thead className="bg-white shadow-sm">
+          <tr className="text-left border-b bg-gray-50">
+            <th className="px-2 py-1 whitespace-nowrap w-[80px] text-center">Miejsce</th>
+            <th className="px-2 py-1 break-words">Drużyna</th>
+            <th className="px-2 py-1 whitespace-nowrap w-[70px] text-center">Pkt</th>
+            <th className="px-2 py-1 whitespace-nowrap w-[70px] text-center">M</th>
+            <th className="px-2 py-1 whitespace-nowrap w-[90px] text-center">B</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
-  </Section>
-);
+        </thead>
+        <tbody>
+          {table.map((row, i) => (
+            <tr
+              key={row.team}
+              className={clsx(
+                "border-b hover:bg-sky-50 transition-colors",
+                i % 2 ? "bg-white" : "bg-slate-50/60",
+                i === 0 && "!bg-amber-200",
+                i === 1 && "!bg-gray-200",
+                i === 2 && "!bg-orange-200"
+              )}
+            >
+              <td className="px-2 py-1 whitespace-nowrap text-center">{i + 1}</td>
+              <td className="px-2 py-1 break-words">{row.team}</td>
+              <td className="px-2 py-1 whitespace-nowrap text-center">{row.pts}</td>
+              <td className="px-2 py-1 whitespace-nowrap text-center">{row.played}</td>
+              <td className="px-2 py-1 whitespace-nowrap text-center">{row.goalsFor}:{row.goalsAgainst}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Section>
+  );
 };
 
 const UserChip: React.FC<{
@@ -1513,34 +1503,11 @@ variant="finished"
 {/* Panel importu użytkowników (Admin) */}
 {effectiveUser?.role === "Admin" && (
   <Section title="Import użytkowników (CSV)" icon={<Upload className="w-5 h-5" />}>
-    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-      <input id="csv-file" type="file" accept=".csv,text/csv" className={classes.input} />
-      <button
-        className={classes.btnPrimary}
-        onClick={async () => {
-          const input = document.getElementById("csv-file") as HTMLInputElement;
-          const file = input?.files?.[0];
-          if (!file) { alert("Wybierz plik users.csv"); return; }
-          try {
-            await uploadImportCSV(file);
-            const res = await triggerBulkImport();
-            alert("Import zakończony.\n" + JSON.stringify(res, null, 2));
-          } catch (e:any) {
-            alert("Błąd importu: " + (e?.message || String(e)));
-          }
-        }}
-      >
-        Wyślij i zaimportuj
-      </button>
-    </div>
-    <div className="text-xs text-gray-600 mt-2">
-      Oczekiwane kolumny w <code>users.csv</code>:
-      <code> email,name,password,role,club</code>.
-    </div>
+   
   </Section>
 )}
 
-{effectiveUser?.role === "Admin" && <Diagnostics state={state} />}
+
 
 
 
