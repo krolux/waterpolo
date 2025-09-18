@@ -954,6 +954,19 @@ const table = useMemo(() => {
     : Array.from(new Set(matches.flatMap(m => [m.home, m.away])))
   );
 
+// 🔧 normalizacja nazw: trim, spacje, NBSP, usunięcie kropek na końcu
+  const normalizeTeam = (s: string) =>
+    (s || "")
+      .replace(/\u00A0/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\.+$/, ""); // usuń wszystkie kropki na końcu
+
+  const seeded = (clubs?.length
+    ? clubs
+    : Array.from(new Set(matches.flatMap(m => [m.home, m.away])))
+  );
+
   // zainicjuj znane drużyny
   seeded.forEach((c) => {
     const name = (c || "").trim();
