@@ -7,6 +7,7 @@ import { supabase } from "./lib/supabase"
 import { listMatches, createMatch, updateMatch as dbUpdateMatch, deleteMatch as dbDeleteMatch, setMatchResult } from './lib/matches'
 import { addPenalty, listPenalties, deletePenalty, type Penalty } from "./lib/penalties";
 import { uploadDoc, getSignedUrl } from "./lib/storage";
+import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 
 
 
@@ -684,6 +685,73 @@ async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
               </>
             )}
 
+{/* Klub–gospodarz: zmiana daty i godziny (tylko jeśli zalogowany klub jest gospodarzem) */}
+{user.role === "Club" && user.club && match && user.club === match.home && (
+  <div className="mt-4 border-t pt-3">
+    <div className="text-sm text-amber-600 font-medium mb-2">
+      Zmień datę / godzinę (gospodarz)
+    </div>
+    <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-end">
+      <div>
+        <label className="text-xs text-gray-600">Data</label>
+        <input
+          type="date"
+          defaultValue={match.date}
+          id="host-date"
+          className={classes.input}
+          style={{ minWidth: 180 }}
+        />
+      </div>
+      <div>
+        <label className="text-xs text-gray-600">Godzina (opcjonalnie)</label>
+        <input
+          type="time"
+          defaultValue={match.time || ""}
+          id="host-time"
+          className={classes.input}
+          style={{ minWidth: 160 }}
+        />
+      </div>
+      <button
+        className={classes.btnPrimary}
+        onClick={async () => {
+          const dateEl = document.getElementById("host-date") as HTMLInputElement;
+          const timeEl = document.getElementById("host-time") as HTMLInputElement;
+          const newDate = (dateEl?.value || "").trim();
+          const newTime = (timeEl?.value || "").trim();
+
+          if (!newDate) { alert("Podaj poprawną datę."); return; }
+
+          try {
+            // zapis w DB (tylko date/time)
+            const { error } = await supabase
+              .from("matches")
+              .update({ date: newDate, time: newTime || null })
+              .eq("id", match.id);
+            if (error) throw error;
+
+            // odśwież lokalny stan, żeby UI od razu pokazał zmiany
+            const updated = { ...match, date: newDate, time: newTime };
+            setState({
+              ...state,
+              matches: state.matches.map(m => (m.id === match.id ? updated : m)),
+            });
+            alert("Zaktualizowano datę/godzinę.");
+          } catch (e:any) {
+            alert("Błąd zapisu: " + e.message);
+          }
+        }}
+      >
+        Zapisz termin
+      </button>
+    </div>
+    <div className="text-xs text-gray-500 mt-1">
+      Uprawnienie tylko dla klubu–gospodarza. Zmienić można wyłącznie datę i godzinę.
+    </div>
+  </div>
+)}
+
+            
             {canDelegateAct() && (
               <>
                 <button onClick={() => handleUpload("report")} className={clsx(classes.btnPrimary, "flex items-center gap-2 w-full sm:w-auto")}>
@@ -1386,6 +1454,36 @@ variant="finished"
     onAfterChange={refreshMatches} canWrite={true} />
 )}
 
+      {/* Panel importu użytkowników (Admin) */}
+{effectiveUser?.role === "Admin" && (
+  <Section title="Import użytkowników (CSV)" icon={<Upload className="w-5 h-5" />}>
+    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+      <input id="csv-file" type="file" accept=".csv,text/csv" className={classes.input} />
+      <button
+        className={classes.btnPrimary}
+        onClick={async () => {
+          const input = document.getElementById("csv-file") as HTMLInputElement;
+          const file = input?.files?.[0];
+          if (!file) { alert("Wybierz plik users.csv"); return; }
+          try {
+            await uploadImportCSV(file);           // 1) wrzuć do Storage → imports/users.csv
+            const res = await triggerBulkImport(); // 2) odpal funkcję importu w Supabase
+            alert("Import zakończony.\n" + JSON.stringify(res, null, 2));
+          } catch (e:any) {
+            alert("Błąd importu: " + (e?.message || String(e)));
+          }
+        }}
+      >
+        Wyślij i zaimportuj
+      </button>
+    </div>
+    <div className="text-xs text-gray-600 mt-2">
+      Oczekiwane kolumny w <code>users.csv</code>:
+      <code> email,name,password,role,club</code>.
+    </div>
+  </Section>
+)}
+      
 {effectiveUser?.role === "Admin" && <Diagnostics state={state} />}
 
 
