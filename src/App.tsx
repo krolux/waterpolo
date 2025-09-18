@@ -112,7 +112,20 @@ type ProfileRow = {
   club_name?: string | null;
 };
 
-const CLUBS = ["Waterpolo Poznań","AZS UW","KSZO Ostrowiec Św.","Alfa Gorzów Wlkp","UKS Neptun UŁ","ŁSTW PŁ","Arkonia Szczecin","WTS Polonia Bytom"] as const;
+const [clubs, setClubs] = useState<string[]>([]);
+
+async function refreshClubs() {
+  const { data, error } = await supabase
+    .from("clubs")
+    .select("name")
+    .order("name", { ascending: true });
+
+  if (!error && data) setClubs(data.map(r => r.name));
+}
+
+// na starcie pobierz listę klubów
+useEffect(() => { refreshClubs(); }, []);
+
 
 
 
@@ -887,8 +900,8 @@ const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:
         <div className="grid grid-cols-2 gap-2"><input className={classes.input} type="date" value={draft.date} onChange={e=>setDraft({...draft, date:e.target.value})}/><input className={classes.input} placeholder="Godzina (opcjonalnie)" value={draft.time||""} onChange={e=>setDraft({...draft, time:e.target.value})}/></div>
         <div className="grid grid-cols-2 gap-2"><input className={classes.input} placeholder="Nr meczu" value={draft.round||""} onChange={e=>setDraft({...draft, round:e.target.value})}/><input className={classes.input} placeholder="Miejsce" value={draft.location} onChange={e=>setDraft({...draft, location:e.target.value})}/></div>
         <div className="grid grid-cols-2 gap-2">
-          <select className={classes.input} value={draft.home} onChange={e=>setDraft({...draft, home:e.target.value})}><option value="">Wybierz gospodarza</option>{CLUBS.map(c=><option key={c} value={c}>{c}</option>)}</select>
-          <select className={classes.input} value={draft.away} onChange={e=>setDraft({...draft, away:e.target.value})}><option value="">Wybierz gości</option>{CLUBS.map(c=><option key={c} value={c}>{c}</option>)}</select>
+          <select className={classes.input} value={draft.home} onChange={e=>setDraft({...draft, home:e.target.value})}><option value="">Wybierz gospodarza</option>{clubs.map(c=><option key={c} value={c}>{c}</option>)}</select>
+          <select className={classes.input} value={draft.away} onChange={e=>setDraft({...draft, away:e.target.value})}><option value="">Wybierz gości</option>{clubs.map(c=><option key={c} value={c}>{c}</option>)}</select>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <select className={classes.input} value={draft.referees[0]} onChange={e=>setDraft({...draft, referees:[e.target.value, draft.referees[1]||""]})}><option value="">Sędzia 1</option>{refereeNames.map(n=><option key={n} value={n}>{n}</option>)}</select>
@@ -940,14 +953,20 @@ const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=r
     <ul className="text-sm space-y-1">{tests.map((t,i)=>(<li key={i} className={t.pass?"text-green-700":"text-red-700"}>• {t.name} — {t.pass?"PASS":"FAIL"}{t.details?` (${t.details})`:''}</li>))}</ul></Section>)
 }
 
-const RankingTable: React.FC<{ matches: Match[] }> = ({ matches }) => {
+const RankingTable: React.FC<{ matches: Match[]; clubs: string[] }> = ({ matches, clubs }) => {
+
   // policz punkty, bramki itd
     const table = useMemo(() => {
     // baza – wszystkie drużyny na start
-    const stats: Record<string, { team: string; pts: number; played: number; goalsFor: number; goalsAgainst: number }> = {};
-    CLUBS.forEach(c => {
-      stats[c] = { team: c, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
-    });
+const stats: Record<string, { team: string; pts: number; played: number; goalsFor: number; goalsAgainst: number }> = {};
+const seeded = (clubs?.length
+  ? clubs
+  : Array.from(new Set(matches.flatMap(m => [m.home, m.away])))
+);
+seeded.forEach(c => {
+  stats[c] = { team: c, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
+});
+
 
     // aktualizuj statystyki na podstawie rozegranych meczów
     for (const m of matches) {
@@ -1410,7 +1429,8 @@ useEffect(() => {
     <main className="max-w-6xl mx-auto grid gap-6">
       {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin}/>}
  
-<RankingTable matches={state.matches} />
+<RankingTable matches={state.matches} clubs={clubs} />
+
 
  {effectiveUser && effectiveUser.role !== "Guest" && (
   <div>
@@ -1451,10 +1471,16 @@ variant="finished"
 />
      
   {effectiveUser?.role === "Admin" && (
-  <AdminPanel state={state} setState={setState} clubs={CLUBS}
-    refereeNames={refereeNames} delegateNames={delegateNames}
-    onAfterChange={refreshMatches} canWrite={true} />
-)}
+<AdminPanel
+  state={state}
+  setState={setState}
+  clubs={clubs}
+  refereeNames={refereeNames}
+  delegateNames={delegateNames}
+  onAfterChange={() => { refreshMatches(); refreshClubs(); }}
+  canWrite={true}
+/>
+
 
       {/* Panel importu użytkowników (Admin) */}
 {effectiveUser?.role === "Admin" && (
