@@ -114,8 +114,6 @@ type ProfileRow = {
 
 
 
-// na starcie pobierz listę klubów
-useEffect(() => { refreshClubs(); }, []);
 
 
 
@@ -190,19 +188,6 @@ const LoginPanel: React.FC<{ users: AppState["users"]; onLogin: (n: string, r: R
   );
 };
 
-// --- Kluby z DB (do list i rankingów)
-const [clubs, setClubs] = useState<string[]>([]);
-
-const refreshClubs = React.useCallback(async () => {
-  const { data, error } = await supabase
-    .from("clubs")
-    .select("name")
-    .order("name", { ascending: true });
-
-  if (!error && data) setClubs(data.map(r => r.name));
-}, []);
-
-useEffect(() => { refreshClubs(); }, [refreshClubs]);
 
 
 const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = ({ state, setState }) => {
@@ -960,64 +945,57 @@ const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=r
 
 const RankingTable: React.FC<{ matches: Match[]; clubs: string[] }> = ({ matches, clubs }) => {
 
-  // policz punkty, bramki itd
 const table = useMemo(() => {
-  // baza – wszystkie drużyny na start
-  const stats: Record<string, { team: string; pts: number; played: number; goalsFor: number; goalsAgainst: number }> = {};
+  type Row = { team: string; pts: number; played: number; goalsFor: number; goalsAgainst: number };
+  const stats: Record<string, Row> = {};
 
   const seeded = (clubs?.length
     ? clubs
     : Array.from(new Set(matches.flatMap(m => [m.home, m.away])))
   );
 
-  // zainicjuj z listy klubów (jeśli jest)
-  seeded.forEach(c => {
-    if (!c) return;
-    stats[c] = { team: c, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
+  // zainicjuj znane drużyny
+  seeded.forEach((c) => {
+    const name = (c || "").trim();
+    if (!name) return;
+    stats[name] = { team: name, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
   });
 
-  // helper — upewnij się, że drużyna istnieje w stats
-  const ensure = (team: string) => {
-    if (!team) return;
+  // helper: doinicjalizuj jeśli drużyna pojawiła się tylko w meczach
+  const ensure = (raw: string) => {
+    const team = (raw || "").trim();
+    if (!team) return null;
     if (!stats[team]) {
       stats[team] = { team, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
     }
+    return team;
   };
 
-  // aktualizuj statystyki na podstawie rozegranych meczów
   for (const m of matches) {
-    if (!m.result) continue; // pomijamy mecze bez wyniku
+    if (!m?.result) continue;
 
-    // jeżeli nazwy w meczach nie znalazły się w 'clubs', doinicjalizuj
-    ensure(m.home);
-    ensure(m.away);
+    const home = ensure(m.home);
+    const away = ensure(m.away);
+    if (!home || !away) continue; // pomiń mecze z pustą nazwą
 
-    const [aStr, bStr] = (m.result || "").split(":");
-    const a = parseInt(aStr, 10);
-    const b = parseInt(bStr, 10);
+    const [aStr, bStr] = String(m.result).split(":");
+    const a = Number(aStr), b = Number(bStr);
     if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
 
-    stats[m.home].played++;
-    stats[m.away].played++;
-    stats[m.home].goalsFor += a;
-    stats[m.home].goalsAgainst += b;
-    stats[m.away].goalsFor += b;
-    stats[m.away].goalsAgainst += a;
+    const H = stats[home];
+    const A = stats[away];
+    if (!H || !A) continue; // ekstra bezpiecznik
+
+    H.played++; A.played++;
+    H.goalsFor += a; H.goalsAgainst += b;
+    A.goalsFor += b; A.goalsAgainst += a;
 
     if (m.shootout) {
-      if (a > b) {
-        stats[m.home].pts += 2;
-        stats[m.away].pts += 1;
-      } else {
-        stats[m.away].pts += 2;
-        stats[m.home].pts += 1;
-      }
+      if (a > b) { H.pts += 2; A.pts += 1; }
+      else       { A.pts += 2; H.pts += 1; }
     } else {
-      if (a > b) {
-        stats[m.home].pts += 3;
-      } else if (b > a) {
-        stats[m.away].pts += 3;
-      }
+      if (a > b) H.pts += 3;
+      else if (b > a) A.pts += 3;
     }
   }
 
@@ -1031,6 +1009,7 @@ const table = useMemo(() => {
     );
   });
 }, [matches, clubs]);
+
 
 
 return (
@@ -1112,6 +1091,23 @@ const supaUser = sRole !== 'Guest'
     {name:"Admin", role:"Admin"}, {name:"AZS Szczecin – Klub", role:"Club", club:"AZS Szczecin"}, {name:"KS Warszawa – Klub", role:"Club", club:"KS Warszawa"}, {name:"Anna Delegat", role:"Delegate"}, {name:"Sędzia – Demo", role:"Referee"}, {name:"Gość", role:"Guest"}
   ]});
 
+ // --- Kluby z DB (do list i rankingów) – TERAZ wewnątrz App()
+const [clubs, setClubs] = useState<string[]>([]);
+
+const refreshClubs = React.useCallback(async () => {
+  const { data, error } = await supabase
+    .from("clubs")
+    .select("name")
+    .order("name", { ascending: true });
+
+  if (!error && data) setClubs(data.map(r => r.name));
+}, []);
+
+useEffect(() => {
+  refreshClubs();
+}, [refreshClubs]);
+
+  
   // Load profiles (for admin select lists)
   const [profiles,setProfiles]=useState<ProfileRow[]>([])
   const [loadingProfiles,setLoadingProfiles]=useState(false)
@@ -1533,34 +1529,7 @@ variant="finished"
 
 {effectiveUser?.role === "Admin" && <Diagnostics state={state} />}
 
-    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-      <input id="csv-file" type="file" accept=".csv,text/csv" className={classes.input} />
-      <button
-        className={classes.btnPrimary}
-        onClick={async () => {
-          const input = document.getElementById("csv-file") as HTMLInputElement;
-          const file = input?.files?.[0];
-          if (!file) { alert("Wybierz plik users.csv"); return; }
-          try {
-            await uploadImportCSV(file);           // 1) wrzuć do Storage → imports/users.csv
-            const res = await triggerBulkImport(); // 2) odpal funkcję importu w Supabase
-            alert("Import zakończony.\n" + JSON.stringify(res, null, 2));
-          } catch (e:any) {
-            alert("Błąd importu: " + (e?.message || String(e)));
-          }
-        }}
-      >
-        Wyślij i zaimportuj
-      </button>
-    </div>
-    <div className="text-xs text-gray-600 mt-2">
-      Oczekiwane kolumny w <code>users.csv</code>:
-      <code> email,name,password,role,club</code>.
-    </div>
-  </Section>
-)}
-      
-{effectiveUser?.role === "Admin" && <Diagnostics state={state} />}
+
 
 
     </main>
