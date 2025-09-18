@@ -2,38 +2,39 @@ import React, { useState } from 'react'
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth'
 
 export const LoginBox: React.FC<{ classes: Record<string, string> }> = ({ classes }) => {
-  const { role, userDisplay, signIn, signOut, changePassword  } = useSupabaseAuth()
+  const { role, userDisplay, signIn, signOut, changePassword } = useSupabaseAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [newPass, setNewPass] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  async function handleSignIn() {
-    console.log('Próba logowania:', email)
+  const handleSignIn = async () => {
+    console.log('[LoginBox] CLICK login', { email })
+    if (!email || !password) { alert('Podaj email i hasło'); return }
     try {
+      setBusy(true)
       await signIn(email, password)
-      console.log('logowanie ok')
+      console.log('[LoginBox] signIn OK')
+      setPassword('')
     } catch (e: any) {
-      console.error('Błąd logowania', e)
-      alert(e.message)
+      console.error('[LoginBox] signIn ERROR', e)
+      alert(e?.message || 'Błąd logowania')
+    } finally {
+      setBusy(false)
     }
   }
 
-  async function handleChangePass() {
-    try {
-      await changePassword(newPass)
-      alert('Hasło zmienione')
-      setNewPass('')
-    } catch (e: any) {
-      alert(e.message)
-    }
+  const handleChangePass = async () => {
+    if (!newPass) { alert('Podaj nowe hasło'); return }
+    try { await changePassword(newPass); alert('Hasło zmienione'); setNewPass('') }
+    catch (e:any) { alert(e.message) }
   }
 
-if (role !== 'Guest') {
+  if (role !== 'Guest') {
     return (
       <div className="w-full">
         <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:gap-2">
           <span className="text-sm text-gray-700 sm:mr-1">{userDisplay}</span>
-
           <input
             className={`${classes.input} w-full sm:w-[200px] text-[16px]`}
             placeholder="Nowe hasło"
@@ -43,11 +44,9 @@ if (role !== 'Guest') {
             autoComplete="new-password"
             onKeyDown={(e) => e.key === 'Enter' && handleChangePass()}
           />
-
           <button className={`${classes.btnSecondary} w-full sm:w-auto`} onClick={handleChangePass}>
             Zmień hasło
           </button>
-
           <button className={`${classes.btnSecondary} w-full sm:w-auto`} onClick={() => signOut()}>
             Wyloguj
           </button>
@@ -80,13 +79,11 @@ if (role !== 'Guest') {
         />
         <button
           type="button"
+          disabled={busy}
           className={`${classes.btnPrimary} w-full sm:w-auto`}
-          onClick={() => {
-            console.log('klik logowania', { email })
-            handleSignIn()
-          }}
+          onClick={handleSignIn}
         >
-          Zaloguj
+          {busy ? 'Logowanie…' : 'Zaloguj'}
         </button>
       </div>
     </div>
