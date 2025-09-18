@@ -7,85 +7,73 @@ type Profile = { id: string; display_name: string | null; role: Role | null }
 
 export function useSupabaseAuth() {
   const [userId, setUserId] = useState<string | null>(null)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [userDisplay, setUserDisplay] = useState<string>('')
+  const [userDisplay, setUserDisplay] = useState<string>('Użytkownik')
   const [role, setRole] = useState<Role>('Guest')
 
-  // pomocniczo, żeby UI mógł wiedzieć że JEST sesja (nawet jeśli rola=Guest)
-  const isAuthenticated = !!userId
-
   useEffect(() => {
-    // 1) stan początkowy
-    supabase.auth.getSession().then(({ data }) => {
-      const u = data.session?.user
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (error) console.warn('[auth.getUser] error', error)
+      const u = data?.user
       if (u?.id) {
         setUserId(u.id)
-        setUserEmail(u.email ?? null)
-        setUserDisplay(u.email ?? 'Użytkownik') // szybki fallback
         loadProfile(u.id)
-      } else {
-        reset()
       }
     })
-
-    // 2) nasłuch zmian sesji
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evt, session) => {
       const u = session?.user
+      console.log('[onAuthStateChange]', evt, !!u && u.id)
       if (u?.id) {
         setUserId(u.id)
-        setUserEmail(u.email ?? null)
-        setUserDisplay(u.email ?? 'Użytkownik') // szybki fallback
         loadProfile(u.id)
       } else {
-        reset()
+        setUserId(null)
+        setUserDisplay('Użytkownik')
+        setRole('Guest')
       }
     })
-
-    return () => {
-      sub.subscription.unsubscribe()
-    }
+    return () => { sub.subscription.unsubscribe() }
   }, [])
 
-  function reset() {
-    setUserId(null)
-    setUserEmail(null)
-    setUserDisplay('')
-    setRole('Guest')
-  }
-
   async function loadProfile(id: string) {
+    console.log('[loadProfile] for', id)
     const { data, error } = await supabase
       .from('profiles')
       .select('id, display_name, role')
       .eq('id', id)
       .maybeSingle()
 
-    if (!error && data) {
-      setUserDisplay(data.display_name || userEmail || 'Użytkownik')
-      setRole((data.role as Role) || 'Guest')
-    } else {
-      // profil brak / błąd — zostawiamy rolę jako Guest,
-      // ale użytkownik pozostaje zalogowany (isAuthenticated = true)
-      setUserDisplay(userEmail || 'Użytkownik')
+    if (error) {
+      console.warn('[loadProfile] RLS/SELECT error:', error)
+      setUserDisplay('Użytkownik')
       setRole('Guest')
+      return
     }
+    if (!data) {
+      console.warn('[loadProfile] no row in profiles for id', id)
+      setUserDisplay('Użytkownik')
+      setRole('Guest')
+      return
+    }
+    setUserDisplay(data.display_name || 'Użytkownik')
+    setRole((data.role as Role) || 'Guest')
   }
 
-async function signIn(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.trim(),
-    password,
-  });
-  if (error) throw error;
-
-  // Od razu dociągnij profil, żeby role przestało być "Guest" bez czekania na event
-  const uid = data.user?.id;
-  if (uid) await loadProfile(uid);
-}
+  async function signIn(email: string, password: string) {
+    console.log('[signIn] try', email)
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    })
+    if (error) {
+      console.error('[signIn] error', error)
+      throw error
+    }
+    console.log('[signIn] ok, user id:', data.user?.id)
+    if (data.user?.id) await loadProfile(data.user.id) // ← natychmiast wczytaj profil
+  }
 
   async function signOut() {
     await supabase.auth.signOut()
-    reset()
   }
 
   async function changePassword(newPassword: string) {
@@ -93,5 +81,5 @@ async function signIn(email: string, password: string) {
     if (error) throw error
   }
 
-  return { userId, userDisplay, role, isAuthenticated, signIn, signOut, changePassword }
+  return { userId, userDisplay, role, signIn, signOut, changePassword }
 }
