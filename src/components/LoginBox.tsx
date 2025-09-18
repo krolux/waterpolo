@@ -8,10 +8,24 @@ export const LoginBox: React.FC<{ classes: Record<string, string> }> = ({ classe
   const [newPass, setNewPass] = useState('')
 
   async function handleSignIn() {
-    try { await signIn(email, password) } catch (e: any) { alert(e.message) }
+    console.log('Próba logowania:', email)
+    try {
+      await signIn(email, password)
+      console.log('logowanie ok')
+    } catch (e: any) {
+      console.error('Błąd logowania', e)
+      alert(e.message)
+    }
   }
+
   async function handleChangePass() {
-    try { await changePassword(newPass); alert('Hasło zmienione'); setNewPass('') } catch (e: any) { alert(e.message) }
+    try {
+      await changePassword(newPass)
+      alert('Hasło zmienione')
+      setNewPass('')
+    } catch (e: any) {
+      alert(e.message)
+    }
   }
 
   if (role !== 'Guest') {
@@ -64,7 +78,14 @@ export const LoginBox: React.FC<{ classes: Record<string, string> }> = ({ classe
           autoComplete="current-password"
           onKeyDown={(e) => e.key === 'Enter' && handleSignIn()}
         />
-        <button className={`${classes.btnPrimary} w-full sm:w-auto`} onClick={handleSignIn}>
+        <button
+          type="button"
+          className={`${classes.btnPrimary} w-full sm:w-auto`}
+          onClick={() => {
+            console.log('klik logowania', { email })
+            handleSignIn()
+          }}
+        >
           Zaloguj
         </button>
       </div>
