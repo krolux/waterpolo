@@ -12,6 +12,8 @@ import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 
 
 function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(Boolean).join(" "); }
+// Normalizacja nazw klubów do klucza używanego w ścieżkach/storage
+const normKey = (s?: string) => (s || "").replace(/\//g, "-").replace(/ /g, "_");
 
 
 async function removeWholeSlot(
