@@ -415,15 +415,10 @@ function renderResult(m: Match) {
     {homePens.map(p => (
       <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
         {p.name}
-        {(user && (isAdmin(user) || isDelegate(user))) && (
-          <button
-            onClick={() => onRemovePenalty(p.id)}
-            className="ml-1 rounded px-1 leading-none hover:bg-red-100"
-            title="Usuń karę"
-          >
-            ×
-          </button>
-        )}
+{(user && (isAdmin(user) || isDelegate(user))) && (
+  <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+)}
+
       </span>
     ))}
   </span>
@@ -442,9 +437,12 @@ function renderResult(m: Match) {
                 {awayPens.map(p => (
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
-                    {(user && (isAdmin(user) || isDelegate(user))) && 
-                      <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
-                    )}
+{(user && (isAdmin(user) || isDelegate(user))) && (
+  <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+)}
+
+
+
                   </span>
                 ))}
               </span>
@@ -507,9 +505,10 @@ function renderResult(m: Match) {
                 {(penaltyMap.get(m.id)?.home || []).map(p => (
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
-                   {(user && (isAdmin(user) || isDelegate(user))) && 
-                      <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
-                    )}
+{(user && (isAdmin(user) || isDelegate(user))) && (
+  <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+)}
+
                   </span>
                 ))}
                 {((penaltyMap.get(m.id)?.home || []).length === 0) && <span className="text-gray-500">–</span>}
@@ -525,9 +524,10 @@ function renderResult(m: Match) {
                 {(penaltyMap.get(m.id)?.away || []).map(p => (
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
-                   {(user && (isAdmin(user) || isDelegate(user))) && 
-                      <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
-                    )}
+{(user && (isAdmin(user) || isDelegate(user))) && (
+  <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
+)}
+
                   </span>
                 ))}
                 {((penaltyMap.get(m.id)?.away || []).length === 0) && <span className="text-gray-500">–</span>}
