@@ -20,34 +20,6 @@ function normKey(s?: string) {
 
 
 async function removeWholeSlot(
-  kind: "comms" | "roster" | "report" | "photos",
-  matchId: string,
-  clubOrNeutral: string
-) {
-
-  const { data: rows, error: qerr } = await supabase
-    .from("docs_meta")
-    .select("path")
-    .match({ match_id: matchId, kind, club_or_neutral: clubOrNeutral });
-
-  if (qerr) throw qerr;
-
-  const paths = (rows || []).map(r => r.path);
-
-
-  if (paths.length) {
-    const { error: serr } = await supabase.storage.from("docs").remove(paths);
-    if (serr) throw serr;
-  }
-
-
-  const { error: derr } = await supabase
-    .from("docs_meta")
-    .delete()
-     .match({ match_id: matchId, kind, club_or_neutral: clubOrNeutral });
-
-  if (derr) throw derr;
-}
 
 
 
@@ -171,27 +143,6 @@ async function toStoredFileUsingStorage(kind: "comms"|"roster"|"report"|"photos"
   };
 }
 
-async function removeStoredFile(file: StoredFile) {
-  try {
-    // 1) usuń plik ze storage (bucket "docs")
-    const { error: storageErr } = await supabase.storage
-      .from("docs")
-      .remove([file.path]);
-    if (storageErr) throw storageErr;
-
-    // 2) usuń metadane z docs_meta po ścieżce
-    const { error: dbErr } = await supabase
-      .from("docs_meta")
-      .delete()
-      .eq("path", file.path);
-    if (dbErr) throw dbErr;
-
-    alert("Dokument usunięty.");
-  } catch (e: any) {
-    alert("Błąd usuwania dokumentu: " + e.message);
-    throw e;
-  }
-}
 
 
 async function downloadStoredFile(file: StoredFile) {
@@ -551,7 +502,8 @@ function renderResult(m: Match) {
     canRemove={!!user && isAdmin(user)}
     onRemove={async () => {
       try {
-        await removeWholeSlot("comms", m.id, normKey(m.home));
+await removeWholeSlot("comms", m.id, normKey(m.home), m.commsByClub.home!.path);
+
         setState({
           ...state,
           matches: state.matches.map(x =>
@@ -576,8 +528,8 @@ function renderResult(m: Match) {
     disabled={!canDownload}
     canRemove={!!user && isAdmin(user)}
     onRemove={async () => {
-      try {
-        await removeWholeSlot("roster", m.id, normKey(m.home));
+      try {await removeWholeSlot("roster", m.id, normKey(m.home), m.rosterByClub.home!.path);
+
         setState({
           ...state,
           matches: state.matches.map(x =>
@@ -602,7 +554,8 @@ function renderResult(m: Match) {
     canRemove={!!user && isAdmin(user)}
     onRemove={async () => {
       try {
-        await removeWholeSlot("roster", m.id, normKey(m.away));
+await removeWholeSlot("roster", m.id, normKey(m.away), m.rosterByClub.away!.path);
+
         setState({
           ...state,
           matches: state.matches.map(x =>
@@ -627,7 +580,8 @@ function renderResult(m: Match) {
     canRemove={!!user && isAdmin(user)}
     onRemove={async () => {
       try {
-        await removeWholeSlot("report", m.id, "neutral");
+await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
+
         setState({
           ...state,
           matches: state.matches.map(x =>
@@ -748,7 +702,8 @@ function renderResult(m: Match) {
         canRemove={!!user && isAdmin(user)}
         onRemove={async () => {
           try {
-            await removeWholeSlot("comms", m.id, normKey(m.home));
+await removeWholeSlot("comms", m.id, normKey(m.home), m.commsByClub.home!.path);
+
             setState({
               ...state,
               matches: state.matches.map(x =>
@@ -772,7 +727,8 @@ function renderResult(m: Match) {
         canRemove={!!user && isAdmin(user)}
         onRemove={async () => {
           try {
-            await removeWholeSlot("roster", m.id, normKey(m.home));
+await removeWholeSlot("roster", m.id, normKey(m.home), m.rosterByClub.home!.path);
+
             setState({
               ...state,
               matches: state.matches.map(x =>
@@ -796,7 +752,8 @@ function renderResult(m: Match) {
         canRemove={!!user && isAdmin(user)}
         onRemove={async () => {
           try {
-            await removeWholeSlot("roster", m.id, normKey(m.away));
+await removeWholeSlot("roster", m.id, normKey(m.away), m.rosterByClub.away!.path);
+
             setState({
               ...state,
               matches: state.matches.map(x =>
@@ -820,7 +777,8 @@ function renderResult(m: Match) {
         canRemove={!!user && isAdmin(user)}
         onRemove={async () => {
           try {
-            await removeWholeSlot("report", m.id, "neutral");
+await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
+
             setState({
               ...state,
               matches: state.matches.map(x =>
