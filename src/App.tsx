@@ -14,13 +14,36 @@ import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(Boolean).join(" "); }
 
 
-function normKey(s?: string) {
-  return (s || "").replace(/\//g, "-").replace(/ /g, "_");
-}
-
-
 async function removeWholeSlot(
+  kind: "comms" | "roster" | "report" | "photos",
+  matchId: string,
+  clubOrNeutral: string,
+  _path?: string // 4. argument opcjonalny – wywołania mogą go podawać; ignorujemy
+) {
+  // 1) pobierz ścieżki plików z metadanych
+  const { data: rows, error: qerr } = await supabase
+    .from("docs_meta")
+    .select("path")
+    .match({ match_id: matchId, kind, club_or_neutral: clubOrNeutral });
 
+  if (qerr) throw qerr;
+
+  const paths = (rows || []).map(r => r.path);
+
+  // 2) usuń pliki ze storage (jeśli są)
+  if (paths.length) {
+    const { error: serr } = await supabase.storage.from("docs").remove(paths);
+    if (serr) throw serr;
+  }
+
+  // 3) usuń metadane
+  const { error: derr } = await supabase
+    .from("docs_meta")
+    .delete()
+    .match({ match_id: matchId, kind, club_or_neutral: clubOrNeutral });
+
+  if (derr) throw derr;
+}
 
 
 const classes = {
