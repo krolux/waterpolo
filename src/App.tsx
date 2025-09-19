@@ -409,21 +409,26 @@ function renderResult(m: Match) {
 {isGuest ? (
   <span className="text-gray-500">–</span>
 ) : homePens.length === 0 ? (
-  ...
+  <span className="text-gray-500">–</span>
+) : (
+  <span className="inline-flex flex-wrap gap-1 align-top">
+    {homePens.map(p => (
+      <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
+        {p.name}
+        {(user && (isAdmin(user) || isDelegate(user))) && (
+          <button
+            onClick={() => onRemovePenalty(p.id)}
+            className="ml-1 rounded px-1 leading-none hover:bg-red-100"
+            title="Usuń karę"
+          >
+            ×
+          </button>
+        )}
+      </span>
+    ))}
+  </span>
+)}
 
-              <span className="text-gray-500">–</span>
-            ) : (
-              <span className="inline-flex flex-wrap gap-1 align-top">
-                {homePens.map(p => (
-                  <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-                    {p.name}
-                   {(user && (isAdmin(user) || isDelegate(user))) && 
-                      <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
-                    )}
-                  </span>
-                ))}
-              </span>
-            )}
           </div>
 
           <div className="text-xs">
