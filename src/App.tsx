@@ -165,12 +165,42 @@ const DocBadge: React.FC<{ file: StoredFile; label: string; disabled?: boolean }
   </button>
 );
 
+// === MULTI-ROLE HELPERS (NEW) ===
+type BaseRole = 'Guest' | 'Admin' | 'Club' | 'Delegate' | 'Referee';
+
+// Dopuszczamy łączenie ról separatorami: -, +, przecinek, spacja
+function roleTokens(role?: string): BaseRole[] {
+  const r = (role || 'Guest').toString().trim();
+  if (r === 'Admin') return ['Admin','Club','Delegate','Referee']; // Admin = wszystko
+  return r.split(/[-+,\s]+/).map(s => s.trim()).filter(Boolean) as BaseRole[];
+}
+
+function hasRole(user: { role?: string | Role } | null | undefined, target: BaseRole) {
+  if (!user?.role) return target === 'Guest';
+  const toks = roleTokens(String(user.role));
+  return toks.includes(target);
+}
+
+function isAdmin(u:{role:Role})    { return hasRole(u,'Admin'); }
+function isClub(u:{role:Role})     { return hasRole(u,'Club') || isAdmin(u); }
+function isDelegate(u:{role:Role}) { return hasRole(u,'Delegate') || isAdmin(u); }
+function isReferee(u:{role:Role})  { return hasRole(u,'Referee') || isAdmin(u); }
+
 
 // Permissions
-function canUploadComms(user:{role:Role;club?:string}, m:Match){ return user.role==="Club" && !!user.club && user.club===m.home }
-function canUploadRoster(user:{role:Role;club?:string}, m:Match){ return user.role==="Club" && !!user.club && (user.club===m.home || user.club===m.away) }
-function canUploadReport(user:{role:Role}){ return user.role==="Delegate" }
-function canEditResult(user:{role:Role;name:string}, m:Match){ return user.role==="Delegate" && !!m.delegate && m.delegate===user.name }
+function canUploadComms(user:{role:Role;club?:string}, m:Match){
+  return isClub(user) && !!user.club && user.club===m.home;
+}
+function canUploadRoster(user:{role:Role;club?:string}, m:Match){
+  return isClub(user) && !!user.club && (user.club===m.home || user.club===m.away);
+}
+function canUploadReport(user:{role:Role}){
+  return isDelegate(user);
+}
+function canEditResult(user:{role:Role;name:string}, m:Match){
+  return isDelegate(user) && !!m.delegate && m.delegate===user.name;
+}
+
 
 
 // Components
@@ -281,7 +311,9 @@ const sorted = useMemo(() => {
     [sorted, q]
   );
 
-  const canDownload = !!user && user.role !== "Guest";
+const isGuest = !user || hasRole(user, 'Guest');
+const canDownload = !!user && !isGuest;
+
 function renderResult(m: Match) {
   const r = (m.result || "").trim();
   if (!r) return "-";
@@ -374,16 +406,18 @@ function renderResult(m: Match) {
         <div className="mt-2 grid grid-cols-1 gap-2">
           <div className="text-xs">
             <span className="font-semibold">Kary (Gospodarz): </span>
-            {user?.role === "Guest" ? (
-              <span className="text-gray-500">–</span>
-            ) : homePens.length === 0 ? (
+{isGuest ? (
+  <span className="text-gray-500">–</span>
+) : homePens.length === 0 ? (
+  ...
+
               <span className="text-gray-500">–</span>
             ) : (
               <span className="inline-flex flex-wrap gap-1 align-top">
                 {homePens.map(p => (
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
-                    {(user?.role === 'Admin' || user?.role === 'Delegate') && (
+                   {(user && (isAdmin(user) || isDelegate(user))) && 
                       <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
                     )}
                   </span>
@@ -394,7 +428,7 @@ function renderResult(m: Match) {
 
           <div className="text-xs">
             <span className="font-semibold">Kary (Goście): </span>
-            {user?.role === "Guest" ? (
+{isGuest ? (
               <span className="text-gray-500">–</span>
             ) : awayPens.length === 0 ? (
               <span className="text-gray-500">–</span>
@@ -403,7 +437,7 @@ function renderResult(m: Match) {
                 {awayPens.map(p => (
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
-                    {(user?.role === 'Admin' || user?.role === 'Delegate') && (
+                    {(user && (isAdmin(user) || isDelegate(user))) && 
                       <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
                     )}
                   </span>
@@ -461,14 +495,14 @@ function renderResult(m: Match) {
 
           {/* Kary – tylko dla zalogowanych */}
           <td className="px-2 py-1">
-            {user?.role === "Guest" ? (
+        {isGuest ? (
               <span className="text-gray-500">–</span>
             ) : (
               <div className="flex flex-wrap gap-1">
                 {(penaltyMap.get(m.id)?.home || []).map(p => (
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
-                    {(user?.role === 'Admin' || user?.role === 'Delegate') && (
+                   {(user && (isAdmin(user) || isDelegate(user))) && 
                       <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
                     )}
                   </span>
@@ -479,14 +513,14 @@ function renderResult(m: Match) {
           </td>
 
           <td className="px-2 py-1">
-            {user?.role === "Guest" ? (
+          {isGuest ? (
               <span className="text-gray-500">–</span>
             ) : (
               <div className="flex flex-wrap gap-1">
                 {(penaltyMap.get(m.id)?.away || []).map(p => (
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
-                    {(user?.role === 'Admin' || user?.role === 'Delegate') && (
+                   {(user && (isAdmin(user) || isDelegate(user))) && 
                       <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
                     )}
                   </span>
@@ -648,8 +682,9 @@ async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
     }
   }
 
-  const canClubAct = () => user.role === "Club" && !!user.club;
-  const canDelegateAct = () => user.role === "Delegate";
+const canClubAct = () => isClub(user) && !!user.club;
+const canDelegateAct = () => isDelegate(user);
+
 
   return (
     <div className="grid gap-4">
@@ -689,7 +724,8 @@ async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
             )}
 
 {/* Klub–gospodarz: zmiana daty i godziny (tylko jeśli zalogowany klub jest gospodarzem) */}
-{user.role === "Club" && user.club && match && user.club === match.home && (
+{isClub(user) && user.club && match && user.club === match.home && (
+
   <div className="mt-4 border-t pt-3">
     <div className="text-sm text-amber-600 font-medium mb-2">
       Zmień datę / godzinę (gospodarz)
@@ -1382,8 +1418,9 @@ useEffect(() => {
   refreshMatches();
 }, [sRole]);
 
-  const refereeNames = profiles.filter(p=>p.role==="Referee").map(p=>p.display_name).filter(Boolean)
-  const delegateNames = profiles.filter(p=>p.role==="Delegate").map(p=>p.display_name).filter(Boolean)
+const refereeNames = profiles.filter(p => hasRole(p, "Referee")).map(p => p.display_name).filter(Boolean);
+const delegateNames = profiles.filter(p => hasRole(p, "Delegate")).map(p => p.display_name).filter(Boolean);
+
 
  async function handleRemovePenalty(id: string) {
   try {
@@ -1488,8 +1525,7 @@ variant="finished"
   onRemovePenalty={handleRemovePenalty}
 />
      
-{effectiveUser?.role === "Admin" && (
-  <AdminPanel
+{effectiveUser && isAdmin(effectiveUser) && ( <AdminPanel
     state={state}
     setState={setState}
     clubs={clubs}
@@ -1501,8 +1537,7 @@ variant="finished"
 )}
 
 {/* Panel importu użytkowników (Admin) */}
-{effectiveUser?.role === "Admin" && (
-  <Section title="Import użytkowników (CSV)" icon={<Upload className="w-5 h-5" />}>
+{effectiveUser && isAdmin(effectiveUser) && ( <Section title="Import użytkowników (CSV)" icon={<Upload className="w-5 h-5" />}>
    
   </Section>
 )}
