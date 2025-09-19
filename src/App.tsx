@@ -12,6 +12,8 @@ import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 
 
 function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(Boolean).join(" "); }
+
+
 function normKey(s?: string) {
   return (s || "").replace(/\//g, "-").replace(/ /g, "_");
 }
@@ -540,80 +542,105 @@ function renderResult(m: Match) {
 
         {/* Dokumenty */}
 <div className="mt-2 flex flex-wrap gap-2">
-  {m.commsByClub.home && (
-    <DocBadge
-      file={m.commsByClub.home}
-      label="Komunikat"
-      disabled={!canDownload}
-      canRemove={!!user && isAdmin(user)}
-      onRemove={async () => {
-  try {
-    await removeWholeSlot("comms", m.id, normKey(m.home));
-    setState({
-      ...state,
-      matches: state.matches.map(x =>
-        x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
-      ),
-    });
-  } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-}}
+
+{m.commsByClub.home && (
+  <DocBadge
+    file={m.commsByClub.home}
+    label="Komunikat"
+    disabled={!canDownload}
+    canRemove={!!user && isAdmin(user)}
+    onRemove={async () => {
+      try {
+        await removeWholeSlot("comms", m.id, normKey(m.home));
+        setState({
+          ...state,
+          matches: state.matches.map(x =>
+            x.id === m.id
+              ? { ...x, commsByClub: { ...x.commsByClub, home: null } }
+              : x
+          ),
+        });
+      } catch (e: any) {
+        alert("Błąd usuwania: " + e.message);
+      }
+    }}
+  />
+)}
 
 
-  {m.rosterByClub.home && (
-    <DocBadge
-      file={m.rosterByClub.home}
-      label="Skład (Home)"
-      disabled={!canDownload}
-      canRemove={!!user && isAdmin(user)}
-onRemove={async () => {
-  try {
-    await removeWholeSlot("roster", m.id, normKey(m.home));
-    setState({
-      ...state,
-      matches: state.matches.map(x =>
-        x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
-      ),
-    });
-  } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-}}
+
+{m.rosterByClub.home && (
+  <DocBadge
+    file={m.rosterByClub.home}
+    label="Skład (Home)"
+    disabled={!canDownload}
+    canRemove={!!user && isAdmin(user)}
+    onRemove={async () => {
+      try {
+        await removeWholeSlot("roster", m.id, normKey(m.home));
+        setState({
+          ...state,
+          matches: state.matches.map(x =>
+            x.id === m.id
+              ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } }
+              : x
+          ),
+        });
+      } catch (e: any) {
+        alert("Błąd usuwania: " + e.message);
+      }
+    }}
+  />
+)}
 
 
-  {m.rosterByClub.away && (
-    <DocBadge
-      file={m.rosterByClub.away}
-      label="Skład (Away)"
-      disabled={!canDownload}
-      canRemove={!!user && isAdmin(user)}
-     onRemove={async () => {
-  try {
-    await removeWholeSlot("roster", m.id, normKey(m.away));
-    setState({
-      ...state,
-      matches: state.matches.map(x =>
-        x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
-      ),
-    });
-  } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-}}
+{m.rosterByClub.away && (
+  <DocBadge
+    file={m.rosterByClub.away}
+    label="Skład (Away)"
+    disabled={!canDownload}
+    canRemove={!!user && isAdmin(user)}
+    onRemove={async () => {
+      try {
+        await removeWholeSlot("roster", m.id, normKey(m.away));
+        setState({
+          ...state,
+          matches: state.matches.map(x =>
+            x.id === m.id
+              ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } }
+              : x
+          ),
+        });
+      } catch (e: any) {
+        alert("Błąd usuwania: " + e.message);
+      }
+    }}
+  />
+)}
 
 
-  {m.matchReport && (
-    <DocBadge
-      file={m.matchReport}
-      label="Protokół"
-      disabled={!canDownload}
-      canRemove={!!user && isAdmin(user)}
-onRemove={async () => {
-  try {
-    await removeWholeSlot("report", m.id, "neutral");
-    setState({
-      ...state,
-      matches: state.matches.map(x =>
-        x.id === m.id ? { ...x, matchReport: null } : x
-      ),
-    });
-  } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-}}
+{m.matchReport && (
+  <DocBadge
+    file={m.matchReport}
+    label="Protokół"
+    disabled={!canDownload}
+    canRemove={!!user && isAdmin(user)}
+    onRemove={async () => {
+      try {
+        await removeWholeSlot("report", m.id, "neutral");
+        setState({
+          ...state,
+          matches: state.matches.map(x =>
+            x.id === m.id ? { ...x, matchReport: null } : x
+          ),
+        });
+      } catch (e: any) {
+        alert("Błąd usuwania: " + e.message);
+      }
+    }}
+  />
+)}
+
 
 
   {m.reportPhotos.length > 0 && (
@@ -711,96 +738,111 @@ onRemove={async () => {
             )}
           </td>
 
-          <td className="px-2 py-1">
-<div className="flex flex-wrap gap-2">
-  {m.commsByClub.home && (
-    <DocBadge
-      file={m.commsByClub.home}
-      label="Komunikat"
-      disabled={!canDownload}
-      canRemove={!!user && isAdmin(user)}
-onRemove={async () => {
-  try {
-    await removeWholeSlot("comms", m.id, normKey(m.home));
-    setState({
-      ...state,
-      matches: state.matches.map(x =>
-        x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
-      ),
-    });
-  } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-}}
+<td className="px-2 py-1">
+  <div className="flex flex-wrap gap-2">
+    {m.commsByClub.home && (
+      <DocBadge
+        file={m.commsByClub.home}
+        label="Komunikat"
+        disabled={!canDownload}
+        canRemove={!!user && isAdmin(user)}
+        onRemove={async () => {
+          try {
+            await removeWholeSlot("comms", m.id, normKey(m.home));
+            setState({
+              ...state,
+              matches: state.matches.map(x =>
+                x.id === m.id
+                  ? { ...x, commsByClub: { ...x.commsByClub, home: null } }
+                  : x
+              ),
+            });
+          } catch (e: any) {
+            alert("Błąd usuwania: " + e.message);
+          }
+        }}
+      />
+    )}
 
+    {m.rosterByClub.home && (
+      <DocBadge
+        file={m.rosterByClub.home}
+        label="Skład (Home)"
+        disabled={!canDownload}
+        canRemove={!!user && isAdmin(user)}
+        onRemove={async () => {
+          try {
+            await removeWholeSlot("roster", m.id, normKey(m.home));
+            setState({
+              ...state,
+              matches: state.matches.map(x =>
+                x.id === m.id
+                  ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } }
+                  : x
+              ),
+            });
+          } catch (e: any) {
+            alert("Błąd usuwania: " + e.message);
+          }
+        }}
+      />
+    )}
 
-    />
-  )}
+    {m.rosterByClub.away && (
+      <DocBadge
+        file={m.rosterByClub.away}
+        label="Skład (Away)"
+        disabled={!canDownload}
+        canRemove={!!user && isAdmin(user)}
+        onRemove={async () => {
+          try {
+            await removeWholeSlot("roster", m.id, normKey(m.away));
+            setState({
+              ...state,
+              matches: state.matches.map(x =>
+                x.id === m.id
+                  ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } }
+                  : x
+              ),
+            });
+          } catch (e: any) {
+            alert("Błąd usuwania: " + e.message);
+          }
+        }}
+      />
+    )}
 
-  {m.rosterByClub.home && (
-    <DocBadge
-      file={m.rosterByClub.home}
-      label="Skład (Home)"
-      disabled={!canDownload}
-      canRemove={!!user && isAdmin(user)}
-onRemove={async () => {
-  try {
-    await removeWholeSlot("roster", m.id, normKey(m.home));
-    setState({
-      ...state,
-      matches: state.matches.map(x =>
-        x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
-      ),
-    });
-  } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-}}
+    {m.matchReport && (
+      <DocBadge
+        file={m.matchReport}
+        label="Protokół"
+        disabled={!canDownload}
+        canRemove={!!user && isAdmin(user)}
+        onRemove={async () => {
+          try {
+            await removeWholeSlot("report", m.id, "neutral");
+            setState({
+              ...state,
+              matches: state.matches.map(x =>
+                x.id === m.id ? { ...x, matchReport: null } : x
+              ),
+            });
+          } catch (e: any) {
+            alert("Błąd usuwania: " + e.message);
+          }
+        }}
+      />
+    )}
 
+    {m.reportPhotos.length > 0 && (
+      <span className={classes.pill}>
+        <Image className="w-3.5 h-3.5" />
+        Zdjęcia: {m.reportPhotos.length}
+      </span>
+    )}
+  </div>
+</td>
 
-  {m.rosterByClub.away && (
-    <DocBadge
-      file={m.rosterByClub.away}
-      label="Skład (Away)"
-      disabled={!canDownload}
-      canRemove={!!user && isAdmin(user)}
-onRemove={async () => {
-  try {
-    await removeWholeSlot("roster", m.id, normKey(m.away));
-    setState({
-      ...state,
-      matches: state.matches.map(x =>
-        x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
-      ),
-    });
-  } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-}}
-
-
-  {m.matchReport && (
-    <DocBadge
-      file={m.matchReport}
-      label="Protokół"
-      disabled={!canDownload}
-      canRemove={!!user && isAdmin(user)}
-onRemove={async () => {
-  try {
-    await removeWholeSlot("report", m.id, "neutral");
-    setState({
-      ...state,
-      matches: state.matches.map(x =>
-        x.id === m.id ? { ...x, matchReport: null } : x
-      ),
-    });
-  } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-}}
-
-
-  {m.reportPhotos.length > 0 && (
-    <span className={classes.pill}>
-      <Image className="w-3.5 h-3.5" />
-      Zdjęcia: {m.reportPhotos.length}
-    </span>
-  )}
-</div>
-
-          </td>
         </tr>
       ))}
     </tbody>
