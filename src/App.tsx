@@ -12,6 +12,10 @@ import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 
 
 function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(Boolean).join(" "); }
+function normKey(s?: string) {
+  return (s || "").replace(/\//g, "-").replace(/ /g, "_");
+}
+
 
 const classes = {
   input: "w-full px-3 py-2 rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-sky-300",
@@ -284,6 +288,7 @@ const MatchesTable: React.FC<{
   sectionClassName?: string;
   showExport?: boolean;
   variant?: "upcoming" | "finished";
+    onQuickEdit?: (id: string) => void; 
 }> = ({
   state,
   setState,
@@ -296,6 +301,7 @@ const MatchesTable: React.FC<{
   sectionClassName,
   showExport = false,
   variant = "upcoming",
+    onQuickEdit,
 }) => {
 const [q, setQ] = useState("");
 const [sortKey, setSortKey] = useState<"date" | "round">("round");
@@ -432,10 +438,20 @@ function renderResult(m: Match) {
               {m.date}{m.time ? ` ${m.time}` : ""} • {m.location}
             </div>
             <div className="font-medium break-words">{m.home} vs {m.away}</div>
-            <div className="text-xs text-gray-600 break-words">
-              Sędziowie: {m.referees.filter(Boolean).join(", ") || "–"}
-              {m.delegate ? ` • Delegat: ${m.delegate}` : ""}
-            </div>
+<div className="text-xs text-gray-600 break-words">
+  Sędziowie: {m.referees.filter(Boolean).join(", ") || "–"}
+  {m.delegate ? ` • Delegat: ${m.delegate}` : ""}
+  {user && isAdmin(user) && onQuickEdit && (
+    <button
+      className="ml-2 underline text-blue-700"
+      onClick={() => onQuickEdit(m.id)}
+      title="Szybka edycja w panelu admina"
+    >
+      Edytuj
+    </button>
+  )}
+</div>
+
           </div>
           <div className="text-right text-sm font-semibold shrink-0">
             {renderResult(m)}
@@ -500,13 +516,25 @@ function renderResult(m: Match) {
       canRemove={!!user && isAdmin(user)}
       onRemove={async () => {
         try {
-          await removeStoredFile(m.commsByClub.home!);
-          setState({
-            ...state,
-            matches: state.matches.map(x =>
-              x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
-            ),
-          });
+await removeStoredFile(m.commsByClub.home!);
+
+
+await supabase
+  .from("docs_meta")
+  .delete()
+  .match({
+    match_id: m.id,
+    kind: "comms",
+    club_or_neutral: normKey(m.home),
+  });
+
+setState({
+  ...state,
+  matches: state.matches.map(x =>
+    x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
+  ),
+});
+
         } catch {}
       }}
     />
@@ -520,13 +548,25 @@ function renderResult(m: Match) {
       canRemove={!!user && isAdmin(user)}
       onRemove={async () => {
         try {
-          await removeStoredFile(m.rosterByClub.home!);
-          setState({
-            ...state,
-            matches: state.matches.map(x =>
-              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
-            ),
-          });
+await removeStoredFile(m.rosterByClub.home!);
+
+
+await supabase
+  .from("docs_meta")
+  .delete()
+  .match({
+    match_id: m.id,
+    kind: "roster",
+    club_or_neutral: normKey(m.home),
+  });
+
+setState({
+  ...state,
+  matches: state.matches.map(x =>
+    x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
+  ),
+});
+
         } catch {}
       }}
     />
@@ -540,13 +580,25 @@ function renderResult(m: Match) {
       canRemove={!!user && isAdmin(user)}
       onRemove={async () => {
         try {
-          await removeStoredFile(m.rosterByClub.away!);
-          setState({
-            ...state,
-            matches: state.matches.map(x =>
-              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
-            ),
-          });
+await removeStoredFile(m.rosterByClub.away!);
+
+
+await supabase
+  .from("docs_meta")
+  .delete()
+  .match({
+    match_id: m.id,
+    kind: "roster",
+    club_or_neutral: normKey(m.away),
+  });
+
+setState({
+  ...state,
+  matches: state.matches.map(x =>
+    x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
+  ),
+});
+
         } catch {}
       }}
     />
@@ -560,13 +612,25 @@ function renderResult(m: Match) {
       canRemove={!!user && isAdmin(user)}
       onRemove={async () => {
         try {
-          await removeStoredFile(m.matchReport!);
-          setState({
-            ...state,
-            matches: state.matches.map(x =>
-              x.id === m.id ? { ...x, matchReport: null } : x
-            ),
-          });
+await removeStoredFile(m.matchReport!);
+
+
+await supabase
+  .from("docs_meta")
+  .delete()
+  .match({
+    match_id: m.id,
+    kind: "report",
+    club_or_neutral: "neutral",
+  });
+
+setState({
+  ...state,
+  matches: state.matches.map(x =>
+    x.id === m.id ? { ...x, matchReport: null } : x
+  ),
+});
+
         } catch {}
       }}
     />
@@ -613,7 +677,19 @@ function renderResult(m: Match) {
           <td className="px-2 py-1 break-words">{m.home}</td>
           <td className="px-2 py-1 break-words">{m.away}</td>
           <td className="px-2 py-1 whitespace-nowrap text-center">{renderResult(m)}</td>
-          <td className="px-2 py-1 break-words">{m.referees.join(", ")}</td>
+<td className="px-2 py-1 break-words">
+  {m.referees.join(", ")}
+  {user && isAdmin(user) && onQuickEdit && (
+    <button
+      className="ml-2 underline text-blue-700"
+      onClick={() => onQuickEdit(m.id)}
+      title="Szybka edycja w panelu admina"
+    >
+      Edytuj
+    </button>
+  )}
+</td>
+
           <td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
 
           {/* Kary – tylko dla zalogowanych */}
@@ -663,17 +739,29 @@ function renderResult(m: Match) {
       label="Komunikat"
       disabled={!canDownload}
       canRemove={!!user && isAdmin(user)}
-      onRemove={async () => {
-        try {
-          await removeStoredFile(m.commsByClub.home!);
-          setState({
-            ...state,
-            matches: state.matches.map(x =>
-              x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
-            ),
-          });
-        } catch {}
-      }}
+onRemove={async () => {
+  try {
+    await removeStoredFile(m.commsByClub.home!);
+
+    // usuń cały „slot” komunikatu gospodarza
+    await supabase
+      .from("docs_meta")
+      .delete()
+      .match({
+        match_id: m.id,
+        kind: "comms",
+        club_or_neutral: normKey(m.home),
+      });
+
+    setState({
+      ...state,
+      matches: state.matches.map(x =>
+        x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
+      ),
+    });
+  } catch {}
+}}
+
     />
   )}
 
@@ -685,13 +773,25 @@ function renderResult(m: Match) {
       canRemove={!!user && isAdmin(user)}
       onRemove={async () => {
         try {
-          await removeStoredFile(m.rosterByClub.home!);
-          setState({
-            ...state,
-            matches: state.matches.map(x =>
-              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
-            ),
-          });
+await removeStoredFile(m.rosterByClub.home!);
+
+
+await supabase
+  .from("docs_meta")
+  .delete()
+  .match({
+    match_id: m.id,
+    kind: "roster",
+    club_or_neutral: normKey(m.home),
+  });
+
+setState({
+  ...state,
+  matches: state.matches.map(x =>
+    x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
+  ),
+});
+
         } catch {}
       }}
     />
@@ -705,13 +805,25 @@ function renderResult(m: Match) {
       canRemove={!!user && isAdmin(user)}
       onRemove={async () => {
         try {
-          await removeStoredFile(m.rosterByClub.away!);
-          setState({
-            ...state,
-            matches: state.matches.map(x =>
-              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
-            ),
-          });
+await removeStoredFile(m.rosterByClub.away!);
+
+
+await supabase
+  .from("docs_meta")
+  .delete()
+  .match({
+    match_id: m.id,
+    kind: "roster",
+    club_or_neutral: normKey(m.away),
+  });
+
+setState({
+  ...state,
+  matches: state.matches.map(x =>
+    x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
+  ),
+});
+
         } catch {}
       }}
     />
@@ -725,13 +837,25 @@ function renderResult(m: Match) {
       canRemove={!!user && isAdmin(user)}
       onRemove={async () => {
         try {
-          await removeStoredFile(m.matchReport!);
-          setState({
-            ...state,
-            matches: state.matches.map(x =>
-              x.id === m.id ? { ...x, matchReport: null } : x
-            ),
-          });
+await removeStoredFile(m.matchReport!);
+
+
+await supabase
+  .from("docs_meta")
+  .delete()
+  .match({
+    match_id: m.id,
+    kind: "report",
+    club_or_neutral: "neutral",
+  });
+
+setState({
+  ...state,
+  matches: state.matches.map(x =>
+    x.id === m.id ? { ...x, matchReport: null } : x
+  ),
+});
+
         } catch {}
       }}
     />
@@ -860,27 +984,12 @@ if (type === "photos") {
   }
   const sfs: StoredFile[] = [];
   for (const f of files) {
-    sfs.push(
-      await toStoredFileUsingStorage(
-        "photos",
-        match.id,
-        "neutral",
-        f,
-        user.name,
-        "Zdjęcie raportu"
-      )
-    );
+    sfs.push(await toStoredFileUsingStorage("photos", match.id, "neutral", f, user.name, "Zdjęcie raportu"));
   }
   next.reportPhotos = [...next.reportPhotos, ...sfs];
-  pushLog(next, {
-    type: "photos",
-    club: null,
-    user: user.name,
-    fileName: `${files.length} zdjęć`,
-  });
-
-  // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
+  pushLog(next, { type: "photos", club: null, user: user.name, fileName: `${files.length} zdjęć` });
 }
+
 
 
     // lokalny stan – żeby od razu było widać bez odświeżania
@@ -1120,10 +1229,39 @@ const canDelegateAct = () => isDelegate(user);
   );
 };         
 
-const AdminPanel: React.FC<{ state:AppState; setState:(s:AppState)=>void; clubs:readonly string[]; refereeNames:string[]; delegateNames:string[]; onAfterChange:()=>void; canWrite:boolean; }> = ({ state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite }) => {
+const AdminPanel: React.FC<{
+  state: AppState;
+  setState: (s: AppState) => void;
+  clubs: readonly string[];
+  refereeNames: string[];
+  delegateNames: string[];
+  onAfterChange: () => void;
+  canWrite: boolean;
+  editingMatchId?: string | null;
+  clearEditing?: () => void;
+}> = ({
+  state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite,
+  editingMatchId, clearEditing
+}) => {
+
+
   const blank: Match = { id:crypto.randomUUID(), date:new Date().toISOString().slice(0,10), time:"", round:"", location:"", home:"", away:"", referees:["",""], delegate:"", commsByClub:{home:null,away:null}, rosterByClub:{home:null,away:null}, matchReport:null, reportPhotos:[], notes:"", result:"", uploadsLog:[] };
   const [draft,setDraft]=useState<Match>(blank); const [editId,setEditId]=useState<string|null>(null);
 
+// ⤵️ Quick-edit z tabeli: po otrzymaniu id meczu ustawiamy formularz i tryb edycji
+useEffect(() => {
+  if (!editingMatchId) return;
+  const m = state.matches.find(x => x.id === editingMatchId);
+  if (m) {
+    setDraft(m);
+    setEditId(m.id);
+  }
+  // wyczyść trigger, żeby nie odpalać się ponownie
+  clearEditing?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [editingMatchId]);
+
+  
   function toDbRow(m: Match){
     return { date:m.date, time:m.time||null, round:m.round||null, location:m.location, home:m.home, away:m.away, result:m.result||null, referee1:m.referees[0]||null, referee2:m.referees[1]||null, delegate:m.delegate||null, notes:m.notes||null }
   }
@@ -1351,6 +1489,17 @@ const supaUser = sRole !== 'Guest'
   function demoLogin(n:string,r:Role,c?:string){ const u={name:n, role:r, club:c}; setDemoUser(u); localStorage.setItem("wpr-auth-user", JSON.stringify(u)); }
   function demoLogout(){ setDemoUser(null); localStorage.removeItem("wpr-auth-user"); }
 
+// --- quick edit (Admin): scroll do panelu + załaduj mecz ---
+const adminPanelRef = React.useRef<HTMLDivElement>(null);
+const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+
+function handleQuickEdit(matchId: string) {
+  setEditingMatchId(matchId);
+  // delikatne opóźnienie, żeby DOM miał ref już wpięty
+  setTimeout(() => {
+    adminPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 50);
+}
 
 
   const [state,setState]=useState<AppState>({ matches: [], users:[
@@ -1547,10 +1696,12 @@ try {
 
   const matchIds = matches.map((m) => m.id);
   if (matchIds.length > 0) {
-    const { data: docs, error: docsErr } = await supabase
-      .from("docs_meta")
-      .select("match_id, kind, club_or_neutral, path, label")
-      .in("match_id", matchIds);
+const { data: docs, error: docsErr } = await supabase
+  .from("docs_meta")
+  .select("match_id, kind, club_or_neutral, path, label, created_at")
+  .in("match_id", matchIds)
+  .order("created_at", { ascending: false }); 
+
 
     if (docsErr) throw docsErr;
 
@@ -1559,10 +1710,12 @@ try {
   const d = (docs || []).filter((x) => x.match_id === m.id);
 
   // ujednolicenie zapisu klubów (tak samo jak w ścieżce w Storage)
-  const norm = (s?: string) => (s || "").replace(/\//g, "-").replace(/ /g, "_");
+const norm = normKey;
 
-  for (const x of d) {
-    if (x.kind === "comms" && x.club_or_neutral === norm(m.home)) {
+
+for (const x of d) {
+  if (x.kind === "comms" && x.club_or_neutral === norm(m.home)) {
+    if (!mm.commsByClub.home) {
       mm.commsByClub.home = {
         id: crypto.randomUUID(),
         name: x.label || "Komunikat",
@@ -1574,30 +1727,29 @@ try {
         label: x.label || "Komunikat",
       };
     }
+  }
 
-    if (x.kind === "roster") {
-      const target =
-        x.club_or_neutral === norm(m.home)
-          ? "home"
-          : x.club_or_neutral === norm(m.away)
-          ? "away"
-          : null;
+  if (x.kind === "roster") {
+    const target =
+      x.club_or_neutral === norm(m.home) ? "home" :
+      x.club_or_neutral === norm(m.away) ? "away" : null;
 
-      if (target) {
-        mm.rosterByClub[target] = {
-          id: crypto.randomUUID(),
-          name: x.label || `Skład (${target})`,
-          mime: "application/octet-stream",
-          size: 0,
-          path: x.path,
-          uploadedBy: "",
-          uploadedAt: "",
-          label: x.label || `Skład (${target})`,
-        };
-      }
+    if (target && !mm.rosterByClub[target]) {
+      mm.rosterByClub[target] = {
+        id: crypto.randomUUID(),
+        name: x.label || `Skład (${target})`,
+        mime: "application/octet-stream",
+        size: 0,
+        path: x.path,
+        uploadedBy: "",
+        uploadedAt: "",
+        label: x.label || `Skład (${target})`,
+      };
     }
+  }
 
-    if (x.kind === "report") {
+  if (x.kind === "report") {
+    if (!mm.matchReport) {
       mm.matchReport = {
         id: crypto.randomUUID(),
         name: x.label || "Protokół",
@@ -1609,23 +1761,25 @@ try {
         label: x.label || "Protokół",
       };
     }
-
-    if (x.kind === "photos") {
-      mm.reportPhotos = [
-        ...(mm.reportPhotos || []),
-        {
-          id: crypto.randomUUID(),
-          name: x.label || "Zdjęcie raportu",
-          mime: "image/*",
-          size: 0,
-          path: x.path,
-          uploadedBy: "",
-          uploadedAt: "",
-          label: x.label || "Zdjęcie raportu",
-        },
-      ];
-    }
   }
+
+  if (x.kind === "photos") {
+    // zdjęcia mogą być wiele – dodawaj wszystkie
+    mm.reportPhotos = [
+      ...(mm.reportPhotos || []),
+      {
+        id: crypto.randomUUID(),
+        name: x.label || "Zdjęcie raportu",
+        mime: "image/*",
+        size: 0,
+        path: x.path,
+        uploadedBy: "",
+        uploadedAt: "",
+        label: x.label || "Zdjęcie raportu",
+      },
+    ];
+  }
+}
 
   return mm;
 });
@@ -1736,6 +1890,7 @@ variant="upcoming"
   loading={loadingMatches}
   penaltyMap={penaltiesByMatch}
   onRemovePenalty={handleRemovePenalty}
+    onQuickEdit={handleQuickEdit}
 />
 
 
@@ -1750,18 +1905,25 @@ variant="finished"
   loading={loadingMatches}
   penaltyMap={penaltiesByMatch}
   onRemovePenalty={handleRemovePenalty}
+    onQuickEdit={handleQuickEdit}
 />
      
-{effectiveUser && isAdmin(effectiveUser) && ( <AdminPanel
-    state={state}
-    setState={setState}
-    clubs={clubs}
-    refereeNames={refereeNames}
-    delegateNames={delegateNames}
-    onAfterChange={() => { refreshMatches(); refreshClubs(); }}
-    canWrite={true}
-  />
+{effectiveUser && isAdmin(effectiveUser) && (
+  <div ref={adminPanelRef}>
+    <AdminPanel
+      state={state}
+      setState={setState}
+      clubs={clubs}
+      refereeNames={refereeNames}
+      delegateNames={delegateNames}
+      onAfterChange={() => { refreshMatches(); refreshClubs(); }}
+      canWrite={true}
+      editingMatchId={editingMatchId}
+      clearEditing={() => setEditingMatchId(null)}
+    />
+  </div>
 )}
+
 
 {/* Panel importu użytkowników (Admin) */}
 {effectiveUser && isAdmin(effectiveUser) && ( <Section title="Import użytkowników (CSV)" icon={<Upload className="w-5 h-5" />}>
