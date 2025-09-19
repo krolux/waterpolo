@@ -133,6 +133,29 @@ async function toStoredFileUsingStorage(kind: "comms"|"roster"|"report"|"photos"
   };
 }
 
+async function removeStoredFile(file: StoredFile) {
+  try {
+    // 1) usuń plik ze storage (bucket "docs")
+    const { error: storageErr } = await supabase.storage
+      .from("docs")
+      .remove([file.path]);
+    if (storageErr) throw storageErr;
+
+    // 2) usuń metadane z docs_meta po ścieżce
+    const { error: dbErr } = await supabase
+      .from("docs_meta")
+      .delete()
+      .eq("path", file.path);
+    if (dbErr) throw dbErr;
+
+    alert("Dokument usunięty.");
+  } catch (e: any) {
+    alert("Błąd usuwania dokumentu: " + e.message);
+    throw e;
+  }
+}
+
+
 async function downloadStoredFile(file: StoredFile) {
 const url = await getSignedUrl(file.path);
   const a = document.createElement("a");
@@ -142,28 +165,45 @@ const url = await getSignedUrl(file.path);
 }
 
 // Badge do pobierania dokumentów z Supabase Storage (podpisywane URL)
-const DocBadge: React.FC<{ file: StoredFile; label: string; disabled?: boolean }> = ({
-  file,
-  label,
-  disabled,
-}) => (
-  <button
-    onClick={() => {
-      if (disabled) {
-        alert("Pobieranie dostępne po zalogowaniu (nie dla Gościa).");
-        return;
-      }
-      downloadStoredFile(file);
-    }}
-    className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white ${
+const DocBadge: React.FC<{
+  file: StoredFile;
+  label: string;
+  disabled?: boolean;
+  canRemove?: boolean;
+  onRemove?: () => void;
+}> = ({ file, label, disabled, canRemove, onRemove }) => (
+  <div
+    className={clsx(
+      "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white",
       disabled ? "opacity-50 cursor-not-allowed" : "hover:shadow"
-    }`}
+    )}
     title={label}
   >
     <FileText className="w-3.5 h-3.5" />
-    {label}
-  </button>
+    <button
+      onClick={() => {
+        if (disabled) {
+          alert("Pobieranie dostępne po zalogowaniu (nie dla Gościa).");
+          return;
+        }
+        downloadStoredFile(file);
+      }}
+      className={clsx(!disabled && "hover:underline")}
+    >
+      {label}
+    </button>
+    {canRemove && (
+      <button
+        onClick={onRemove}
+        className="ml-1 rounded px-1 leading-none hover:bg-red-100 text-red-600"
+        title="Usuń dokument"
+      >
+        ×
+      </button>
+    )}
+  </div>
 );
+
 
 // === MULTI-ROLE HELPERS (NEW) ===
 type BaseRole = 'Guest' | 'Admin' | 'Club' | 'Delegate' | 'Referee';
@@ -451,15 +491,95 @@ function renderResult(m: Match) {
         </div>
 
         {/* Dokumenty */}
-        <div className="mt-2 flex flex-wrap gap-2">
-          {m.commsByClub.home && <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />}
-          {m.rosterByClub.home && <DocBadge file={m.rosterByClub.home} label="Skład (Home)" disabled={!canDownload} />}
-          {m.rosterByClub.away && <DocBadge file={m.rosterByClub.away} label="Skład (Away)" disabled={!canDownload} />}
-          {m.matchReport && <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload} />}
-          {m.reportPhotos.length > 0 && (
-            <span className={classes.pill}><Image className="w-3.5 h-3.5" />Zdjęcia: {m.reportPhotos.length}</span>
-          )}
-        </div>
+<div className="mt-2 flex flex-wrap gap-2">
+  {m.commsByClub.home && (
+    <DocBadge
+      file={m.commsByClub.home}
+      label="Komunikat"
+      disabled={!canDownload}
+      canRemove={!!user && isAdmin(user)}
+      onRemove={async () => {
+        try {
+          await removeStoredFile(m.commsByClub.home!);
+          setState({
+            ...state,
+            matches: state.matches.map(x =>
+              x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
+            ),
+          });
+        } catch {}
+      }}
+    />
+  )}
+
+  {m.rosterByClub.home && (
+    <DocBadge
+      file={m.rosterByClub.home}
+      label="Skład (Home)"
+      disabled={!canDownload}
+      canRemove={!!user && isAdmin(user)}
+      onRemove={async () => {
+        try {
+          await removeStoredFile(m.rosterByClub.home!);
+          setState({
+            ...state,
+            matches: state.matches.map(x =>
+              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
+            ),
+          });
+        } catch {}
+      }}
+    />
+  )}
+
+  {m.rosterByClub.away && (
+    <DocBadge
+      file={m.rosterByClub.away}
+      label="Skład (Away)"
+      disabled={!canDownload}
+      canRemove={!!user && isAdmin(user)}
+      onRemove={async () => {
+        try {
+          await removeStoredFile(m.rosterByClub.away!);
+          setState({
+            ...state,
+            matches: state.matches.map(x =>
+              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
+            ),
+          });
+        } catch {}
+      }}
+    />
+  )}
+
+  {m.matchReport && (
+    <DocBadge
+      file={m.matchReport}
+      label="Protokół"
+      disabled={!canDownload}
+      canRemove={!!user && isAdmin(user)}
+      onRemove={async () => {
+        try {
+          await removeStoredFile(m.matchReport!);
+          setState({
+            ...state,
+            matches: state.matches.map(x =>
+              x.id === m.id ? { ...x, matchReport: null } : x
+            ),
+          });
+        } catch {}
+      }}
+    />
+  )}
+
+  {m.reportPhotos.length > 0 && (
+    <span className={classes.pill}>
+      <Image className="w-3.5 h-3.5" />
+      Zdjęcia: {m.reportPhotos.length}
+    </span>
+  )}
+</div>
+
       </div>
     );
   })}
@@ -536,15 +656,95 @@ function renderResult(m: Match) {
           </td>
 
           <td className="px-2 py-1">
-            <div className="flex flex-wrap gap-2">
-              {m.commsByClub.home && <DocBadge file={m.commsByClub.home} label="Komunikat" disabled={!canDownload} />}
-              {m.rosterByClub.home && <DocBadge file={m.rosterByClub.home} label="Skład (Home)" disabled={!canDownload} />}
-              {m.rosterByClub.away && <DocBadge file={m.rosterByClub.away} label="Skład (Away)" disabled={!canDownload} />}
-              {m.matchReport && <DocBadge file={m.matchReport} label="Protokół" disabled={!canDownload} />}
-              {m.reportPhotos.length > 0 && (
-                <span className={classes.pill}><Image className="w-3.5 h-3.5" />Zdjęcia: {m.reportPhotos.length}</span>
-              )}
-            </div>
+<div className="flex flex-wrap gap-2">
+  {m.commsByClub.home && (
+    <DocBadge
+      file={m.commsByClub.home}
+      label="Komunikat"
+      disabled={!canDownload}
+      canRemove={!!user && isAdmin(user)}
+      onRemove={async () => {
+        try {
+          await removeStoredFile(m.commsByClub.home!);
+          setState({
+            ...state,
+            matches: state.matches.map(x =>
+              x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
+            ),
+          });
+        } catch {}
+      }}
+    />
+  )}
+
+  {m.rosterByClub.home && (
+    <DocBadge
+      file={m.rosterByClub.home}
+      label="Skład (Home)"
+      disabled={!canDownload}
+      canRemove={!!user && isAdmin(user)}
+      onRemove={async () => {
+        try {
+          await removeStoredFile(m.rosterByClub.home!);
+          setState({
+            ...state,
+            matches: state.matches.map(x =>
+              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
+            ),
+          });
+        } catch {}
+      }}
+    />
+  )}
+
+  {m.rosterByClub.away && (
+    <DocBadge
+      file={m.rosterByClub.away}
+      label="Skład (Away)"
+      disabled={!canDownload}
+      canRemove={!!user && isAdmin(user)}
+      onRemove={async () => {
+        try {
+          await removeStoredFile(m.rosterByClub.away!);
+          setState({
+            ...state,
+            matches: state.matches.map(x =>
+              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
+            ),
+          });
+        } catch {}
+      }}
+    />
+  )}
+
+  {m.matchReport && (
+    <DocBadge
+      file={m.matchReport}
+      label="Protokół"
+      disabled={!canDownload}
+      canRemove={!!user && isAdmin(user)}
+      onRemove={async () => {
+        try {
+          await removeStoredFile(m.matchReport!);
+          setState({
+            ...state,
+            matches: state.matches.map(x =>
+              x.id === m.id ? { ...x, matchReport: null } : x
+            ),
+          });
+        } catch {}
+      }}
+    />
+  )}
+
+  {m.reportPhotos.length > 0 && (
+    <span className={classes.pill}>
+      <Image className="w-3.5 h-3.5" />
+      Zdjęcia: {m.reportPhotos.length}
+    </span>
+  )}
+</div>
+
           </td>
         </tr>
       ))}
@@ -639,8 +839,11 @@ async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
       }
     }
 
-    if (type === "report") {
-      if (!canUploadReport(user)) { alert("Protokół może dodać tylko Delegat."); return; }
+if (type === "report") {
+  if (!(canUploadReport(user) || isAdmin(user))) {
+    alert("Protokół może dodać tylko Delegat lub Admin.");
+    return;
+  }
       const sf = await toStoredFileUsingStorage(
         "report", match.id, "neutral", files[0], user.name, `Protokół - ${match.home} vs ${match.away} - ${match.date}`
       );
@@ -650,17 +853,35 @@ async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
       // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
     }
 
-    if (type === "photos") {
-      if (!canUploadReport(user)) { alert("Zdjęcia raportu może dodać tylko Delegat."); return; }
-      const sfs: StoredFile[] = [];
-      for (const f of files) {
-        sfs.push(await toStoredFileUsingStorage("photos", match.id, "neutral", f, user.name, "Zdjęcie raportu"));
-      }
-      next.reportPhotos = [...next.reportPhotos, ...sfs];
-      pushLog(next, { type: "photos", club: null, user: user.name, fileName: `${files.length} zdjęć` });
+if (type === "photos") {
+  if (!(canUploadReport(user) || isAdmin(user))) {
+    alert("Zdjęcia raportu może dodać tylko Delegat lub Admin.");
+    return;
+  }
+  const sfs: StoredFile[] = [];
+  for (const f of files) {
+    sfs.push(
+      await toStoredFileUsingStorage(
+        "photos",
+        match.id,
+        "neutral",
+        f,
+        user.name,
+        "Zdjęcie raportu"
+      )
+    );
+  }
+  next.reportPhotos = [...next.reportPhotos, ...sfs];
+  pushLog(next, {
+    type: "photos",
+    club: null,
+    user: user.name,
+    fileName: `${files.length} zdjęć`,
+  });
 
-      // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
-    }
+  // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
+}
+
 
     // lokalny stan – żeby od razu było widać bez odświeżania
     const newState = { ...state, matches: state.matches.map(m => (m.id === match.id ? next : m)) };
@@ -796,16 +1017,17 @@ const canDelegateAct = () => isDelegate(user);
 )}
 
             
-            {canDelegateAct() && (
-              <>
-                <button onClick={() => handleUpload("report")} className={clsx(classes.btnPrimary, "flex items-center gap-2 w-full sm:w-auto")}>
-                  <UploadCloud className="w-4 h-4" />Dodaj protokół
-                </button>
-                <button onClick={() => handleUpload("photos")} className={clsx(classes.btnOutline, "flex items-center gap-2 w-full sm:w-auto")}>
-                  <Image className="w-4 h-4" />Dodaj zdjęcia raportu
-                </button>
-              </>
-            )}
+{(canDelegateAct() || isAdmin(user)) && (
+  <>
+    <button onClick={() => handleUpload("report")} className={clsx(classes.btnPrimary, "flex items-center gap-2 w-full sm:w-auto")}>
+      <UploadCloud className="w-4 h-4" />Dodaj protokół
+    </button>
+    <button onClick={() => handleUpload("photos")} className={clsx(classes.btnOutline, "flex items-center gap-2 w-full sm:w-auto")}>
+      <Image className="w-4 h-4" />Dodaj zdjęcia raportu
+    </button>
+  </>
+)}
+
           </div>
 
           {canDelegateAct() && (
