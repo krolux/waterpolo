@@ -1507,26 +1507,32 @@ useEffect(() => {
   }
   setLoadingProfiles(false);
 }
-// Pobierz profiles dla Admina i Klubu (Klub potrzebuje club_id)
+// 1) Załaduj profiles na starcie, żeby mieć rolę/klub nawet jeśli hook chwilowo widzi "Guest"
 useEffect(() => {
-  if (sRole === "Admin" || sRole === "Club") {
-    refreshProfiles();
-  }
+  refreshProfiles();
+}, []);
+
+// 2) Dodatkowo dociągaj po każdej zmianie sRole (np. po zalogowaniu)
+useEffect(() => {
+  if (sRole) refreshProfiles();
 }, [sRole]);
 
-// Wyprowadź klub dla zalogowanego (Supabase) z tabeli profiles
+// Wyprowadź użytkownika efektywnego: preferuj role/klub z profiles
 const effectiveUser = useMemo(() => {
-  if (supaUser) {
-    let club: string | undefined = undefined;
-    if (supaUser.role === "Club") {
-      const profile = profiles.find(p => p.display_name === userDisplay);
-      // używamy nazwy klubu pobranej z joinu
-      club = (profile?.club_name ?? undefined) as string | undefined;
-    }
-    return { ...supaUser, club };
+  // Spróbuj znaleźć rekord profilu odpowiadający aktualnie zalogowanemu wyświetlanemu użytkownikowi
+  const profile = profiles.find(p => p.display_name === userDisplay);
+
+  // Jeśli mamy profil, ufamy jego roli; jeśli nie mamy, bierzemy rolę z hooka
+  const finalRole = (profile?.role ?? sRole) as Role | undefined;
+
+  if (finalRole && finalRole !== "Guest") {
+    const club = finalRole === "Club" ? (profile?.club_name ?? undefined) : undefined;
+    return { name: userDisplay, role: finalRole, club };
   }
+
+  // Brak zalogowanego supaUser/profilu – fallback do trybu demo
   return demoUser;
-}, [supaUser, profiles, userDisplay, demoUser]);
+}, [profiles, sRole, userDisplay, demoUser]);
 
   
 // --- Penalties state (+load)
