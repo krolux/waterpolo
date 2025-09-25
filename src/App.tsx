@@ -1444,6 +1444,16 @@ const supaUser = sRole !== 'Guest'
   });
   function demoLogin(n:string,r:Role,c?:string){ const u={name:n, role:r, club:c}; setDemoUser(u); localStorage.setItem("wpr-auth-user", JSON.stringify(u)); }
   function demoLogout(){ setDemoUser(null); localStorage.removeItem("wpr-auth-user"); }
+  // === Auth user z Supabase (id + email) – użyjemy do dopasowania profilu po id ===
+const [authUser, setAuthUser] = useState<{ id: string; email: string } | null>(null);
+
+// Pobierz usera przy starcie oraz po każdej zmianie roli (czyli po zalogowaniu/wylogowaniu)
+useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    const u = data.user;
+    setAuthUser(u ? { id: u.id, email: u.email ?? "" } : null);
+  });
+}, [sRole]);
 
 // --- quick edit (Admin): scroll do panelu + załaduj mecz ---
 const adminPanelRef = React.useRef<HTMLDivElement>(null);
@@ -1517,22 +1527,27 @@ useEffect(() => {
   if (sRole) refreshProfiles();
 }, [sRole]);
 
-// Wyprowadź użytkownika efektywnego: preferuj role/klub z profiles
+// Wyprowadź użytkownika efektywnego: dopasowanie profilu po authUser.id (pewne)
+// z fallbackiem po e-mailu lub display_name
 const effectiveUser = useMemo(() => {
-  // Spróbuj znaleźć rekord profilu odpowiadający aktualnie zalogowanemu wyświetlanemu użytkownikowi
-  const profile = profiles.find(p => p.display_name === userDisplay);
+  // 1) najpierw po id z auth (najpewniejsze)
+  const myProfile =
+    profiles.find(p => p.id === authUser?.id)
+    // 2) opcjonalny fallback – jeśli w profiles trzymasz email w kolumnie (nie zawsze jest):
+    // || profiles.find((p: any) => p.email === authUser?.email)
+    // 3) ostateczny fallback po display_name (może nie pasować do e-maila)
+    || profiles.find(p => p.display_name === userDisplay);
 
-  // Jeśli mamy profil, ufamy jego roli; jeśli nie mamy, bierzemy rolę z hooka
-  const finalRole = (profile?.role ?? sRole) as Role | undefined;
+  const finalRole = (myProfile?.role ?? sRole) as Role | undefined;
 
   if (finalRole && finalRole !== "Guest") {
-    const club = finalRole === "Club" ? (profile?.club_name ?? undefined) : undefined;
+    const club = finalRole === "Club" ? (myProfile?.club_name ?? undefined) : undefined;
     return { name: userDisplay, role: finalRole, club };
   }
 
   // Brak zalogowanego supaUser/profilu – fallback do trybu demo
   return demoUser;
-}, [profiles, sRole, userDisplay, demoUser]);
+}, [profiles, authUser, sRole, userDisplay, demoUser]);
 
   
 // --- Penalties state (+load)
