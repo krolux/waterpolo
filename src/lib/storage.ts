@@ -17,7 +17,8 @@ export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: s
   const path = makePath(kind, matchId, clubOrNeutral, file.name);
   const { data, error } = await supabase.storage.from("docs").upload(path, file, {
     cacheControl: "3600",
-    upsert: false,
+    upsert: true,
+    contentType: file.type || "application/octet-stream",
   });
   if (error) throw new Error(error.message);
   return data?.path as string; // zapisujemy tylko ścieżkę
