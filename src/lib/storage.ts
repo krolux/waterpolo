@@ -1,43 +1,48 @@
+// src/lib/storage.ts
 import { supabase } from "./supabase";
 
 export type DocKind = "comms" | "roster" | "report" | "photos";
 
-/**
- * Konwencja ścieżek w bucket 'docs':
- * docs/<kind>/<matchId>/<clubOrNeutral>/<filename>
- * - kind: comms|roster|report|photos
- * - clubOrNeutral: nazwa klubu dla comms/roster, 'neutral' dla report/photos
- */
+/** delikatna normalizacja: bez ukośników, spacje → podkreślniki */
+const safe = (s: string) => (s || "").replace(/\//g, "-").replace(/ /g, "_");
 
-// prosty sanitizer
-function safe(s: string) {
-  return (s || "").replace(/\//g, "-").replace(/ /g, "_");
-}
-
-// ⬇️ DODANE: super-unikalny sufiks: znacznik czasu + UUID
-function uniqueSuffix() {
-  // crypto.randomUUID jest w nowoczesnych przeglądarkach; fallback gdyby co
-  const uuid = (globalThis as any).crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
-  return `${Date.now()}_${uuid}`;
-}
-
+/** ZAWSZE unikalna ścieżka (timestamp + skrócony UUID) */
 function makePath(kind: DocKind, matchId: string, clubOrNeutral: string, fileName: string) {
-  return `${kind}/${safe(matchId)}/${safe(clubOrNeutral)}/${uniqueSuffix()}_${safe(fileName)}`;
+  const uniq = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+  return `${safe(kind)}/${safe(matchId)}/${safe(clubOrNeutral)}/${uniq}_${safe(fileName)}`;
 }
 
+/**
+ * Upload z „auto-retry”, gdy Storage zwróci „The resource already exists”.
+ * Dodatkowo ustawiamy contentType i pozwalamy nadpisać jeśli serwer jednak uzna, że plik istnieje.
+ */
 export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: string, file: File) {
-  const path = makePath(kind, matchId, clubOrNeutral, file.name);
+  // 1. pierwsza próba z nową, unikalną ścieżką
+  let path = makePath(kind, matchId, clubOrNeutral, file.name);
 
-  // ⬇️ ZMIANA: upsert: true – nawet gdy backend uzna, że coś „istnieje”,
-  // nie zablokuje zapisu (a my i tak mamy unikalną nazwę).
-  const { data, error } = await supabase.storage.from("docs").upload(path, file, {
-    cacheControl: "3600",
-    upsert: true,
-    contentType: file.type || "application/octet-stream",
-  });
-
-  if (error) throw new Error(error.message);
-  return data?.path as string; // zwracamy ścieżkę w buckecie
+  try {
+    const { data, error } = await supabase.storage.from("docs").upload(path, file, {
+      cacheControl: "3600",
+      upsert: true,               // ← pozwól nadpisać, jeśli storage jednak „widzi” kolizję
+      contentType: file.type || "application/octet-stream",
+    });
+    if (error) throw error;
+    return (data?.path as string) || path;
+  } catch (e: any) {
+    const msg = String(e?.message || e || "");
+    // 2. jeśli mimo wszystko zgłosi kolizję – spróbuj jeszcze raz z całkiem inną nazwą
+    if (/resource already exists/i.test(msg)) {
+      path = makePath(kind, matchId, clubOrNeutral, file.name);
+      const { data, error } = await supabase.storage.from("docs").upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type || "application/octet-stream",
+      });
+      if (error) throw error;
+      return (data?.path as string) || path;
+    }
+    throw e;
+  }
 }
 
 export async function getSignedUrl(path: string, expiresInSec = 60 * 60) {
