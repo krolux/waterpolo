@@ -879,6 +879,8 @@ const match = availableMatches.find(m => m.id === selectedId) || null;
 
 async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
   if (!match) return;
+
+  // Otwórz wybór pliku(ów)
   const input = document.createElement("input");
   input.type = "file";
   if (type === "photos") input.multiple = true;
@@ -889,67 +891,132 @@ async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
 
     const next = { ...match } as Match;
 
+    // --- KLUB: komunikat / skład ---
     if (type === "comms" || type === "roster") {
       if (user.role !== "Club" || !user.club) {
         alert("Ta akcja jest dostępna tylko dla roli Klub (z ustawioną nazwą klubu).");
         return;
       }
-      const key = user.club === match.home ? "home" : user.club === match.away ? "away" : null;
-      if (!key) { alert("Twój klub nie jest przypisany do tego meczu."); return; }
 
-      if (type === "comms") {
-        if (!canUploadComms(user, match)) { alert("Komunikat może dodać wyłącznie gospodarz meczu."); return; }
-        const sf = await toStoredFileUsingStorage(
-          "comms", match.id, match.home, files[0], user.name, `Komunikat - ${match.home} - ${match.date}`
-        );
-        next.commsByClub[key] = sf;
-        pushLog(next, { type: "comms", club: user.club, user: user.name, fileName: sf.name });
+      const key =
+        user.club === match.home ? "home" :
+        user.club === match.away ? "away" : null;
 
-        // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
-      } else {
-        if (!canUploadRoster(user, match)) { alert("Skład może dodać tylko klub biorący udział w meczu."); return; }
-        const clubName = key === "home" ? match.home : match.away;
-        const sf = await toStoredFileUsingStorage(
-          "roster", match.id, clubName, files[0], user.name, `Skład - ${clubName} - ${match.date}`
-        );
-        next.rosterByClub[key] = sf;
-        pushLog(next, { type: "roster", club: user.club, user: user.name, fileName: sf.name });
+      if (!key) {
+        alert("Twój klub nie jest przypisany do tego meczu.");
+        return;
+      }
 
-        // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
+      try {
+        if (type === "comms") {
+          if (!canUploadComms(user, match)) {
+            alert("Komunikat może dodać wyłącznie gospodarz meczu.");
+            return;
+          }
+
+          // UŻYWAMY znormalizowanego klucza klubu
+          const clubKey = normKey(match.home);
+          console.log("[UPLOAD] comms ->", { matchId: match.id, clubKey, file: files[0]?.name });
+
+          const sf = await toStoredFileUsingStorage(
+            "comms",
+            match.id,
+            clubKey,
+            files[0],
+            user.name,
+            `Komunikat - ${match.home} - ${match.date}`
+          );
+
+          next.commsByClub[key] = sf;
+          pushLog(next, { type: "comms", club: user.club, user: user.name, fileName: sf.name });
+        } else {
+          if (!canUploadRoster(user, match)) {
+            alert("Skład może dodać tylko klub biorący udział w meczu.");
+            return;
+          }
+
+          const clubName = key === "home" ? match.home : match.away;
+          const clubKey  = normKey(clubName);
+          console.log("[UPLOAD] roster ->", { matchId: match.id, clubKey, file: files[0]?.name });
+
+          const sf = await toStoredFileUsingStorage(
+            "roster",
+            match.id,
+            clubKey,
+            files[0],
+            user.name,
+            `Skład - ${clubName} - ${match.date}`
+          );
+
+          next.rosterByClub[key] = sf;
+          pushLog(next, { type: "roster", club: user.club, user: user.name, fileName: sf.name });
+        }
+      } catch (e: any) {
+        console.error("[UPLOAD ERROR]", e);
+        alert("Błąd wysyłania pliku: " + (e?.message || e));
+        return; // przerywamy — nic nie zapisujemy w stanie, jeśli upload padł
       }
     }
 
-if (type === "report") {
-  if (!(canUploadReport(user) || isAdmin(user))) {
-    alert("Protokół może dodać tylko Delegat lub Admin.");
-    return;
-  }
-      const sf = await toStoredFileUsingStorage(
-        "report", match.id, "neutral", files[0], user.name, `Protokół - ${match.home} vs ${match.away} - ${match.date}`
-      );
-      next.matchReport = sf;
-      pushLog(next, { type: "protocol", club: null, user: user.name, fileName: sf.name });
+    // --- DELEGAT/ADMIN: protokół ---
+    if (type === "report") {
+      try {
+        if (!(canUploadReport(user) || isAdmin(user))) {
+          alert("Protokół może dodać tylko Delegat lub Admin.");
+          return;
+        }
 
-      // Metadane zapisze TRIGGER w DB (docs_meta), nie wstawiamy nic z aplikacji.
+        console.log("[UPLOAD] report ->", { matchId: match.id, file: files[0]?.name });
+
+        const sf = await toStoredFileUsingStorage(
+          "report",
+          match.id,
+          "neutral",
+          files[0],
+          user.name,
+          `Protokół - ${match.home} vs ${match.away} - ${match.date}`
+        );
+
+        next.matchReport = sf;
+        pushLog(next, { type: "protocol", club: null, user: user.name, fileName: sf.name });
+      } catch (e: any) {
+        console.error("[UPLOAD ERROR]", e);
+        alert("Błąd wysyłania protokołu: " + (e?.message || e));
+        return;
+      }
     }
 
-if (type === "photos") {
-  if (!(canUploadReport(user) || isAdmin(user))) {
-    alert("Zdjęcia raportu może dodać tylko Delegat lub Admin.");
-    return;
-  }
-  const sfs: StoredFile[] = [];
-  for (const f of files) {
-    sfs.push(await toStoredFileUsingStorage("photos", match.id, "neutral", f, user.name, "Zdjęcie raportu"));
-  }
-  next.reportPhotos = [...next.reportPhotos, ...sfs];
-  pushLog(next, { type: "photos", club: null, user: user.name, fileName: `${files.length} zdjęć` });
-}
+    // --- DELEGAT/ADMIN: zdjęcia raportu ---
+    if (type === "photos") {
+      try {
+        if (!(canUploadReport(user) || isAdmin(user))) {
+          alert("Zdjęcia raportu może dodać tylko Delegat lub Admin.");
+          return;
+        }
 
+        console.log("[UPLOAD] photos ->", { matchId: match.id, count: files.length });
 
+        const sfs: StoredFile[] = [];
+        for (const f of files) {
+          sfs.push(
+            await toStoredFileUsingStorage("photos", match.id, "neutral", f, user.name, "Zdjęcie raportu")
+          );
+        }
 
-    // lokalny stan – żeby od razu było widać bez odświeżania
-    const newState = { ...state, matches: state.matches.map(m => (m.id === match.id ? next : m)) };
+        next.reportPhotos = [...next.reportPhotos, ...sfs];
+        pushLog(next, { type: "photos", club: null, user: user.name, fileName: `${files.length} zdjęć` });
+      } catch (e: any) {
+        console.error("[UPLOAD ERROR]", e);
+        alert("Błąd wysyłania zdjęć: " + (e?.message || e));
+        return;
+      }
+    }
+
+    // Optymistyczna aktualizacja UI po udanym uploadzie
+    const newState = {
+      ...state,
+      matches: state.matches.map((m) => (m.id === match.id ? next : m)),
+    };
     setState(newState);
   };
 
