@@ -21,7 +21,7 @@ export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: s
   let path = makePath(kind, matchId, clubOrNeutral, file.name);
 
   try {
-    const { data, error } = await supabase.storage.from("docs").upload(path, file, {
+    const { data, error } = await supabase.storage.from("docs2").upload(path, file, {
       cacheControl: "3600",
       upsert: true,               // ← pozwól nadpisać, jeśli storage jednak „widzi” kolizję
       contentType: file.type || "application/octet-stream",
@@ -33,7 +33,7 @@ export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: s
     // 2. jeśli mimo wszystko zgłosi kolizję – spróbuj jeszcze raz z całkiem inną nazwą
     if (/resource already exists/i.test(msg)) {
       path = makePath(kind, matchId, clubOrNeutral, file.name);
-      const { data, error } = await supabase.storage.from("docs").upload(path, file, {
+      const { data, error } = await supabase.storage.from("docs2").upload(path, file, {
         cacheControl: "3600",
         upsert: true,
         contentType: file.type || "application/octet-stream",
@@ -46,12 +46,12 @@ export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: s
 }
 
 export async function getSignedUrl(path: string, expiresInSec = 60 * 60) {
-  const { data, error } = await supabase.storage.from("docs").createSignedUrl(path, expiresInSec);
+  const { data, error } = await supabase.storage.from("docs2").createSignedUrl(path, expiresInSec);
   if (error) throw new Error(error.message);
   return data?.signedUrl as string;
 }
 
 export async function removeDoc(path: string) {
-  const { error } = await supabase.storage.from("docs").remove([path]);
+  const { error } = await supabase.storage.from("docs2").remove([path]);
   if (error) throw new Error(error.message);
 }
