@@ -12,8 +12,15 @@ import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 
 
 function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(Boolean).join(" "); }
-// Normalizacja nazw klubów do klucza używanego w ścieżkach/storage
-const normKey = (s?: string) => (s || "").replace(/\//g, "-").replace(/ /g, "_");
+
+const normKey = (s?: string) =>
+  (s || "")
+    .normalize("NFKD")                
+    .replace(/[\u0300-\u036f]/g, "")  
+    .replace(/\./g, "")               
+    .replace(/[^A-Za-z0-9_-]+/g, "_")  
+    .replace(/_+/g, "_")             
+    .replace(/^_+|_+$/g, "");          
 
 
 async function removeWholeSlot(
