@@ -41,7 +41,7 @@ async function removeWholeSlot(
 
   // 2) usuń pliki ze storage (jeśli są)
   if (paths.length) {
-    const { error: serr } = await supabase.storage.from("docs").remove(paths);
+    const { error: serr } = await supabase.storage.from("docs2").remove(paths);
     if (serr) throw serr;
   }
 
