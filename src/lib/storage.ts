@@ -3,13 +3,43 @@ import { supabase } from "./supabase";
 
 export type DocKind = "comms" | "roster" | "report" | "photos";
 
-/** delikatna normalizacja: bez ukośników, spacje → podkreślniki */
-const safe = (s: string) => (s || "").replace(/\//g, "-").replace(/ /g, "_");
+// --- SANITIZACJA NAZW ---
+// 1) usuwa diakrytyki (ę → e, ł → l itd.)
+// 2) wszystko na małe litery
+// 3) zostawia tylko [a-z0-9._-], resztę zamienia na podkreślniki
+// 4) usuwa powtórzenia podkreślników i przycina z boków
+function sanitizeSegment(s: string) {
+  const noDiacritics = (s || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, ""); // strip accents
 
-/** ZAWSZE unikalna ścieżka (timestamp + skrócony UUID) */
+  const ascii = noDiacritics
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9._-]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  // bezpieczeństwo: nie pozwól na pusty segment
+  return ascii || "file";
+}
+
+// Jedyna i właściwa wersja makePath (unikalna + bezpieczna)
 function makePath(kind: DocKind, matchId: string, clubOrNeutral: string, fileName: string) {
-  const uniq = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
-  return `${safe(kind)}/${safe(matchId)}/${safe(clubOrNeutral)}/${uniq}_${safe(fileName)}`;
+  // zachowaj rozszerzenie (jeśli jest)
+  const extMatch = /\.([a-zA-Z0-9]+)$/.exec(fileName || "");
+  const ext = extMatch ? `.${extMatch[1].toLowerCase()}` : "";
+
+  const baseName = (fileName || "").replace(/\.[^.]+$/, ""); // bez rozszerzenia
+  const uuid = (globalThis as any)?.crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
+  const uniq = `${Date.now()}_${uuid.slice(0, 8)}`;
+
+  const kindSeg = sanitizeSegment(kind);
+  const matchSeg = sanitizeSegment(matchId);
+  const clubSeg = sanitizeSegment(clubOrNeutral);
+  const fileSeg = sanitizeSegment(baseName);
+
+  return `${kindSeg}/${matchSeg}/${clubSeg}/${fileSeg}_${uniq}${ext}`;
 }
 
 /**
@@ -23,7 +53,7 @@ export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: s
   try {
     const { data, error } = await supabase.storage.from("docs2").upload(path, file, {
       cacheControl: "3600",
-      upsert: true,               // ← pozwól nadpisać, jeśli storage jednak „widzi” kolizję
+      upsert: true, // pozwól nadpisać, jeśli storage jednak „widzi” kolizję
       contentType: file.type || "application/octet-stream",
     });
     if (error) throw error;
