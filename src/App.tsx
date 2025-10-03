@@ -15,12 +15,13 @@ function clsx(...xs: (string | false | null | undefined)[]) { return xs.filter(B
 
 const normKey = (s?: string) =>
   (s || "")
-    .normalize("NFKD")                
-    .replace(/[\u0300-\u036f]/g, "")  
-    .replace(/\./g, "")               
-    .replace(/[^A-Za-z0-9_-]+/g, "_")  
-    .replace(/_+/g, "_")             
-    .replace(/^_+|_+$/g, "");          
+    .normalize("NFKD")                 
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()                 
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9._-]/g, "_") 
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");         
 
 
 async function removeWholeSlot(
