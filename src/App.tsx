@@ -1050,6 +1050,7 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
     <AdminAvailableReferees matchId={m.id} />
   </td>
 )}
+</tr>
   );
 })}
     </tbody>
@@ -1324,7 +1325,7 @@ const canDelegateAct = () => isDelegate(user);
 
 {/* Klub–gospodarz: zmiana daty i godziny (tylko jeśli zalogowany klub jest gospodarzem) */}
 {isClub(user) && user.club && match && user.club === match.home && (
-
+<>
   <div className="mt-4 border-t pt-3">
     <div className="text-sm text-amber-600 font-medium mb-2">
       Zmień datę / godzinę (gospodarz)
