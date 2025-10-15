@@ -1,17 +1,20 @@
 // src/components/ArticleView.tsx
 import React from "react";
-import { Article } from "../lib/articles";
 import { supabase } from "../lib/supabase";
-import { getPublicUrl } from "../lib/articles";
+import { getPublicUrl, type Article } from "../lib/articles";
 import { Comments } from "./Comments";
 
-interface ArticleViewProps {
-  article: Article;
+export type ArticleViewProps = {
+  /** ID artykułu do wyświetlenia */
+  id: string;
+  /** powrót do listy */
   onBack: () => void;
-  onEdit?: () => void; // nowy opcjonalny przycisk "Edytuj"
-}
+  /** opcjonalnie: pokaż przycisk "Edytuj" (np. dla Admin/Editor) */
+  onEdit?: () => void;
+};
 
-export const ArticleView: React.FC<ArticleViewProps> = ({ article, onBack, onEdit }) => {
+export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onEdit }) => {
+  const [article, setArticle] = React.useState<Article | null>(null);
   const [author, setAuthor] = React.useState<{
     display_name: string;
     avatar_url?: string | null;
@@ -20,62 +23,73 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ article, onBack, onEdi
   }>({ display_name: "" });
 
   React.useEffect(() => {
-    supabase
-      .from("profiles")
-      .select("display_name, avatar_url, author_footer, bio")
-      .eq("id", article.author_id)
-      .single()
-      .then(({ data }) => data && setAuthor(data as any));
-  }, [article.author_id]);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from("articles").select("*").eq("id", id).single();
+      if (error) {
+        alert("Nie udało się wczytać artykułu: " + error.message);
+        return;
+      }
+      if (!cancelled && data) setArticle(data as Article);
 
-  const cover = getPublicUrl(article.cover_path);
+      const authorId = (data as Article)?.author_id;
+      if (authorId) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("display_name, avatar_url, author_footer, bio")
+          .eq("id", authorId)
+          .single();
+        if (!cancelled && prof) setAuthor(prof as any);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  const cover = getPublicUrl(article?.cover_path || undefined);
+
+  if (!article) {
+    return (
+      <article className="max-w-3xl mx-auto">
+        <button className="text-sm underline mb-2" onClick={onBack}>
+          ← Wróć do aktualności
+        </button>
+        <div className="text-sm text-gray-600">Wczytywanie…</div>
+      </article>
+    );
+  }
 
   return (
     <article className="max-w-3xl mx-auto">
-      {/* Pasek akcji nad artykułem */}
-      <div className="flex items-center justify-between mb-3">
-        <button
-          className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-xl border bg-white hover:bg-gray-50"
-          onClick={onBack}
-        >
+      <div className="flex items-center justify-between mb-2">
+        <button className="text-sm underline" onClick={onBack}>
           ← Wróć do aktualności
         </button>
-
         {onEdit && (
-          <button
-            onClick={onEdit}
-            className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow"
-          >
-            ✎ Edytuj
+          <button className="text-sm underline" onClick={onEdit}>
+            Edytuj
           </button>
         )}
       </div>
 
-      {/* Okładka */}
       {cover && (
-        <img
-          src={cover}
-          alt={article.title}
-          className="w-full rounded-xl mb-3"
-        />
+        <img src={cover} alt={article.title} className="w-full rounded-xl mb-3" />
       )}
 
-      {/* Tytuł i opis */}
       <h1 className="text-3xl font-bold mb-2">{article.title}</h1>
       {article.excerpt && (
         <p className="text-lg text-gray-700 mb-4">{article.excerpt}</p>
       )}
 
-      {/* Treść */}
       {article.content && (
         <div
           className="prose max-w-none mb-8"
           dangerouslySetInnerHTML={{ __html: article.content }}
         />
-        // jeśli trzymasz Markdown – zrenderuj markdownem (np. marked)
+        // Jeśli trzymasz Markdown – zrenderuj markdownem (np. marked)
       )}
 
-      {/* Sekcja autora */}
       <div className="border-t pt-4 mt-6">
         <div className="flex gap-3 items-center">
           {author?.avatar_url && (
@@ -86,19 +100,14 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ article, onBack, onEdi
             />
           )}
           <div>
-            <div className="font-semibold">
-              O autorze: {author.display_name}
-            </div>
+            <div className="font-semibold">O autorze: {author.display_name}</div>
             {author.author_footer && (
-              <div className="text-sm text-gray-700">
-                {author.author_footer}
-              </div>
+              <div className="text-sm text-gray-700">{author.author_footer}</div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Komentarze */}
       <Comments articleId={article.id} />
     </article>
   );
