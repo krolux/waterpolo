@@ -1050,8 +1050,8 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
     <AdminAvailableReferees matchId={m.id} />
   </td>
 )}
-      
-      ))}
+  );
+})}
     </tbody>
   </table>
 </div>
@@ -1402,7 +1402,7 @@ const canDelegateAct = () => isDelegate(user);
     <div className="text-xs text-gray-500 mt-1">
       Uprawnienie tylko dla klubu–gospodarza. Zmienić można datę, godzinę oraz link do transmisji.
     </div>
-  </div>
+    </div>
     <div>
       <label className="text-xs text-gray-600">Link do transmisji (opcjonalnie)</label>
       <input
