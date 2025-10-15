@@ -10,6 +10,11 @@ import { uploadDoc, getSignedUrl } from "./lib/storage";
 import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 import { setMyAvailability, getMyAvailabilityForMatches, listAvailableReferees } from "./lib/availability";
 import { namesOfAvailableReferees } from "./lib/availability";
+import { NewsStrip } from "./components/NewsStrip";
+import { ArticleList } from "./components/ArticleList";
+import { ArticleView } from "./components/ArticleView";
+import { Article } from "./lib/articles";
+import { ArticleEditor } from "./components/ArticleEditor";
 
 
 
@@ -245,7 +250,8 @@ const DocBadge: React.FC<{
 
 
 // === MULTI-ROLE HELPERS (NEW) ===
-type BaseRole = 'Guest' | 'Admin' | 'Club' | 'Delegate' | 'Referee';
+type BaseRole = 'Guest' | 'Admin' | 'Club' | 'Delegate' | 'Referee' | 'Editor';
+function isEditor(u:{role:Role})  { return hasRole(u,'Editor') || isAdmin(u); }
 
 // Dopuszczamy łączenie ról separatorami: -, +, przecinek, spacja
 function roleTokens(role?: string): BaseRole[] {
@@ -1885,7 +1891,17 @@ function handleQuickEdit(matchId: string) {
     adminPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, 50);
 }
+// === [3.3] PROSTA NAWIGACJA ARTYKUŁÓW (mini-router) ===
+const [page, setPage] = useState<'home' | 'articles' | 'article' | 'editor'>('home');
+const [openedArticleId, setOpenedArticleId] = useState<string | null>(null);
 
+function goHome() { setPage('home'); setOpenedArticleId(null); }
+function openArticles() { setPage('articles'); }
+function openArticle(id: string) { setOpenedArticleId(id); setPage('article'); }
+function openEditor(newId?: string | null) {
+  setOpenedArticleId(newId ?? null);
+  setPage('editor');
+}
 
   const [state,setState]=useState<AppState>({ matches: [], users:[
     {name:"Admin", role:"Admin"}, {name:"AZS Szczecin – Klub", role:"Club", club:"AZS Szczecin"}, {name:"KS Warszawa – Klub", role:"Club", club:"KS Warszawa"}, {name:"Anna Delegat", role:"Delegate"}, {name:"Sędzia – Demo", role:"Referee"}, {name:"Gość", role:"Guest"}
@@ -2277,6 +2293,16 @@ const delegateCandidateNames = Array.from(new Set([
             Wyloguj (demo)
           </button>
         )}
+        {/* [3.3] Nowy artykuł – widoczny dla Admin/Editor */}
+{effectiveUser && isEditor(effectiveUser) && (
+  <button
+    onClick={() => openEditor(null)}
+    className={clsx(classes.btnPrimary, "whitespace-nowrap")}
+    title="Utwórz nowy artykuł"
+  >
+    + Napisz artykuł
+  </button>
+)}
       </div>
     )}
 
@@ -2287,81 +2313,120 @@ const delegateCandidateNames = Array.from(new Set([
   </div>
 </header>
 
-    <main className="max-w-6xl mx-auto grid gap-6">
-      {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin}/>}
- 
-<RankingTable matches={state.matches} clubs={clubs} />
+<main className="max-w-6xl mx-auto grid gap-6">
 
+  {/* === [3.3] HOME: pasek 3 najnowszych newsów + dotychczasowa strona === */}
+  {page === 'home' && (
+    <>
+      {/* Pasek newsów nad tabelą wyników */}
+      <NewsStrip
+        onMore={openArticles}
+        onOpen={(id: string) => openArticle(id)}
+      />
 
- {effectiveUser && effectiveUser.role !== "Guest" && (
-  <div>
-    <PerMatchActions
-      state={state}
-      setState={setState}
-      user={effectiveUser}
-      onPenaltiesChange={refreshPenalties}
+      {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin} />}
+
+      <RankingTable matches={state.matches} clubs={clubs} />
+
+      {effectiveUser && effectiveUser.role !== "Guest" && (
+        <div>
+          <PerMatchActions
+            state={state}
+            setState={setState}
+            user={effectiveUser}
+            onPenaltiesChange={refreshPenalties}
+          />
+        </div>
+      )}
+
+      <MatchesTable
+        title="Nadchodzące mecze"
+        variant="upcoming"
+        showExport
+        state={{ ...state, matches: upcomingMatches }}
+        setState={setState}
+        user={effectiveUser}
+        onRefresh={refreshMatches}
+        loading={loadingMatches}
+        penaltyMap={penaltiesByMatch}
+        onRemovePenalty={handleRemovePenalty}
+        onQuickEdit={handleQuickEdit}
+      />
+
+      <MatchesTable
+        title="Zakończone mecze"
+        variant="finished"
+        sectionClassName="bg-white/60"
+        state={{ ...state, matches: finishedMatches }}
+        setState={setState}
+        user={effectiveUser}
+        onRefresh={refreshMatches}
+        loading={loadingMatches}
+        penaltyMap={penaltiesByMatch}
+        onRemovePenalty={handleRemovePenalty}
+        onQuickEdit={handleQuickEdit}
+      />
+
+      {effectiveUser && isAdmin(effectiveUser) && (
+        <div ref={adminPanelRef}>
+          <AdminPanel
+            state={state}
+            setState={setState}
+            clubs={clubs}
+            refereeNames={refereeNames}
+            delegateNames={delegateCandidateNames}
+            onAfterChange={() => { refreshMatches(); refreshClubs(); }}
+            canWrite={true}
+            editingMatchId={editingMatchId}
+            clearEditing={() => setEditingMatchId(null)}
+          />
+        </div>
+      )}
+
+      {effectiveUser && isAdmin(effectiveUser) && (
+        <Section title="Import użytkowników (CSV)" icon={<Upload className="w-5 h-5" />}>
+          {/* (treść importu pozostawiona jak było) */}
+        </Section>
+      )}
+    </>
+  )}
+
+  {/* === [3.3] LISTA ARTYKUŁÓW === */}
+  {page === 'articles' && (
+    <ArticleList
+      onBack={goHome}
+      onOpen={(id: string) => openArticle(id)}
     />
-  </div>
-)}
+  )}
 
-<MatchesTable
-  title="Nadchodzące mecze"
-variant="upcoming"
-  showExport
-  state={{ ...state, matches: upcomingMatches }}
-  setState={setState}
-  user={effectiveUser}
-  onRefresh={refreshMatches}
-  loading={loadingMatches}
-  penaltyMap={penaltiesByMatch}
-  onRemovePenalty={handleRemovePenalty}
-    onQuickEdit={handleQuickEdit}
-/>
-
-
-<MatchesTable
-  title="Zakończone mecze"
-variant="finished"
-  sectionClassName="bg-white/60"
-  state={{ ...state, matches: finishedMatches }}
-  setState={setState}
-  user={effectiveUser}
-  onRefresh={refreshMatches}
-  loading={loadingMatches}
-  penaltyMap={penaltiesByMatch}
-  onRemovePenalty={handleRemovePenalty}
-    onQuickEdit={handleQuickEdit}
-/>
-     
-{effectiveUser && isAdmin(effectiveUser) && (
-  <div ref={adminPanelRef}>
-    <AdminPanel
-      state={state}
-      setState={setState}
-      clubs={clubs}
-      refereeNames={refereeNames}
-        delegateNames={delegateCandidateNames}
-      onAfterChange={() => { refreshMatches(); refreshClubs(); }}
-      canWrite={true}
-      editingMatchId={editingMatchId}
-      clearEditing={() => setEditingMatchId(null)}
+  {/* === [3.3] PODGLĄD JEDNEGO ARTYKUŁU === */}
+  {page === 'article' && openedArticleId && (
+    <ArticleView
+      id={openedArticleId}
+      onBack={() => setPage('articles')}
+      onEdit={
+        effectiveUser && isEditor(effectiveUser)
+          ? () => openEditor(openedArticleId)
+          : undefined
+      }
     />
-  </div>
-)}
+  )}
 
+  {/* === [3.3] EDYTOR ARTYKUŁU (Admin/Editor) === */}
+  {page === 'editor' && (
+    <ArticleEditor
+      articleId={openedArticleId /* null = nowy */}
+      onCancel={() => {
+        if (openedArticleId) setPage('article'); else setPage('articles');
+      }}
+      onSaved={(id: string) => {
+        setOpenedArticleId(id);
+        setPage('article');
+      }}
+    />
+  )}
 
-{/* Panel importu użytkowników (Admin) */}
-{effectiveUser && isAdmin(effectiveUser) && ( <Section title="Import użytkowników (CSV)" icon={<Upload className="w-5 h-5" />}>
-   
-  </Section>
-)}
-
-
-
-
-
-
-    </main>
+</main>
 
     <footer className="max-w-6xl mx-auto mt-8 text-xs text-gray-500">
       <p>copyright Lukasz Krol 2025</p>
