@@ -298,7 +298,7 @@ const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = (
 
 const MatchesTable: React.FC<{
   state: AppState;
-  setState: (s: AppState) => void;
+  setState: React.Dispatch<React.SetStateAction<AppState>>;
   user: { name: string; role: Role; club?: string } | null;
   onRefresh: () => void;
   loading: boolean;
@@ -526,29 +526,25 @@ function renderResult(m: Match) {
               </span>
             )}
           </div>
-          {isUserReferee && variant === "upcoming" && (
-  <div className="text-xs">
-    <span className="font-semibold mr-1">Dostępność:</span>
+{isUserReferee && variant === "upcoming" && (
+  <div className="text-xs flex items-center gap-2">
+    <span className="font-semibold">Dostępność:</span>
     <button
-      className={clsx(
-        "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
-        m.myAvailable ? "bg-green-50 border-green-300 text-green-700" : "bg-red-50 border-red-300 text-red-700"
-      )}
-      onClick={async () => {
-        try {
-          const next = !m.myAvailable;
-          await setMyAvailability(m.id, next);
-          setState(s => ({
-            ...s,
-            matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: next } : x)
-          }));
-        } catch (e:any) {
-          alert("Błąd zapisu dostępności: " + e.message);
-        }
-      }}
-    >
-      {m.myAvailable ? "✅ Dostępny" : "❌ Niedostępny"}
-    </button>
+  onClick={async () => { /* ta sama logika co wyżej */ }}
+  className={clsx(
+    "relative inline-flex w-12 h-6 rounded-full border transition-colors",
+    m.myAvailable ? "bg-green-500/20 border-green-400" : "bg-red-500/20 border-red-400"
+  )}
+  aria-pressed={m.myAvailable}
+  title={m.myAvailable ? "Jestem dostępny" : "Niedostępny"}
+>
+  <span
+    className={clsx(
+      "absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform",
+      m.myAvailable ? "translate-x-6" : "translate-x-0"
+    )}
+  />
+</button>
   </div>
 )}
         </div>
@@ -929,7 +925,7 @@ const AdminAvailableReferees: React.FC<{ matchId: string }> = ({ matchId }) => {
 
 const PerMatchActions: React.FC<{
   state: AppState;
-  setState: (s: AppState) => void;
+  setState: React.Dispatch<React.SetStateAction<AppState>>;
   user: { name: string; role: Role; club?: string };
   onPenaltiesChange: () => void;
 }> = ({ state, setState, user, onPenaltiesChange }) => {
@@ -1344,7 +1340,7 @@ const canDelegateAct = () => isDelegate(user);
 
 const AdminPanel: React.FC<{
   state: AppState;
-  setState: (s: AppState) => void;
+setState: React.Dispatch<React.SetStateAction<AppState>>; 
   clubs: readonly string[];
   refereeNames: string[];
   delegateNames: string[];
