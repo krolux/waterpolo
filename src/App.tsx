@@ -545,11 +545,12 @@ function renderResult(m: Match) {
         onClick={async () => {
           try {
             await setMyAvailability(m.id, true);
-            setState(s => ({
-              ...s,
-              matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: v === true,
-myAvailabilitySet: v !== undefined } : x)
-            }));
+setState(s => ({
+  ...s,
+  matches: s.matches.map(x =>
+    x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x
+  )
+}));
           } catch (e:any) {
             alert("Błąd zapisu dostępności: " + e.message);
           }
@@ -1435,6 +1436,25 @@ setState: React.Dispatch<React.SetStateAction<AppState>>;
 
   const blank: Match = { id:crypto.randomUUID(), date:new Date().toISOString().slice(0,10), time:"", round:"", location:"", home:"", away:"", referees:["",""], delegate:"", commsByClub:{home:null,away:null}, rosterByClub:{home:null,away:null}, matchReport:null, reportPhotos:[], notes:"", result:"", uploadsLog:[] };
   const [draft,setDraft]=useState<Match>(blank); const [editId,setEditId]=useState<string|null>(null);
+  // ✓ przy sędziach dostępnych na aktualnie edytowany mecz (draft.id)
+const [availNames, setAvailNames] = React.useState<Set<string>>(new Set());
+
+React.useEffect(() => {
+  let cancelled = false;
+  (async () => {
+    try {
+      if (draft?.id) {
+        const set = await namesOfAvailableReferees(draft.id); // Set<string>
+        if (!cancelled) setAvailNames(set);
+      } else {
+        setAvailNames(new Set());
+      }
+    } catch (e:any) {
+      console.warn("namesOfAvailableReferees error:", e.message);
+    }
+  })();
+  return () => { cancelled = true; };
+}, [draft?.id]);
 
 // ⤵️ Quick-edit z tabeli: po otrzymaniu id meczu ustawiamy formularz i tryb edycji
 useEffect(() => {
@@ -1727,25 +1747,7 @@ function handleQuickEdit(matchId: string) {
     {name:"Admin", role:"Admin"}, {name:"AZS Szczecin – Klub", role:"Club", club:"AZS Szczecin"}, {name:"KS Warszawa – Klub", role:"Club", club:"KS Warszawa"}, {name:"Anna Delegat", role:"Delegate"}, {name:"Sędzia – Demo", role:"Referee"}, {name:"Gość", role:"Guest"}
   ]});
 
-// ✓ przy sędziach dostępnych na aktualnie edytowany mecz (draft.id)
-const [availNames, setAvailNames] = React.useState<Set<string>>(new Set());
 
-React.useEffect(() => {
-  let cancelled = false;
-  (async () => {
-    try {
-      if (draft?.id) {
-        const set = await namesOfAvailableReferees(draft.id); // Set<string>
-        if (!cancelled) setAvailNames(set);
-      } else {
-        setAvailNames(new Set());
-      }
-    } catch (e:any) {
-      console.warn("namesOfAvailableReferees error:", e.message);
-    }
-  })();
-  return () => { cancelled = true; };
-}, [draft?.id]);
   // --- Kluby z DB (do list i rankingów) – TERAZ wewnątrz App()
 const [clubs, setClubs] = useState<string[]>([]);
 
@@ -2051,7 +2053,7 @@ try {
           return {
             ...m,
             myAvailable: v === true ? true : false,          
-            myAvailabilitySet: v !== null                    
+            myAvailabilitySet: v !== undefined                   
           };
         })
       }));
