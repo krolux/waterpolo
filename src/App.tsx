@@ -146,6 +146,7 @@ type Match = {
   reportPhotos: StoredFile[];
   notes?: string;
   uploadsLog: UploadLog[];
+  myAvailable?: boolean;
 };
 type AppState = { matches: Match[]; users:{name:string; role:Role; club?:string}[]; };
 type ProfileRow = {
@@ -378,6 +379,8 @@ const sorted = useMemo(() => {
 
 const isGuest = !user || hasRole(user, 'Guest');
 const canDownload = !!user && !isGuest;
+  const isUserReferee = !!user && hasRole(user, "Referee");
+const isUserAdmin = !!user && isAdmin(user);
 
 function renderResult(m: Match) {
   const r = (m.result || "").trim();
@@ -523,11 +526,35 @@ function renderResult(m: Match) {
               </span>
             )}
           </div>
+          {isUserReferee && variant === "upcoming" && (
+  <div className="text-xs">
+    <span className="font-semibold mr-1">Dostępność:</span>
+    <button
+      className={clsx(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
+        m.myAvailable ? "bg-green-50 border-green-300 text-green-700" : "bg-red-50 border-red-300 text-red-700"
+      )}
+      onClick={async () => {
+        try {
+          const next = !m.myAvailable;
+          await setMyAvailability(m.id, next);
+          setState(s => ({
+            ...s,
+            matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: next } : x)
+          }));
+        } catch (e:any) {
+          alert("Błąd zapisu dostępności: " + e.message);
+        }
+      }}
+    >
+      {m.myAvailable ? "✅ Dostępny" : "❌ Niedostępny"}
+    </button>
+  </div>
+)}
         </div>
 
         {/* Dokumenty */}
 <div className="mt-2 flex flex-wrap gap-2">
-
 {m.commsByClub.home && (
   <DocBadge
     file={m.commsByClub.home}
@@ -660,6 +687,13 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
         <th className="px-2 py-1 break-words w-[140px]">Kary (Gospodarz)</th>
         <th className="px-2 py-1 break-words w-[140px]">Kary (Goście)</th>
         <th className="px-2 py-1 break-words w-[140px]">Dokumenty</th>
+        {variant === "upcoming" && isUserReferee && (
+  <th className="px-2 py-1 whitespace-nowrap w-[110px] text-center">Dostępność</th>
+)}
+{isUserAdmin && (
+  <th className="px-2 py-1 break-words w-[220px]">Sędziowie dostępni</th>
+)}
+
       </tr>
     </thead>
 
@@ -834,7 +868,37 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
     )}
   </div>
 </td>
+{variant === "upcoming" && isUserReferee && (
+  <td className="px-2 py-1 text-center">
+    <button
+      className={clsx(
+        "px-2 py-1 rounded border text-sm",
+        m.myAvailable ? "bg-green-50 border-green-300 text-green-700" : "bg-red-50 border-red-300 text-red-700"
+      )}
+      title={m.myAvailable ? "Jestem dostępny" : "Niedostępny"}
+      onClick={async () => {
+        try {
+          const next = !m.myAvailable;
+          await setMyAvailability(m.id, next);
+          setState(s => ({
+            ...s,
+            matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: next } : x)
+          }));
+        } catch (e:any) {
+          alert("Błąd zapisu dostępności: " + e.message);
+        }
+      }}
+    >
+      {m.myAvailable ? "✅" : "❌"}
+    </button>
+  </td>
+)}
 
+{isUserAdmin && (
+  <td className="px-2 py-1 break-words">
+    <AdminAvailableReferees matchId={m.id} />
+  </td>
+)}
         </tr>
       ))}
     </tbody>
@@ -844,7 +908,24 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
   );
 };
 
+const AdminAvailableReferees: React.FC<{ matchId: string }> = ({ matchId }) => {
+  const [list, setList] = React.useState<{id:string; name:string}[]>([]);
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await listAvailableReferees(matchId);
+        if (!cancelled) setList(rows);
+      } catch (e:any) {
+        console.warn("listAvailableReferees error:", e.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [matchId]);
 
+  if (list.length === 0) return <span className="text-gray-500">–</span>;
+  return <span className="text-xs">{list.map(x => x.name).join(", ")}</span>;
+};
 
 const PerMatchActions: React.FC<{
   state: AppState;
@@ -1739,6 +1820,8 @@ const matches: Match[] = rows.map((r: any) => ({
 
     setState((s) => ({ ...s, matches }));
 
+
+    
 // Dociągnij metadane dokumentów z docs_meta i scal
 try {
   // 👇 Jeśli jesteśmy Gościem, nie czytamy docs_meta (RLS i tak nie pozwoli).
@@ -1838,6 +1921,24 @@ for (const x of d) {
 });
 
     setState((s) => ({ ...s, matches: nextMatches }));
+    // === DODAJ: dołącz moją dostępność, jeśli jestem sędzią ===
+try {
+  if (effectiveUser && effectiveUser.role === "Referee") {
+    const matchIds = (nextMatches || []).map(m => m.id);
+    if (matchIds.length > 0) {
+      const myAvail = await getMyAvailabilityForMatches(matchIds);
+      setState(s => ({
+        ...s,
+        matches: s.matches.map(m => ({
+          ...m,
+          myAvailable: myAvail.get(m.id) ?? false
+        }))
+      }));
+    }
+  }
+} catch (e:any) {
+  console.warn("Availability fetch failed:", e.message);
+}
   }
 } catch (e: any) {
   alert("Błąd pobierania dokumentów: " + e.message);
