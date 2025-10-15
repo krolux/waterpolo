@@ -8,6 +8,7 @@ import { listMatches, createMatch, updateMatch as dbUpdateMatch, deleteMatch as 
 import { addPenalty, listPenalties, deletePenalty, type Penalty } from "./lib/penalties";
 import { uploadDoc, getSignedUrl } from "./lib/storage";
 import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
+import { setMyAvailability, getMyAvailabilityForMatches, listAvailableReferees } from "./lib/availability";
 
 
 
