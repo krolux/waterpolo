@@ -1050,7 +1050,7 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
     <AdminAvailableReferees matchId={m.id} />
   </td>
 )}
-        </tr>
+      
       ))}
     </tbody>
   </table>
@@ -1403,17 +1403,18 @@ const canDelegateAct = () => isDelegate(user);
       Uprawnienie tylko dla klubu–gospodarza. Zmienić można datę, godzinę oraz link do transmisji.
     </div>
   </div>
-  <div>
-  <label className="text-xs text-gray-600">Link do transmisji (opcjonalnie)</label>
-  <input
-    type="url"
-    defaultValue={match.streamUrl || ""}
-    id="host-stream"
-    placeholder="https://…"
-    className={classes.input}
-    style={{ minWidth: 260 }}
-  />
-</div>
+    <div>
+      <label className="text-xs text-gray-600">Link do transmisji (opcjonalnie)</label>
+      <input
+        type="url"
+        defaultValue={match.streamUrl || ""}
+        id="host-stream"
+        placeholder="https://…"
+        className={classes.input}
+        style={{ minWidth: 260 }}
+      />
+    </div>
+  </>
 )}
 
             
