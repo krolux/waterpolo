@@ -15,10 +15,12 @@ import { supabase } from "../lib/supabase";
 type Props = {
   /** null = nowy artykuł, string = edycja istniejącego */
   articleId: string | null;
-  /** powrót (np. do listy lub podglądu) */
+  /** powrót (np. do listy/podglądu) */
   onCancel: () => void;
-  /** po zapisie/opublikowaniu — zwracamy id artykułu, żeby można było przejść do podglądu */
+  /** po zapisie/opublikowaniu — zwracamy id artykułu */
   onSaved: (id: string) => void;
+  /** (opcjonalnie) jeśli App przekazuje — też zawołamy przy "Wróć" */
+  onBackToList?: () => void;
 };
 
 const cls = {
@@ -27,29 +29,23 @@ const cls = {
   primary: "px-3 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700",
 };
 
-export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved }) => {
+export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved, onBackToList }) => {
   const [draft, setDraft] = React.useState<Partial<Article>>({ title: "" });
   const [coverUrl, setCoverUrl] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
 
-  // Ustal, czy user jest Adminem (przyda się do przycisków Publikuj/Odrzuć)
   React.useEffect(() => {
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
       const uid = auth?.user?.id;
       if (!uid) { setIsAdmin(false); return; }
-      const { data } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", uid)
-        .single();
+      const { data } = await supabase.from("profiles").select("role").eq("id", uid).single();
       setIsAdmin((data?.role || "").toString().includes("Admin"));
     })();
   }, []);
 
-  // Załaduj istniejący artykuł lub utwórz szkic
   React.useEffect(() => {
     (async () => {
       setLoading(true);
@@ -77,10 +73,7 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
 
   function makeSlug(title?: string | null, fromSlug?: string | null) {
     const base = (fromSlug && fromSlug.trim()) || (title || "");
-    return base
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, "-")
-      .replace(/^-+|-+$/g, "");
+    return base.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
   }
 
   async function ensureDraftId() {
@@ -144,7 +137,10 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
   async function onPublish() {
     if (!draft?.id) return;
     try {
-      await publishArticle(draft.id, (await supabase.auth.getUser()).data.user?.id || undefined);
+      await publishArticle(
+        draft.id,
+        (await supabase.auth.getUser()).data.user?.id || undefined
+      );
       alert("Opublikowano artykuł.");
       onSaved(draft.id);
     } catch (e: any) {
@@ -157,7 +153,7 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
     try {
       await rejectArticle(draft.id);
       alert("Odrzucono artykuł.");
-      onCancel();
+      (onBackToList ?? onCancel)();
     } catch (e: any) {
       alert("Błąd odrzucenia: " + e.message);
     }
@@ -173,9 +169,10 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
 
   return (
     <section className="max-w-4xl mx-auto">
-      {/* Pasek akcji */}
       <div className="flex items-center justify-between mb-3">
-        <button className={cls.btn} onClick={onCancel}>← Wróć do aktualności</button>
+        <button className={cls.btn} onClick={() => (onBackToList ?? onCancel)()}>
+          ← Wróć do aktualności
+        </button>
         <div className="flex gap-2">
           {isAdmin && draft.status === "pending" && (
             <>
@@ -259,20 +256,15 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
             Zapisz szkic
           </button>
 
-          <button
-            className={cls.primary}
-            disabled={saving}
-            onClick={sendToReview}
-          >
+          <button className={cls.primary} disabled={saving} onClick={sendToReview}>
             Wyślij do akceptacji
           </button>
 
-          <button className={cls.btn} onClick={onCancel}>
-            Anuluj
-          </button>
+            <button className={cls.btn} onClick={onCancel}>
+              Anuluj
+            </button>
         </div>
 
-        {/* Info o statusie */}
         {draft?.status && (
           <div className="text-xs text-gray-600">
             Status: {draft.status}
