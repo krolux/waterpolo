@@ -2413,19 +2413,18 @@ const delegateCandidateNames = Array.from(new Set([
   )}
 
   {/* === [3.3] EDYTOR ARTYKUŁU (Admin/Editor) === */}
-  {page === 'editor' && (
-    <ArticleEditor
-      articleId={openedArticleId /* null = nowy */}
-      onCancel={() => {
-        if (openedArticleId) setPage('article'); else setPage('articles');
-      }}
-      onSaved={(id: string) => {
-        setOpenedArticleId(id);
-        setPage('article');
-      }}
-      onBackToList={() => setPage('articles')}
-    />
-  )}
+{page === 'editor' && (
+  <ArticleEditor
+    articleId={openedArticleId /* null = nowy */}
+    onCancel={() => {
+      if (openedArticleId) setPage('article'); else setPage('articles');
+    }}
+    onSaved={(id: string) => {
+      setOpenedArticleId(id);
+      setPage('article');
+    }}
+  />
+)}
 
 </main>
 
