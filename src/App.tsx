@@ -9,6 +9,7 @@ import { addPenalty, listPenalties, deletePenalty, type Penalty } from "./lib/pe
 import { uploadDoc, getSignedUrl } from "./lib/storage";
 import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 import { setMyAvailability, getMyAvailabilityForMatches, listAvailableReferees } from "./lib/availability";
+import { namesOfAvailableReferees } from "./lib/availability";
 
 
 
@@ -147,6 +148,7 @@ type Match = {
   notes?: string;
   uploadsLog: UploadLog[];
   myAvailable?: boolean;
+   myAvailabilitySet?: boolean;
 };
 type AppState = { matches: Match[]; users:{name:string; role:Role; club?:string}[]; };
 type ProfileRow = {
@@ -527,24 +529,64 @@ function renderResult(m: Match) {
             )}
           </div>
 {isUserReferee && variant === "upcoming" && (
-  <div className="text-xs flex items-center gap-2">
-    <span className="font-semibold">Dostępność:</span>
-    <button
-  onClick={async () => { /* ta sama logika co wyżej */ }}
-  className={clsx(
-    "relative inline-flex w-12 h-6 rounded-full border transition-colors",
-    m.myAvailable ? "bg-green-500/20 border-green-400" : "bg-red-500/20 border-red-400"
-  )}
-  aria-pressed={m.myAvailable}
-  title={m.myAvailable ? "Jestem dostępny" : "Niedostępny"}
->
-  <span
-    className={clsx(
-      "absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform",
-      m.myAvailable ? "translate-x-6" : "translate-x-0"
-    )}
-  />
-</button>
+  <div className="text-xs">
+    <span className="font-semibold mr-1">Dostępność:</span>
+    <span className="inline-flex items-center gap-2">
+      {/* DOSTĘPNY */}
+      <button
+        className={clsx(
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
+          m.myAvailabilitySet
+            ? (m.myAvailable
+                ? "bg-green-50 border-green-300 text-green-700"
+                : "bg-gray-100 border-gray-300 text-gray-500")
+            : "bg-green-50 border-green-300 text-green-700"
+        )}
+        onClick={async () => {
+          try {
+            await setMyAvailability(m.id, true);
+            setState(s => ({
+              ...s,
+              matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: v === true,
+myAvailabilitySet: v !== undefined } : x)
+            }));
+          } catch (e:any) {
+            alert("Błąd zapisu dostępności: " + e.message);
+          }
+        }}
+      >
+        ✅ Dostępny
+      </button>
+
+      {/* NIEDOSTĘPNY */}
+      <button
+        className={clsx(
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
+          m.myAvailabilitySet
+            ? (!m.myAvailable
+                ? "bg-red-50 border-red-300 text-red-700"
+                : "bg-gray-100 border-gray-300 text-gray-500")
+            : "bg-red-50 border-red-300 text-red-700"
+        )}
+        onClick={async () => {
+          try {
+            await setMyAvailability(m.id, false);
+            setState(s => ({
+              ...s,
+              matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x)
+            }));
+          } catch (e:any) {
+            alert("Błąd zapisu dostępności: " + e.message);
+          }
+        }}
+      >
+        ❌ Niedostępny
+      </button>
+
+      {!m.myAvailabilitySet && (
+        <span className="text-[10px] text-amber-700 ml-1">niezazn.</span>
+      )}
+    </span>
   </div>
 )}
         </div>
@@ -865,28 +907,65 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
   </div>
 </td>
 {variant === "upcoming" && isUserReferee && (
-  <td className="px-2 py-1 text-center">
-    <button
-      className={clsx(
-        "px-2 py-1 rounded border text-sm",
-        m.myAvailable ? "bg-green-50 border-green-300 text-green-700" : "bg-red-50 border-red-300 text-red-700"
+  <td className="px-2 py-1">
+    <div className="flex items-center gap-2 justify-center">
+      {/* DOSTĘPNY */}
+      <button
+        className={clsx(
+          "px-2 py-1 rounded border text-sm min-w-[36px]",
+          m.myAvailabilitySet
+            ? (m.myAvailable
+                ? "bg-green-50 border-green-300 text-green-700"
+                : "bg-gray-100 border-gray-300 text-gray-500")
+            : "bg-green-50 border-green-300 text-green-700"
+        )}
+        title="Jestem dostępny"
+        onClick={async () => {
+          try {
+            await setMyAvailability(m.id, true);
+            setState(s => ({
+              ...s,
+              matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x)
+            }));
+          } catch (e:any) {
+            alert("Błąd zapisu dostępności: " + e.message);
+          }
+        }}
+      >
+        ✅
+      </button>
+
+      {/* NIEDOSTĘPNY */}
+      <button
+        className={clsx(
+          "px-2 py-1 rounded border text-sm min-w-[36px]",
+          m.myAvailabilitySet
+            ? (!m.myAvailable
+                ? "bg-red-50 border-red-300 text-red-700"
+                : "bg-gray-100 border-gray-300 text-gray-500")
+            : "bg-red-50 border-red-300 text-red-700"
+        )}
+        title="Nie mogę"
+        onClick={async () => {
+          try {
+            await setMyAvailability(m.id, false);
+            setState(s => ({
+              ...s,
+              matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x)
+            }));
+          } catch (e:any) {
+            alert("Błąd zapisu dostępności: " + e.message);
+          }
+        }}
+      >
+        ❌
+      </button>
+
+      {/* znacznik braku decyzji */}
+      {!m.myAvailabilitySet && (
+        <span className="text-[10px] text-amber-700 ml-1">niezazn.</span>
       )}
-      title={m.myAvailable ? "Jestem dostępny" : "Niedostępny"}
-      onClick={async () => {
-        try {
-          const next = !m.myAvailable;
-          await setMyAvailability(m.id, next);
-          setState(s => ({
-            ...s,
-            matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: next } : x)
-          }));
-        } catch (e:any) {
-          alert("Błąd zapisu dostępności: " + e.message);
-        }
-      }}
-    >
-      {m.myAvailable ? "✅" : "❌"}
-    </button>
+    </div>
   </td>
 )}
 
@@ -1403,10 +1482,33 @@ useEffect(() => {
           <select className={classes.input} value={draft.home} onChange={e=>setDraft({...draft, home:e.target.value})}><option value="">Wybierz gospodarza</option>{clubs.map(c=><option key={c} value={c}>{c}</option>)}</select>
           <select className={classes.input} value={draft.away} onChange={e=>setDraft({...draft, away:e.target.value})}><option value="">Wybierz gości</option>{clubs.map(c=><option key={c} value={c}>{c}</option>)}</select>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <select className={classes.input} value={draft.referees[0]} onChange={e=>setDraft({...draft, referees:[e.target.value, draft.referees[1]||""]})}><option value="">Sędzia 1</option>{refereeNames.map(n=><option key={n} value={n}>{n}</option>)}</select>
-          <select className={classes.input} value={draft.referees[1]} onChange={e=>setDraft({...draft, referees:[draft.referees[0]||"", e.target.value]})}><option value="">Sędzia 2</option>{refereeNames.map(n=><option key={n} value={n}>{n}</option>)}</select>
-        </div>
+<div className="grid grid-cols-2 gap-2">
+  <select
+    className={classes.input}
+    value={draft.referees[0]}
+    onChange={e=>setDraft({...draft, referees:[e.target.value, draft.referees[1]||""]})}
+  >
+    <option value="">Sędzia 1</option>
+    {refereeNames.map(n => (
+      <option key={n} value={n}>
+        {n}{availNames.has(n) ? " ✓" : ""}
+      </option>
+    ))}
+  </select>
+
+  <select
+    className={classes.input}
+    value={draft.referees[1]}
+    onChange={e=>setDraft({...draft, referees:[draft.referees[0]||"", e.target.value]})}
+  >
+    <option value="">Sędzia 2</option>
+    {refereeNames.map(n => (
+      <option key={n} value={n}>
+        {n}{availNames.has(n) ? " ✓" : ""}
+      </option>
+    ))}
+  </select>
+</div>
         <select className={classes.input} value={draft.delegate||""} onChange={e=>setDraft({...draft, delegate:e.target.value})}><option value="">Delegat</option>{delegateNames.map(n=><option key={n} value={n}>{n}</option>)}</select>
         <input className={classes.input} placeholder="Wynik (np. 10:9)" value={draft.result||""} onChange={e=>setDraft({...draft, result:e.target.value})}/>
         <textarea className={classes.input + " min-h-[80px]"} placeholder="Notatki" value={draft.notes||""} onChange={e=>setDraft({...draft, notes:e.target.value})}/>
@@ -1625,7 +1727,26 @@ function handleQuickEdit(matchId: string) {
     {name:"Admin", role:"Admin"}, {name:"AZS Szczecin – Klub", role:"Club", club:"AZS Szczecin"}, {name:"KS Warszawa – Klub", role:"Club", club:"KS Warszawa"}, {name:"Anna Delegat", role:"Delegate"}, {name:"Sędzia – Demo", role:"Referee"}, {name:"Gość", role:"Guest"}
   ]});
 
- // --- Kluby z DB (do list i rankingów) – TERAZ wewnątrz App()
+// ✓ przy sędziach dostępnych na aktualnie edytowany mecz (draft.id)
+const [availNames, setAvailNames] = React.useState<Set<string>>(new Set());
+
+React.useEffect(() => {
+  let cancelled = false;
+  (async () => {
+    try {
+      if (draft?.id) {
+        const set = await namesOfAvailableReferees(draft.id); // Set<string>
+        if (!cancelled) setAvailNames(set);
+      } else {
+        setAvailNames(new Set());
+      }
+    } catch (e:any) {
+      console.warn("namesOfAvailableReferees error:", e.message);
+    }
+  })();
+  return () => { cancelled = true; };
+}, [draft?.id]);
+  // --- Kluby z DB (do list i rankingów) – TERAZ wewnątrz App()
 const [clubs, setClubs] = useState<string[]>([]);
 
 const refreshClubs = React.useCallback(async () => {
@@ -1917,18 +2038,22 @@ for (const x of d) {
 });
 
     setState((s) => ({ ...s, matches: nextMatches }));
-    // === DODAJ: dołącz moją dostępność, jeśli jestem sędzią ===
+// === DODAJ: dołącz moją dostępność, jeśli jestem sędzią (tri-state) ===
 try {
   if (effectiveUser && effectiveUser.role === "Referee") {
-    const matchIds = (nextMatches || []).map(m => m.id);
-    if (matchIds.length > 0) {
-      const myAvail = await getMyAvailabilityForMatches(matchIds);
+    const matchIds2 = (nextMatches || []).map(m => m.id);
+    if (matchIds2.length > 0) {
+      const myAvail = await getMyAvailabilityForMatches(matchIds2); 
       setState(s => ({
         ...s,
-        matches: s.matches.map(m => ({
-          ...m,
-          myAvailable: myAvail.get(m.id) ?? false
-        }))
+        matches: s.matches.map(m => {
+          const v = myAvail.get(m.id);
+          return {
+            ...m,
+            myAvailable: v === true ? true : false,          
+            myAvailabilitySet: v !== null                    
+          };
+        })
       }));
     }
   }
