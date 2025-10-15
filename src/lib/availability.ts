@@ -1,7 +1,14 @@
 import { supabase } from "./supabase";
 
-/** Ustaw/zmień dostępność zalogowanego sędziego dla meczu */
-export async function setMyAvailability(matchId: string, available: boolean, note?: string) {
+/**
+ * Ustaw/zmień dostępność zalogowanego sędziego dla meczu.
+ * Zapis idempotentny (UPSERT po kluczu złożonym: match_id + referee_id).
+ */
+export async function setMyAvailability(
+  matchId: string,
+  available: boolean,
+  note?: string
+) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Nie zalogowany");
 
@@ -20,19 +27,21 @@ export async function setMyAvailability(matchId: string, available: boolean, not
 }
 
 /**
- * Pobierz moją dostępność dla wielu meczów (tri-state):
- *  true  = dostępny,
- *  false = niedostępny,
- *  null  = brak decyzji
+ * Pobierz moją dostępność dla wielu meczów.
+ * Zwraca Mapę: match_id -> true/false
+ * Brak wpisu = undefined (MAP.get() zwróci undefined).
  *
- * UI może traktować null jako "niedostępny" logicznie, ale graficznie
- * podkreślamy, że decyzji jeszcze nie było.
+ * UWAGA: brak już wartości null – to upraszcza logikę w App:
+ *   myAvailable: v === true ? true : false
+ *   myAvailabilitySet: v !== undefined
  */
-export async function getMyAvailabilityForMatches(matchIds: string[]) {
+export async function getMyAvailabilityForMatches(
+  matchIds: string[]
+): Promise<Map<string, boolean>> {
   const { data: { user } } = await supabase.auth.getUser();
+
   if (!user || matchIds.length === 0) {
-    // zwracamy pustą mapę; UI może wtedy domyślnie ustawić false + myAvailabilitySet=false
-    return new Map<string, boolean | null>();
+    return new Map<string, boolean>();
   }
 
   const { data, error } = await supabase
@@ -43,20 +52,17 @@ export async function getMyAvailabilityForMatches(matchIds: string[]) {
 
   if (error) throw error;
 
-  // Zainicjuj wszystkie mecze jako "brak decyzji"
-  const map = new Map<string, boolean | null>();
-  for (const id of matchIds) map.set(id, null);
-
-  // Wstaw faktyczne wartości tam, gdzie istnieje wpis
-  for (const row of data || []) {
-    map.set(row.match_id, !!row.available);
-  }
-
-  return map;
+  return new Map<string, boolean>(
+    (data || []).map(r => [r.match_id as string, !!r.available])
+  );
 }
 
-/** Lista dostępnych sędziów (id + nazwa) dla jednego meczu – np. do podglądu w panelu admina */
-export async function listAvailableReferees(matchId: string): Promise<{id:string; name:string}[]> {
+/**
+ * Lista dostępnych sędziów (id + nazwa) dla jednego meczu – do podglądu w panelu admina.
+ */
+export async function listAvailableReferees(
+  matchId: string
+): Promise<{ id: string; name: string }[]> {
   const { data, error } = await supabase
     .from("match_availability")
     .select(`
@@ -69,15 +75,22 @@ export async function listAvailableReferees(matchId: string): Promise<{id:string
   if (error) throw error;
 
   return (data || [])
-    .filter((r: any) => r.profiles?.role === "Referee" || r.profiles?.role === "Admin") // usuń Admin, jeśli nie chcesz
-    .map((r: any) => ({ id: r.referee_id, name: r.profiles.display_name }));
+    .filter((r: any) =>
+      r.profiles?.role === "Referee" || r.profiles?.role === "Admin"
+    )
+    .map((r: any) => ({
+      id: r.referee_id as string,
+      name: r.profiles.display_name as string,
+    }));
 }
 
 /**
  * Zestaw nazwisk sędziów dostępnych na dany mecz – do oznaczania "✓" w selectach.
- * (tylko nazwy, bo w Twoim AdminPanelu używasz listy display_name)
+ * (Zwraca tylko nazwy, bo w AdminPanelu operujesz na display_name.)
  */
-export async function namesOfAvailableReferees(matchId: string): Promise<Set<string>> {
+export async function namesOfAvailableReferees(
+  matchId: string
+): Promise<Set<string>> {
   const { data, error } = await supabase
     .from("match_availability")
     .select(`
