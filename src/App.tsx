@@ -2423,6 +2423,7 @@ const delegateCandidateNames = Array.from(new Set([
         setOpenedArticleId(id);
         setPage('article');
       }}
+      onBackToList={() => setPage('articles')}
     />
   )}
 
