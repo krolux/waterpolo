@@ -803,9 +803,7 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
     >
       Edytuj
     </button>
- 
-  );
-})}
+  )}
 </td>
 
           <td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
