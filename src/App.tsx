@@ -1,6 +1,6 @@
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState, PropsWithChildren } from "react";
-import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, Check, RefreshCw } from "lucide-react";
+import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, Check, RefreshCw, X } from "lucide-react";
 import { useSupabaseAuth, Role as SupaRole } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
@@ -533,56 +533,78 @@ function renderResult(m: Match) {
     <span className="font-semibold mr-1">Dostępność:</span>
     <span className="inline-flex items-center gap-2">
       {/* DOSTĘPNY */}
-      <button
-        className={clsx(
-          "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
-          m.myAvailabilitySet
-            ? (m.myAvailable
-                ? "bg-green-50 border-green-300 text-green-700"
-                : "bg-gray-100 border-gray-300 text-gray-500 opacity-60")
-            : "bg-green-50 border-green-300 text-green-700"
-        )}
-        onClick={async () => {
-          try {
-            await setMyAvailability(m.id, true);
-setState(s => ({
-  ...s,
-  matches: s.matches.map(x =>
-    x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x
-  )
-}));
-          } catch (e:any) {
-            alert("Błąd zapisu dostępności: " + e.message);
-          }
-        }}
-      >
-        ✅ Dostępny
-      </button>
+<button
+  className={clsx(
+    "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
+    m.myAvailabilitySet
+      ? (m.myAvailable
+          ? "bg-green-50 border-green-300 text-green-700"
+          : "bg-gray-100 border-gray-300 text-gray-500")
+      : "bg-green-50 border-green-300 text-green-700"
+  )}
+  onClick={async () => {
+    try {
+      await setMyAvailability(m.id, true);
+      setState(s => ({
+        ...s,
+        matches: s.matches.map(x =>
+          x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x
+        )
+      }));
+    } catch (e:any) {
+      alert("Błąd zapisu dostępności: " + e.message);
+    }
+  }}
+>
+  <span className="inline-flex items-center gap-1">
+    <Check
+      className={clsx(
+        "w-4 h-4",
+        m.myAvailabilitySet
+          ? (m.myAvailable ? "text-green-700" : "text-gray-400")
+          : "text-green-700"
+      )}
+    />
+    Dostępny
+  </span>
+</button>
 
       {/* NIEDOSTĘPNY */}
-      <button
-        className={clsx(
-          "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
-          m.myAvailabilitySet
-            ? (!m.myAvailable
-                ? "bg-red-50 border-red-300 text-red-700"
-                : "bg-gray-100 border-gray-300 text-gray-500 opacity-60")
-            : "bg-red-50 border-red-300 text-red-700"
-        )}
-        onClick={async () => {
-          try {
-            await setMyAvailability(m.id, false);
-            setState(s => ({
-              ...s,
-              matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x)
-            }));
-          } catch (e:any) {
-            alert("Błąd zapisu dostępności: " + e.message);
-          }
-        }}
-      >
-        ❌ Niedostępny
-      </button>
+<button
+  className={clsx(
+    "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
+    m.myAvailabilitySet
+      ? (!m.myAvailable
+          ? "bg-red-50 border-red-300 text-red-700"
+          : "bg-gray-100 border-gray-300 text-gray-500")
+      : "bg-red-50 border-red-300 text-red-700"
+  )}
+  onClick={async () => {
+    try {
+      await setMyAvailability(m.id, false);
+      setState(s => ({
+        ...s,
+        matches: s.matches.map(x =>
+          x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x
+        )
+      }));
+    } catch (e:any) {
+      alert("Błąd zapisu dostępności: " + e.message);
+    }
+  }}
+>
+  <span className="inline-flex items-center gap-1">
+    <X
+      className={clsx(
+        "w-4 h-4",
+        m.myAvailabilitySet
+          ? (!m.myAvailable ? "text-red-700" : "text-gray-400")
+          : "text-red-700"
+      )}
+    />
+    Niedostępny
+  </span>
+</button>
 
 
     </span>
@@ -908,57 +930,75 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
 {variant === "upcoming" && isUserReferee && (
   <td className="px-2 py-1">
     <div className="flex items-center gap-2 justify-center">
-      {/* DOSTĘPNY */}
-      <button
-        className={clsx(
-          "px-2 py-1 rounded border text-sm min-w-[36px]",
-          m.myAvailabilitySet
-            ? (m.myAvailable
-                ? "bg-green-50 border-green-300 text-green-700"
-                : "bg-gray-100 border-gray-300 text-gray-500 opacity-60")
-            : "bg-green-50 border-green-300 text-green-700"
-        )}
-        title="Jestem dostępny"
-        onClick={async () => {
-          try {
-            await setMyAvailability(m.id, true);
-            setState(s => ({
-              ...s,
-              matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x)
-            }));
-          } catch (e:any) {
-            alert("Błąd zapisu dostępności: " + e.message);
-          }
-        }}
-      >
-        ✅
-      </button>
+{/* DOSTĘPNY */}
+<button
+  className={clsx(
+    "px-2 py-1 rounded border text-sm min-w-[36px]",
+    m.myAvailabilitySet
+      ? (m.myAvailable
+          ? "bg-green-50 border-green-300 text-green-700"
+          : "bg-gray-100 border-gray-300 text-gray-500")
+      : "bg-green-50 border-green-300 text-green-700"
+  )}
+  title="Jestem dostępny"
+  onClick={async () => {
+    try {
+      await setMyAvailability(m.id, true);
+      setState(s => ({
+        ...s,
+        matches: s.matches.map(x =>
+          x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x
+        )
+      }));
+    } catch (e:any) {
+      alert("Błąd zapisu dostępności: " + e.message);
+    }
+  }}
+>
+  <Check
+    className={clsx(
+      "w-4 h-4",
+      m.myAvailabilitySet
+        ? (m.myAvailable ? "text-green-700" : "text-gray-400")
+        : "text-green-700"
+    )}
+  />
+</button>
 
-      {/* NIEDOSTĘPNY */}
-      <button
-        className={clsx(
-          "px-2 py-1 rounded border text-sm min-w-[36px]",
-          m.myAvailabilitySet
-            ? (!m.myAvailable
-                ? "bg-red-50 border-red-300 text-red-700"
-                : "bg-gray-100 border-gray-300 text-gray-500 opacity-60")
-            : "bg-red-50 border-red-300 text-red-700"
-        )}
-        title="Nie mogę"
-        onClick={async () => {
-          try {
-            await setMyAvailability(m.id, false);
-            setState(s => ({
-              ...s,
-              matches: s.matches.map(x => x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x)
-            }));
-          } catch (e:any) {
-            alert("Błąd zapisu dostępności: " + e.message);
-          }
-        }}
-      >
-        ❌
-      </button>
+{/* NIEDOSTĘPNY */}
+<button
+  className={clsx(
+    "px-2 py-1 rounded border text-sm min-w-[36px]",
+    m.myAvailabilitySet
+      ? (!m.myAvailable
+          ? "bg-red-50 border-red-300 text-red-700"
+          : "bg-gray-100 border-gray-300 text-gray-500")
+      : "bg-red-50 border-red-300 text-red-700"
+  )}
+  title="Nie mogę"
+  onClick={async () => {
+    try {
+      await setMyAvailability(m.id, false);
+      setState(s => ({
+        ...s,
+        matches: s.matches.map(x =>
+          x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x
+        )
+      }));
+    } catch (e:any) {
+      alert("Błąd zapisu dostępności: " + e.message);
+    }
+  }}
+>
+  <X
+    className={clsx(
+      "w-4 h-4",
+      m.myAvailabilitySet
+        ? (!m.myAvailable ? "text-red-700" : "text-gray-400")
+        : "text-red-700"
+    )}
+  />
+</button>
 
 
 
@@ -2049,7 +2089,7 @@ try {
           return {
             ...m,
             myAvailable: v === true ? true : false,          
-            myAvailabilitySet: v !== null                 
+            myAvailabilitySet: v !== undefined            
           };
         })
       }));
