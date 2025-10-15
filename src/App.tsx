@@ -539,7 +539,7 @@ function renderResult(m: Match) {
           m.myAvailabilitySet
             ? (m.myAvailable
                 ? "bg-green-50 border-green-300 text-green-700"
-                : "bg-gray-100 border-gray-300 text-gray-500")
+                : "bg-gray-100 border-gray-300 text-gray-500 opacity-60")
             : "bg-green-50 border-green-300 text-green-700"
         )}
         onClick={async () => {
@@ -566,7 +566,7 @@ setState(s => ({
           m.myAvailabilitySet
             ? (!m.myAvailable
                 ? "bg-red-50 border-red-300 text-red-700"
-                : "bg-gray-100 border-gray-300 text-gray-500")
+                : "bg-gray-100 border-gray-300 text-gray-500 opacity-60")
             : "bg-red-50 border-red-300 text-red-700"
         )}
         onClick={async () => {
@@ -584,9 +584,7 @@ setState(s => ({
         ❌ Niedostępny
       </button>
 
-      {!m.myAvailabilitySet && (
-        <span className="text-[10px] text-amber-700 ml-1">niezazn.</span>
-      )}
+
     </span>
   </div>
 )}
@@ -917,7 +915,7 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
           m.myAvailabilitySet
             ? (m.myAvailable
                 ? "bg-green-50 border-green-300 text-green-700"
-                : "bg-gray-100 border-gray-300 text-gray-500")
+                : "bg-gray-100 border-gray-300 text-gray-500 opacity-60")
             : "bg-green-50 border-green-300 text-green-700"
         )}
         title="Jestem dostępny"
@@ -943,7 +941,7 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
           m.myAvailabilitySet
             ? (!m.myAvailable
                 ? "bg-red-50 border-red-300 text-red-700"
-                : "bg-gray-100 border-gray-300 text-gray-500")
+                : "bg-gray-100 border-gray-300 text-gray-500 opacity-60")
             : "bg-red-50 border-red-300 text-red-700"
         )}
         title="Nie mogę"
@@ -962,10 +960,8 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
         ❌
       </button>
 
-      {/* znacznik braku decyzji */}
-      {!m.myAvailabilitySet && (
-        <span className="text-[10px] text-amber-700 ml-1">niezazn.</span>
-      )}
+
+
     </div>
   </td>
 )}
@@ -2053,7 +2049,7 @@ try {
           return {
             ...m,
             myAvailable: v === true ? true : false,          
-            myAvailabilitySet: v !== undefined                   
+            myAvailabilitySet: v !== null                 
           };
         })
       }));
