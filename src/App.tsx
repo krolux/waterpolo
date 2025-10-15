@@ -138,7 +138,7 @@ type Match = {
   home: string;
   away: string;
   result?: string;
-  shootout?: boolean;               // <— NOWE
+  shootout?: boolean;               
   referees: string[];
   delegate?: string;
   commsByClub: Record<string, StoredFile | null>;
@@ -149,6 +149,7 @@ type Match = {
   uploadsLog: UploadLog[];
   myAvailable?: boolean;
    myAvailabilitySet?: boolean;
+  streamUrl?: string | null;
 };
 type AppState = { matches: Match[]; users:{name:string; role:Role; club?:string}[]; };
 type ProfileRow = {
@@ -180,7 +181,19 @@ async function toStoredFileUsingStorage(kind: "comms"|"roster"|"report"|"photos"
   };
 }
 
-
+function sanitizeUrl(u?: string | null) {
+  const s = (u || "").trim();
+  if (!s) return null;
+  try {
+    const url = new URL(s);
+    if (url.protocol === "http:" || url.protocol === "https:") return url.toString();
+    return null;
+  } catch {
+    // pozwól też na krótkie „youtu.be/…” lub „youtube.com/…” bez protokołu:
+    if (/^([a-z0-9-]+\.)+[a-z]{2,}/i.test(s)) return `https://${s}`;
+    return null;
+  }
+}
 
 async function downloadStoredFile(file: StoredFile) {
 const url = await getSignedUrl(file.path);
@@ -454,6 +467,7 @@ function renderResult(m: Match) {
   {filtered.map((m) => {
     const homePens = penaltyMap.get(m.id)?.home || [];
     const awayPens  = penaltyMap.get(m.id)?.away || [];
+  const streamHref = sanitizeUrl(m.streamUrl);
     return (
     <div key={m.id} className={clsx("rounded-xl border p-3 shadow-sm", cardBg)}>
         <div className="flex items-start justify-between gap-3">
@@ -723,6 +737,18 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
       Zdjęcia: {m.reportPhotos.length}
     </span>
   )}
+
+{streamHref && (
+  <a
+    href={streamHref}
+    target="_blank"
+    rel="noopener noreferrer"
+    className={clsx(classes.pill, "hover:shadow")}
+    title="Otwórz transmisję w nowej karcie"
+  >
+    ▶︎ Transmisja
+  </a>
+)}
 </div>
 
       </div>
@@ -757,8 +783,10 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
     </thead>
 
     <tbody>
-      {filtered.map((m) => (
-      <tr key={m.id} className={clsx("border-b hover:bg-sky-50 transition-colors align-top", rowStriping)}>
+{filtered.map((m) => {
+  const streamHref = sanitizeUrl(m.streamUrl);
+  return (
+    <tr key={m.id} className={clsx("border-b hover:bg-sky-50 transition-colors align-top", rowStriping)}>
           <td className="px-2 py-1 whitespace-nowrap text-center">{m.date}{m.time ? ` ${m.time}` : ""}</td>
           <td className="px-2 py-1 whitespace-nowrap text-center">{m.round ?? "-"}</td>
           <td className="px-2 py-1 break-words">{m.location}</td>
@@ -775,7 +803,9 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
     >
       Edytuj
     </button>
-  )}
+ 
+  );
+})}
 </td>
 
           <td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
@@ -919,12 +949,23 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
       />
     )}
 
-    {m.reportPhotos.length > 0 && (
-      <span className={classes.pill}>
-        <Image className="w-3.5 h-3.5" />
-        Zdjęcia: {m.reportPhotos.length}
-      </span>
-    )}
+{m.reportPhotos.length > 0 && (
+  <span className={classes.pill}>
+    <Image className="w-3.5 h-3.5" />
+    Zdjęcia: {m.reportPhotos.length}
+  </span>
+)}
+{streamHref && (
+  <a
+    href={streamHref}
+    target="_blank"
+    rel="noopener noreferrer"
+    className={clsx(classes.pill, "hover:shadow")}
+    title="Otwórz transmisję w nowej karcie"
+  >
+    ▶︎ Transmisja
+  </a>
+)}
   </div>
 </td>
 {variant === "upcoming" && isUserReferee && (
@@ -1311,43 +1352,70 @@ const canDelegateAct = () => isDelegate(user);
           style={{ minWidth: 160 }}
         />
       </div>
-      <button
-        className={classes.btnPrimary}
-        onClick={async () => {
-          const dateEl = document.getElementById("host-date") as HTMLInputElement;
-          const timeEl = document.getElementById("host-time") as HTMLInputElement;
-          const newDate = (dateEl?.value || "").trim();
-          const newTime = (timeEl?.value || "").trim();
+<button
+  className={classes.btnPrimary}
+  onClick={async () => {
+    const dateEl   = document.getElementById("host-date")   as HTMLInputElement;
+    const timeEl   = document.getElementById("host-time")   as HTMLInputElement;
+    const streamEl = document.getElementById("host-stream") as HTMLInputElement;
 
-          if (!newDate) { alert("Podaj poprawną datę."); return; }
+    const newDate   = (dateEl?.value || "").trim();
+    const newTime   = (timeEl?.value || "").trim();
+    const rawStream = (streamEl?.value || "").trim();
+    const safeStream = sanitizeUrl(rawStream); // null jeśli niepoprawny
 
-          try {
-            // zapis w DB (tylko date/time)
-            const { error } = await supabase
-              .from("matches")
-              .update({ date: newDate, time: newTime || null })
-              .eq("id", match.id);
-            if (error) throw error;
+    if (!newDate) { alert("Podaj poprawną datę."); return; }
+    if (rawStream && !safeStream) {
+      alert("Podany link do transmisji jest niepoprawny. Upewnij się, że zaczyna się od http(s)://");
+      return;
+    }
 
-            // odśwież lokalny stan, żeby UI od razu pokazał zmiany
-            const updated = { ...match, date: newDate, time: newTime };
-            setState({
-              ...state,
-              matches: state.matches.map(m => (m.id === match.id ? updated : m)),
-            });
-            alert("Zaktualizowano datę/godzinę.");
-          } catch (e:any) {
-            alert("Błąd zapisu: " + e.message);
-          }
-        }}
-      >
-        Zapisz termin
+    try {
+      const { error } = await supabase
+        .from("matches")
+        .update({
+          date: newDate,
+          time: newTime || null,
+          stream_url: safeStream || null, // <-- ZAPISUJEMY LINK
+        })
+        .eq("id", match.id);
+      if (error) throw error;
+
+      // odśwież lokalny stan
+      const updated = {
+        ...match,
+        date: newDate,
+        time: newTime,
+        streamUrl: safeStream || null,    // <-- LOKALNIE TEŻ
+      };
+      setState({
+        ...state,
+        matches: state.matches.map(m => (m.id === match.id ? updated : m)),
+      });
+      alert("Zaktualizowano termin i link do transmisji.");
+    } catch (e:any) {
+      alert("Błąd zapisu: " + e.message);
+    }
+  }}
+>
+        Zapisz termin i link
       </button>
     </div>
     <div className="text-xs text-gray-500 mt-1">
-      Uprawnienie tylko dla klubu–gospodarza. Zmienić można wyłącznie datę i godzinę.
+      Uprawnienie tylko dla klubu–gospodarza. Zmienić można datę, godzinę oraz link do transmisji.
     </div>
   </div>
+  <div>
+  <label className="text-xs text-gray-600">Link do transmisji (opcjonalnie)</label>
+  <input
+    type="url"
+    defaultValue={match.streamUrl || ""}
+    id="host-stream"
+    placeholder="https://…"
+    className={classes.input}
+    style={{ minWidth: 260 }}
+  />
+</div>
 )}
 
             
@@ -1470,7 +1538,25 @@ setState: React.Dispatch<React.SetStateAction<AppState>>;
 }) => {
 
 
-  const blank: Match = { id:crypto.randomUUID(), date:new Date().toISOString().slice(0,10), time:"", round:"", location:"", home:"", away:"", referees:["",""], delegate:"", commsByClub:{home:null,away:null}, rosterByClub:{home:null,away:null}, matchReport:null, reportPhotos:[], notes:"", result:"", uploadsLog:[] };
+const blank: Match = {
+  id: crypto.randomUUID(),
+  date: new Date().toISOString().slice(0,10),
+  time: "",
+  round: "",
+  location: "",
+  home: "",
+  away: "",
+  referees: ["",""],
+  delegate: "",
+  commsByClub: { home: null, away: null },
+  rosterByClub: { home: null, away: null },
+  matchReport: null,
+  reportPhotos: [],
+  notes: "",
+  result: "",
+  uploadsLog: [],
+  streamUrl: null, // <-- DODANE
+};
   const [draft,setDraft]=useState<Match>(blank); const [editId,setEditId]=useState<string|null>(null);
   // ✓ przy sędziach dostępnych na aktualnie edytowany mecz (draft.id)
 const [availNames, setAvailNames] = React.useState<Set<string>>(new Set());
@@ -1506,9 +1592,22 @@ useEffect(() => {
 }, [editingMatchId]);
 
   
-  function toDbRow(m: Match){
-    return { date:m.date, time:m.time||null, round:m.round||null, location:m.location, home:m.home, away:m.away, result:m.result||null, referee1:m.referees[0]||null, referee2:m.referees[1]||null, delegate:m.delegate||null, notes:m.notes||null }
-  }
+function toDbRow(m: Match){
+  return {
+    date: m.date,
+    time: m.time || null,
+    round: m.round || null,
+    location: m.location,
+    home: m.home,
+    away: m.away,
+    result: m.result || null,
+    referee1: m.referees[0] || null,
+    referee2: m.referees[1] || null,
+    delegate: m.delegate || null,
+    notes: m.notes || null,
+    stream_url: sanitizeUrl(m.streamUrl) || null, 
+  };
+}
 
   async function saveDraft(){ 
     if(!canWrite){ alert("Tylko Admin może zapisywać mecze do bazy."); return; }
@@ -1568,6 +1667,12 @@ useEffect(() => {
         <select className={classes.input} value={draft.delegate||""} onChange={e=>setDraft({...draft, delegate:e.target.value})}><option value="">Delegat</option>{delegateNames.map(n=><option key={n} value={n}>{n}</option>)}</select>
         <input className={classes.input} placeholder="Wynik (np. 10:9)" value={draft.result||""} onChange={e=>setDraft({...draft, result:e.target.value})}/>
         <textarea className={classes.input + " min-h-[80px]"} placeholder="Notatki" value={draft.notes||""} onChange={e=>setDraft({...draft, notes:e.target.value})}/>
+        <input
+  className={classes.input}
+  placeholder="Link do transmisji (opcjonalny)"
+  value={draft.streamUrl || ""}
+  onChange={e => setDraft({ ...draft, streamUrl: e.target.value })}
+/>
         <div className="flex gap-2"><button onClick={saveDraft} className={clsx(classes.btnPrimary,"flex items-center gap-2")}><Save className="w-4 h-4"/>{editId?"Zapisz zmiany":"Dodaj mecz"}</button>{editId && (
   <button
     className={classes.btnSecondary}
@@ -1962,7 +2067,7 @@ const matches: Match[] = rows.map((r: any) => ({
   home: r.home,
   away: r.away,
   result: r.result || "",
-  shootout: !!r.shootout,                 // <— NOWE
+  shootout: !!r.shootout,                
   referees: [r.referee1 || "", r.referee2 || ""],
   delegate: r.delegate || "",
   notes: r.notes || "",
@@ -1971,6 +2076,7 @@ const matches: Match[] = rows.map((r: any) => ({
   matchReport: null,
   reportPhotos: [],
   uploadsLog: [],
+  streamUrl: r.stream_url || null,
 }));
 
     setState((s) => ({ ...s, matches }));
