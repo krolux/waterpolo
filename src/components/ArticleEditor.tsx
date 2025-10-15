@@ -15,12 +15,10 @@ import { supabase } from "../lib/supabase";
 type Props = {
   /** null = nowy artykuł, string = edycja istniejącego */
   articleId: string | null;
-  /** powrót (np. do listy/podglądu) */
+  /** powrót (np. do listy lub podglądu) */
   onCancel: () => void;
   /** po zapisie/opublikowaniu — zwracamy id artykułu */
   onSaved: (id: string) => void;
-  /** (opcjonalnie) jeśli App przekazuje — też zawołamy przy "Wróć" */
-  onBackToList?: () => void;
 };
 
 const cls = {
@@ -29,23 +27,32 @@ const cls = {
   primary: "px-3 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700",
 };
 
-export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved, onBackToList }) => {
+export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved }) => {
   const [draft, setDraft] = React.useState<Partial<Article>>({ title: "" });
   const [coverUrl, setCoverUrl] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
 
+  // sprawdź rolę (czy Admin) — do przycisków publikacji/odrzucenia
   React.useEffect(() => {
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
       const uid = auth?.user?.id;
-      if (!uid) { setIsAdmin(false); return; }
-      const { data } = await supabase.from("profiles").select("role").eq("id", uid).single();
+      if (!uid) {
+        setIsAdmin(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", uid)
+        .single();
       setIsAdmin((data?.role || "").toString().includes("Admin"));
     })();
   }, []);
 
+  // załaduj istniejący artykuł albo utwórz szkic
   React.useEffect(() => {
     (async () => {
       setLoading(true);
@@ -57,8 +64,9 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved, o
             .eq("id", articleId)
             .single();
           if (error) throw error;
-          setDraft(data as Article);
-          setCoverUrl(getPublicUrl((data as Article).cover_path || undefined));
+          const a = data as Article;
+          setDraft(a);
+          setCoverUrl(getPublicUrl(a.cover_path || undefined));
         } else {
           const a = await createDraft({ title: "Nowy artykuł" });
           setDraft(a);
@@ -66,14 +74,18 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved, o
         }
       } catch (e: any) {
         alert("Nie udało się wczytać edytora: " + e.message);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, [articleId]);
 
   function makeSlug(title?: string | null, fromSlug?: string | null) {
     const base = (fromSlug && fromSlug.trim()) || (title || "");
-    return base.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
+    return base
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-+|-+$/g, "");
   }
 
   async function ensureDraftId() {
@@ -153,7 +165,7 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved, o
     try {
       await rejectArticle(draft.id);
       alert("Odrzucono artykuł.");
-      (onBackToList ?? onCancel)();
+      onCancel();
     } catch (e: any) {
       alert("Błąd odrzucenia: " + e.message);
     }
@@ -170,14 +182,18 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved, o
   return (
     <section className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-3">
-        <button className={cls.btn} onClick={() => (onBackToList ?? onCancel)()}>
+        <button className={cls.btn} onClick={onCancel}>
           ← Wróć do aktualności
         </button>
         <div className="flex gap-2">
           {isAdmin && draft.status === "pending" && (
             <>
-              <button className={cls.primary} onClick={onPublish}>Publikuj</button>
-              <button className={cls.btn} onClick={onReject}>Odrzuć</button>
+              <button className={cls.primary} onClick={onPublish}>
+                Publikuj
+              </button>
+              <button className={cls.btn} onClick={onReject}>
+                Odrzuć
+              </button>
             </>
           )}
         </div>
@@ -260,9 +276,9 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved, o
             Wyślij do akceptacji
           </button>
 
-            <button className={cls.btn} onClick={onCancel}>
-              Anuluj
-            </button>
+          <button className={cls.btn} onClick={onCancel}>
+            Anuluj
+          </button>
         </div>
 
         {draft?.status && (
