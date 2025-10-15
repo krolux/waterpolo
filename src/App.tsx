@@ -381,7 +381,7 @@ const sorted = useMemo(() => {
 
 const isGuest = !user || hasRole(user, 'Guest');
 const canDownload = !!user && !isGuest;
-  const isUserReferee = !!user && hasRole(user, "Referee");
+const isUserReferee = !!user && user.role === "Referee";
 const isUserAdmin = !!user && isAdmin(user);
 
 function renderResult(m: Match) {
