@@ -273,11 +273,13 @@ function canUploadComms(user:{role:Role;club?:string}, m:Match){
 function canUploadRoster(user:{role:Role;club?:string}, m:Match){
   return isClub(user) && !!user.club && (user.club===m.home || user.club===m.away);
 }
-function canUploadReport(user:{role:Role}){
-  return isDelegate(user);
+function canUploadReport(user:{role:Role;name?:string}, m:Match){
+  // Admin zawsze może; w innym przypadku delegatem jest osoba wpisana w tym meczu
+  return isAdmin(user) || (!!m.delegate && !!user?.name && m.delegate === user.name);
 }
 function canEditResult(user:{role:Role;name:string}, m:Match){
-  return isDelegate(user) && !!m.delegate && m.delegate===user.name;
+  // Admin lub osoba wybrana jako delegat w tym konkretnym meczu
+  return isAdmin(user) || (!!m.delegate && m.delegate === user.name);
 }
 
 
@@ -531,7 +533,7 @@ function renderResult(m: Match) {
                 {awayPens.map(p => (
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
-{(user && (isAdmin(user) || isDelegate(user))) && (
+{(user && (isAdmin(user) || m.delegate === user.name)) &&  (
   <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
 )}
 
@@ -836,7 +838,7 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
                 {(penaltyMap.get(m.id)?.away || []).map(p => (
                   <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
                     {p.name}
-{(user && (isAdmin(user) || isDelegate(user))) && (
+{(user && (isAdmin(user) || m.delegate === user.name)) &&  (
   <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
 )}
 
@@ -1103,7 +1105,8 @@ useEffect(() => {
 }, [availableMatches]);
 
 const match = availableMatches.find(m => m.id === selectedId) || null;
-
+const isMatchDelegate = !!match && (match.delegate === user.name);
+const canActAsDelegate = isAdmin(user) || isMatchDelegate;
   const [resultDraft, setResultDraft] = useState<string>(match?.result || "");
   const [shootoutDraft, setShootoutDraft] = useState<boolean>(!!match?.shootout);
 
@@ -1203,10 +1206,10 @@ async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
     // --- DELEGAT/ADMIN: protokół ---
     if (type === "report") {
       try {
-        if (!(canUploadReport(user) || isAdmin(user))) {
-          alert("Protokół może dodać tylko Delegat lub Admin.");
-          return;
-        }
+        if (!canUploadReport(user, match)) {
+  alert("Protokół może dodać tylko delegat tego meczu lub Admin.");
+  return;
+}
 
         console.log("[UPLOAD] report ->", { matchId: match.id, file: files[0]?.name });
 
@@ -1231,10 +1234,10 @@ async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
     // --- DELEGAT/ADMIN: zdjęcia raportu ---
     if (type === "photos") {
       try {
-        if (!(canUploadReport(user) || isAdmin(user))) {
-          alert("Zdjęcia raportu może dodać tylko Delegat lub Admin.");
-          return;
-        }
+       if (!canUploadReport(user, match)) {
+  alert("Zdjęcia raportu może dodać tylko delegat tego meczu lub Admin.");
+  return;
+}
 
         console.log("[UPLOAD] photos ->", { matchId: match.id, count: files.length });
 
@@ -1419,7 +1422,7 @@ const canDelegateAct = () => isDelegate(user);
 )}
 
             
-{(canDelegateAct() || isAdmin(user)) && (
+{canActAsDelegate && (
   <>
     <button onClick={() => handleUpload("report")} className={clsx(classes.btnPrimary, "flex items-center gap-2 w-full sm:w-auto")}>
       <UploadCloud className="w-4 h-4" />Dodaj protokół
@@ -1432,7 +1435,7 @@ const canDelegateAct = () => isDelegate(user);
 
           </div>
 
-          {canDelegateAct() && (
+          {canActAsDelegate && (
             <div className="mt-4 border-t pt-3">
              <div className="text-sm text-amber-600 font-medium mb-2">Nałóż karę</div>
 
@@ -2220,7 +2223,10 @@ useEffect(() => {
 
 const refereeNames = profiles.filter(p => hasRole(p, "Referee")).map(p => p.display_name).filter(Boolean);
 const delegateNames = profiles.filter(p => hasRole(p, "Delegate")).map(p => p.display_name).filter(Boolean);
-
+const delegateCandidateNames = Array.from(new Set([
+  ...delegateNames,
+  ...refereeNames,
+]));
 
  async function handleRemovePenalty(id: string) {
   try {
@@ -2334,7 +2340,7 @@ variant="finished"
       setState={setState}
       clubs={clubs}
       refereeNames={refereeNames}
-      delegateNames={delegateNames}
+        delegateNames={delegateCandidateNames}
       onAfterChange={() => { refreshMatches(); refreshClubs(); }}
       canWrite={true}
       editingMatchId={editingMatchId}
