@@ -2330,8 +2330,8 @@ const delegateCandidateNames = Array.from(new Set([
     <>
       {/* Pasek newsów nad tabelą wyników */}
       <NewsStrip
-        onMore={openArticles}
-        onOpen={(id: string)
+         onMore={openArticles} 
+          onOpen={openArticle}
       />
 
       {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin} />}
@@ -2405,12 +2405,13 @@ const delegateCandidateNames = Array.from(new Set([
   {page === 'articles' && (
     <ArticleList
       onBack={goHome}
-      onOpen={(id: string)
+      onOpen={openArticle}
     />
   )}
 
   {/* === [3.3] PODGLĄD JEDNEGO ARTYKUŁU === */}
-  {page === 'article' && openedArticleId && (
+{page === 'article' ? (
+  openedArticleId ? (
     <ArticleView
       id={openedArticleId}
       onBack={() => setPage('articles')}
@@ -2420,7 +2421,8 @@ const delegateCandidateNames = Array.from(new Set([
           : undefined
       }
     />
-  )}
+  ) : null
+) : null}
 
   {/* === [3.3] EDYTOR ARTYKUŁU (Admin/Editor) === */}
 {page === 'editor' && (
