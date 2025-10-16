@@ -9,7 +9,6 @@ import {
   uploadCover,
   getPublicUrl,
   type Article,
-  // GALERIA:
   uploadArticleImage,
   listArticleImages,
   deleteArticleImage,
@@ -18,9 +17,12 @@ import {
 import { supabase } from "../lib/supabase";
 
 type Props = {
-  articleId: string | null;     // null = nowy artykuł, string = edycja
-  onCancel: () => void;         // powrót (np. do listy/podglądu)
-  onSaved: (id: string) => void; // po zapisie/opublikowaniu — id
+  /** null = nowy artykuł, string = edycja istniejącego */
+  articleId: string | null;
+  /** powrót (np. do listy lub podglądu) */
+  onCancel: () => void;
+  /** po zapisie/opublikowaniu — zwracamy id artykułu */
+  onSaved: (id: string) => void;
 };
 
 const cls = {
@@ -51,7 +53,11 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
         setIsAdmin(false);
         return;
       }
-      const { data } = await supabase.from("profiles").select("role").eq("id", uid).single();
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", uid)
+        .single();
       setIsAdmin((data?.role || "").toString().includes("Admin"));
     })();
   }, []);
@@ -62,7 +68,11 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
       setLoading(true);
       try {
         if (articleId) {
-          const { data, error } = await supabase.from("articles").select("*").eq("id", articleId).single();
+          const { data, error } = await supabase
+            .from("articles")
+            .select("*")
+            .eq("id", articleId)
+            .single();
           if (error) throw error;
           const a = data as Article;
           setDraft(a);
@@ -86,7 +96,10 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
 
   function makeSlug(title?: string | null, fromSlug?: string | null) {
     const base = (fromSlug && fromSlug.trim()) || (title || "");
-    return base.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
+    return base
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-+|-+$/g, "");
   }
 
   async function ensureDraftId() {
@@ -121,7 +134,7 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
   async function onUploadImages(files: FileList | null) {
     if (!files || files.length === 0) return;
     try {
-      const id = await ensureDraftId();
+      const currentId = await ensureDraftId();
 
       const toUpload = Array.from(files).slice(0, imagesLeft);
       if (toUpload.length === 0) {
@@ -130,10 +143,10 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
       }
 
       for (const f of toUpload) {
-        await uploadArticleImage(id, f);
+        await uploadArticleImage(currentId, f);
       }
 
-      await refreshImagesFor(id);
+      await refreshImagesFor(currentId);
     } catch (e: any) {
       alert("Błąd uploadu zdjęć: " + e.message);
     }
@@ -192,7 +205,10 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
   async function onPublish() {
     if (!draft?.id) return;
     try {
-      await publishArticle(draft.id, (await supabase.auth.getUser()).data.user?.id || undefined);
+      await publishArticle(
+        draft.id,
+        (await supabase.auth.getUser()).data.user?.id || undefined
+      );
       alert("Opublikowano artykuł.");
       onSaved(draft.id);
     } catch (e: any) {
@@ -285,7 +301,9 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
               Dodatkowe zdjęcia (max {MAX_IMAGES}):{" "}
               <span className="font-medium">{images.length}</span>
             </div>
-            {draft?.id && <div className="text-xs text-gray-600">Pozostało: {imagesLeft}</div>}
+            {draft?.id && (
+              <div className="text-xs text-gray-600">Pozostało: {imagesLeft}</div>
+            )}
           </div>
 
           <div className="mb-2">
@@ -303,7 +321,10 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
               {images.map((img) => {
                 const url = getPublicUrl(img.path);
                 return (
-                  <div key={img.id} className="relative rounded overflow-hidden border bg-white">
+                  <div
+                    key={img.id}
+                    className="relative rounded overflow-hidden border bg-white"
+                  >
                     {url && (
                       <img
                         src={url}
@@ -361,7 +382,11 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
             Zapisz szkic
           </button>
 
-          <button className={cls.primary} disabled={saving} onClick={sendToReview}>
+          <button
+            className={cls.primary}
+            disabled={saving}
+            onClick={sendToReview}
+          >
             Wyślij do akceptacji
           </button>
 
@@ -373,7 +398,11 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
         {draft?.status && (
           <div className="text-xs text-gray-600">
             Status: {draft.status}
-            {draft?.published_at ? ` • opublikowano: ${new Date(draft.published_at).toLocaleDateString()}` : ""}
+            {draft?.published_at
+              ? ` • opublikowano: ${new Date(
+                  draft.published_at
+                ).toLocaleDateString()}`
+              : ""}
           </div>
         )}
       </div>
