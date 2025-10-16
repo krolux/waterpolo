@@ -3,15 +3,24 @@ import { listPublishedPaged, getPublicUrl, type Article } from "../lib/articles"
 
 type Props = {
   onOpen?: (id: string) => void;
-  onBack?: () => void; // „Strona główna”
+  /** „wróć do aktualności” – w naszej nawigacji: do HOME */
+  onBack?: () => void;
+  /** alternatywna nazwa przekazywana z App.tsx (zgodność) */
+  onGoList?: () => void; // nieużywane semantycznie tutaj, ale obsłużone
+  onGoHome?: () => void; // jeśli App to poda – użyjemy
 };
 
-export const ArticleList: React.FC<Props> = ({ onOpen, onBack }) => {
+export const ArticleList: React.FC<Props> = ({ onOpen, onBack, onGoList, onGoHome }) => {
   const [rows, setRows] = React.useState<Article[]>([]);
 
   React.useEffect(() => {
     listPublishedPaged(0, 29).then(setRows).catch(console.error);
   }, []);
+
+  const goHome = () => {
+    if (onGoHome) onGoHome();
+    else window.dispatchEvent(new CustomEvent("goHome"));
+  };
 
   return (
     <section className="max-w-6xl mx-auto">
@@ -19,14 +28,14 @@ export const ArticleList: React.FC<Props> = ({ onOpen, onBack }) => {
         <div className="flex gap-2">
           <button
             className="px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow"
-            onClick={() => window.dispatchEvent(new CustomEvent("goHome"))}
+            onClick={goHome}
           >
             Strona główna
           </button>
-          {onBack && (
+          {(onBack || onGoList) && (
             <button
               className="px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow"
-              onClick={onBack}
+              onClick={() => (onBack ? onBack() : onGoList?.())}
             >
               Lista artykułów
             </button>
@@ -62,7 +71,6 @@ export const ArticleList: React.FC<Props> = ({ onOpen, onBack }) => {
                     {a.excerpt && (
                       <p className="text-sm text-gray-600 line-clamp-3">{a.excerpt}</p>
                     )}
-                    {/* Tagi pod zajawką (jeśli są) */}
                     {Array.isArray(a.tags) && a.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {a.tags.map((t) => (
