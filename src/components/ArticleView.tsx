@@ -5,30 +5,43 @@ import { getPublicUrl } from "../lib/articles";
 
 export type ArticleViewProps = {
   id: string;
-  /** przejście do listy artykułów */
-  onBack: () => void;
-  /** alternatywna nazwa z App.tsx (zgodność) */
-  onGoHome?: () => void; // ← App czasem to podaje (przejście na stronę główną)
+  onBack: () => void;         // przejście do listy artykułów
+  onGoHome?: () => void;      // alternatywne (HOME) – zgodność z App.tsx
   onEdit?: () => void;
 };
 
 export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onGoHome, onEdit }) => {
   const [article, setArticle] = React.useState<Article | null>(null);
-  const [author, setAuthor] = React.useState<{display_name:string; avatar_url?:string|null; author_footer?:string|null; bio?:string|null}>({display_name:""});
+  const [author, setAuthor] = React.useState<{
+    display_name: string;
+    avatar_url?: string | null;
+    author_footer?: string | null;
+    bio?: string | null;
+  }>({ display_name: "" });
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.from("articles").select("*").eq("id", id).single();
+      const { data, error } = await supabase
+        .from("articles")
+        .select("*")
+        .eq("id", id)
+        .single();
       if (!error && data && !cancelled) setArticle(data as Article);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   React.useEffect(() => {
     if (!article?.author_id) return;
-    supabase.from("profiles").select("display_name, avatar_url, author_footer, bio").eq("id", article.author_id).single()
-      .then(({data}) => data && setAuthor(data as any));
+    supabase
+      .from("profiles")
+      .select("display_name, avatar_url, author_footer, bio")
+      .eq("id", article.author_id)
+      .single()
+      .then(({ data }) => data && setAuthor(data as any));
   }, [article?.author_id]);
 
   if (!article) {
@@ -65,7 +78,10 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onGoHome, 
           </button>
         </div>
         {onEdit && (
-          <button className="px-3 py-2 rounded-xl border bg-white hover:bg-gray-50" onClick={onEdit}>
+          <button
+            className="px-3 py-2 rounded-xl border bg-white hover:bg-gray-50"
+            onClick={onEdit}
+          >
             Edytuj
           </button>
         )}
@@ -82,32 +98,51 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onGoHome, 
         )}
 
         <h1 className="text-3xl font-bold mb-2">{article.title}</h1>
-
-        {article.excerpt && <p className="text-lg text-gray-700 mb-3">{article.excerpt}</p>}
-
-        {/* Hasztagi */}
-        {Array.isArray(article.tags) && article.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4" aria-label="Tagi artykułu">
-            {article.tags.map((t) => (
-              <span key={t} className="px-2 py-1 text-xs rounded-full border bg-white text-amber-700 border-amber-200">
-                #{t}
-              </span>
-            ))}
-          </div>
+        {article.excerpt && (
+          <p className="text-lg text-gray-700 mb-3">{article.excerpt}</p>
         )}
 
         {article.content && (
-          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: article.content }} />
+          <div
+            className="prose max-w-none"
+            dangerouslySetInnerHTML={{ __html: article.content }}
+          />
         )}
 
-        <div className="border-t mt-6 pt-4">
+        {/* === Tagi NA SAMYM DOLE (po treści) === */}
+        {Array.isArray(article.tags) && article.tags.length > 0 && (
+          <div className="mt-6">
+            <div className="mb-1 text-sm font-medium text-gray-700">Tagi:</div>
+            <div className="flex flex-wrap gap-2">
+              {article.tags.map((t) => (
+                <span
+                  key={t}
+                  className="px-2 py-1 text-xs rounded-full border bg-white text-amber-700 border-amber-200"
+                >
+                  #{t}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Autor */}
+        <div className="border-t pt-4 mt-6">
           <div className="flex gap-3 items-center">
             {author?.avatar_url && (
-              <img src={author.avatar_url} alt={author.display_name} className="w-12 h-12 rounded-full object-cover" />
+              <img
+                src={author.avatar_url}
+                alt={author.display_name}
+                className="w-12 h-12 rounded-full object-cover"
+              />
             )}
             <div>
-              <div className="font-semibold">O autorze: {author.display_name}</div>
-              {author.author_footer && <div className="text-sm text-gray-700">{author.author_footer}</div>}
+              <div className="font-semibold">
+                Autor: {author.display_name || "—"}
+              </div>
+              {author.author_footer && (
+                <div className="text-sm text-gray-700">{author.author_footer}</div>
+              )}
             </div>
           </div>
         </div>
