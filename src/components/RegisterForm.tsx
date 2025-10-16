@@ -46,6 +46,7 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
     const first = firstName.trim();
     const last = lastName.trim();
     const disp = displayName.trim();
+    const safeDisplay = disp || `${first} ${last}`.trim();
 
     if (!emailNorm || !passNorm || !first || !last || !disp) {
       alert("Uzupełnij: e-mail, hasło, imię, nazwisko i nazwę konta.");
@@ -70,7 +71,7 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
         const { error: updErr } = await supabase
           .from("profiles")
           .update({
-            display_name: disp,
+            display_name: safeDisplay,
             first_name: first,
             last_name: last,
             club_id: club_id, // może być null
