@@ -156,7 +156,8 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
     if (!draft?.id) return;
     if (!confirm("Usunąć to zdjęcie z artykułu?")) return;
     try {
-      await deleteArticleImage(img.id);
+      // ⬇️ poprawka: funkcja oczekuje 2 argumentów (articleId, imageId)
+      await deleteArticleImage(draft.id, img.id);
       await refreshImagesFor(draft.id);
     } catch (e: any) {
       alert("Nie udało się usunąć zdjęcia: " + e.message);
