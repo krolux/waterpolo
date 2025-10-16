@@ -1,26 +1,15 @@
 import React from "react";
+import { Article } from "../lib/articles";
 import { supabase } from "../lib/supabase";
-import { getPublicUrl, type Article } from "../lib/articles";
+import { getPublicUrl } from "../lib/articles";
 
-type Props = {
-  /** id artykułu do wyświetlenia */
+type ArticleViewProps = {
   id: string;
-  /** przejście do listy artykułów */
-  onBack: () => void;
-  /** przejście na stronę główną (opcjonalnie) */
-  onGoHome?: () => void;
-  /** edycja (tylko dla Admin/Editor) – opcjonalnie */
-  onEdit?: () => void;
+  onBack: () => void;              // ← „Lista artykułów”
+  onEdit?: () => void;             // tylko dla edytora/admina
 };
 
-const shell =
-  "rounded-2xl p-4 md:p-6 bg-white/60 backdrop-blur-xl backdrop-saturate-150 border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.08)]";
-const btn =
-  "px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow whitespace-nowrap";
-const btnSecondary =
-  "px-3 py-2 rounded-xl border bg-white hover:bg-gray-50 whitespace-nowrap";
-
-export const ArticleView: React.FC<Props> = ({ id, onBack, onGoHome, onEdit }) => {
+export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onEdit }) => {
   const [article, setArticle] = React.useState<Article | null>(null);
   const [author, setAuthor] = React.useState<{
     display_name: string;
@@ -33,84 +22,96 @@ export const ArticleView: React.FC<Props> = ({ id, onBack, onGoHome, onEdit }) =
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase.from("articles").select("*").eq("id", id).single();
-      if (error) {
-        alert("Nie udało się pobrać artykułu: " + error.message);
-        return;
-      }
-      if (!cancelled) setArticle(data as Article);
-
-      const aId = (data as Article)?.author_id;
-      if (aId) {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("display_name, avatar_url, author_footer, bio")
-          .eq("id", aId)
-          .single();
-        if (!cancelled && prof) setAuthor(prof as any);
-      }
+      if (!error && data && !cancelled) setArticle(data as Article);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [id]);
+
+  React.useEffect(() => {
+    if (!article?.author_id) return;
+    supabase
+      .from("profiles")
+      .select("display_name, avatar_url, author_footer, bio")
+      .eq("id", article.author_id)
+      .single()
+      .then(({ data }) => data && setAuthor(data as any));
+  }, [article?.author_id]);
 
   const cover = getPublicUrl(article?.cover_path);
 
   if (!article) {
     return (
-      <section className="max-w-4xl mx-auto">
-        <div className={shell}>Ładowanie…</div>
+      <section className="max-w-6xl mx-auto">
+        <div className="text-sm text-gray-600">Ładowanie artykułu…</div>
       </section>
     );
   }
 
   return (
-    <section className="max-w-4xl mx-auto">
-      {/* Pasek akcji */}
+    <section className="max-w-6xl mx-auto">
+      {/* przyciski nawigacji */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          {onGoHome && (
-            <button className={btn} onClick={onGoHome}>
-              Strona główna
-            </button>
-          )}
-          <button className={btnSecondary} onClick={onBack}>
+        <div className="flex gap-2">
+          <button
+            className="px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow"
+            onClick={() => window.dispatchEvent(new CustomEvent("goHome"))}
+          >
+            Strona główna
+          </button>
+          <button
+            className="px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow"
+            onClick={onBack}
+          >
             Lista artykułów
           </button>
         </div>
-
         {onEdit && (
-          <button className={btnSecondary} onClick={onEdit}>
+          <button className="px-3 py-2 rounded-xl border bg-white hover:bg-gray-50" onClick={onEdit}>
             Edytuj
           </button>
         )}
       </div>
 
-      {/* Kafelek z treścią */}
-      <article className={shell}>
+      {/* „kafelek” artykułu */}
+      <article className="rounded-2xl p-3 sm:p-4 md:p-6 bg-white/60 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
         {cover && (
           <img
             src={cover}
             alt={article.title}
-            className="w-full max-h-[360px] object-contain bg-white rounded-xl mb-4 p-2 border"
+            className="w-full max-h-[380px] object-contain bg-white rounded-xl mb-4"
           />
         )}
 
         <h1 className="text-3xl font-bold mb-2">{article.title}</h1>
 
         {article.excerpt && (
-          <p className="text-lg text-gray-700 mb-4">{article.excerpt}</p>
+          <p className="text-lg text-gray-700 mb-3">{article.excerpt}</p>
         )}
 
+        {/* TAGI / HASZTAGI */}
+        {Array.isArray(article.tags) && article.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4" aria-label="Tagi artykułu">
+            {article.tags.map((t) => (
+              <span
+                key={t}
+                className="px-2 py-1 text-xs rounded-full border bg-white text-amber-700 border-amber-200"
+              >
+                #{t}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* treść */}
         {article.content && (
           <div
-            className="prose prose-lg max-w-none mb-8"
+            className="prose max-w-none"
             dangerouslySetInnerHTML={{ __html: article.content }}
           />
         )}
 
-        {/* Stopka autora w kafelku */}
-        <div className="border-t pt-4 mt-6">
+        {/* stopka autora */}
+        <div className="border-t mt-6 pt-4">
           <div className="flex gap-3 items-center">
             {author?.avatar_url && (
               <img
