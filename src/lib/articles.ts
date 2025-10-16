@@ -207,3 +207,70 @@ export function getPublicUrl(path?: string | null): string | null {
   const { data } = supabase.storage.from("article-images").getPublicUrl(path);
   return data.publicUrl || null;
 }
+
+// ==== GALERIA ZDJĘĆ (artykuły) ====
+export type ArticleImage = {
+  id: string;
+  article_id: string;
+  path: string;
+  width?: number | null;
+  height?: number | null;
+  created_at: string;
+};
+
+export async function listArticleImages(articleId: string): Promise<ArticleImage[]> {
+  const { data, error } = await supabase
+    .from('article_images')
+    .select('*')
+    .eq('article_id', articleId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data || []) as ArticleImage[];
+}
+
+/** Kompresja po stronie klienta → WebP, max 1600px, jakość ~0.8 */
+async function compressToWebP(file: File, maxSize = 1600, quality = 0.8): Promise<Blob> {
+  const img = await createImageBitmap(file);
+  const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0, w, h);
+  const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b as Blob), 'image/webp', quality)!);
+  return blob;
+}
+
+export async function uploadArticleImage(articleId: string, file: File): Promise<ArticleImage> {
+  // 1) kompresja
+  const webp = await compressToWebP(file, 1600, 0.82);
+
+  // 2) upload do storage
+  const path = `gallery/${articleId}/${crypto.randomUUID()}.webp`;
+  const { error: upErr } = await supabase
+    .storage
+    .from('article-images')
+    .upload(path, webp, { contentType: 'image/webp', upsert: false });
+  if (upErr) throw upErr;
+
+  // 3) zapisz metadane (rozmiar zdekodujemy szybko na offscreen canvas)
+  const bmp = await createImageBitmap(await webp.arrayBuffer().then(b => new Blob([b])));
+  const row = { article_id: articleId, path, width: bmp.width, height: bmp.height };
+
+  const { data, error } = await supabase
+    .from('article_images')
+    .insert(row)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ArticleImage;
+}
+
+export async function deleteArticleImage(id: string, path: string) {
+  const { error: sErr } = await supabase.storage.from('article-images').remove([path]);
+  if (sErr) throw sErr;
+  const { error: dErr } = await supabase.from('article_images').delete().eq('id', id);
+  if (dErr) throw dErr;
+}
