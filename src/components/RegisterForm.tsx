@@ -18,7 +18,7 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
   const [clubText, setClubText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
 
-  // podpowiedzi klubów
+  // Podpowiedzi klubów
   const [clubs, setClubs] = React.useState<ClubRow[]>([]);
   React.useEffect(() => {
     (async () => {
@@ -26,7 +26,7 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
         .from("clubs")
         .select("id,name")
         .order("name", { ascending: true });
-      if (!error && data) setClubs(data);
+      if (!error && data) setClubs(data as ClubRow[]);
     })();
   }, []);
 
@@ -47,7 +47,7 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
 
     setLoading(true);
     try {
-      // 1) Załóż konto w Auth
+      // 1) Rejestracja w Auth
       const { data: sign, error: signErr } = await supabase.auth.signUp({
         email: emailNorm,
         password: passNorm,
@@ -57,7 +57,7 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
       const uid = sign.user?.id;
       if (!uid) throw new Error("Nie udało się utworzyć konta (brak ID).");
 
-      // 2) Spróbuj dopasować klub po nazwie (case-insensitive)
+      // 2) Dopasowanie klubu po nazwie (case-insensitive). Jeśli nie ma – club_id = null
       let club_id: string | null = null;
       if (clubRaw) {
         const hit = clubs.find(
@@ -66,17 +66,16 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
         club_id = hit?.id ?? null;
       }
 
-      // 3) Zapis profilu (bez wymuszania klubu)
+      // 3) Zapis profilu – bez kolumny club_name (której nie ma w schemacie)
       const { error: profErr } = await supabase.from("profiles").upsert(
         {
           id: uid,
           display_name: disp,
           first_name: first,
           last_name: last,
-          role: "Guest",      // nowy użytkownik jako Gość
-          approved: false,    // do zatwierdzenia przez admina
-          club_id,            // może zostać null, jeśli brak trafienia
-          club_name: clubRaw || null, // zachowujemy to co wpisał
+          role: "Guest",     // nowy użytkownik jako Gość
+          approved: false,   // do zatwierdzenia przez admina
+          club_id,           // może być null
         },
         { onConflict: "id" }
       );
@@ -120,12 +119,12 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
           onChange={(e) => setDisplayName(e.target.value)}
         />
 
-        {/* Klub – dowolny tekst + podpowiedzi z bazy */}
+        {/* Klub – dowolny tekst + podpowiedzi z bazy (nieobowiązkowe) */}
         <div>
           <input
             list="club-hints"
             className={cls.input}
-            placeholder="Klub (opcjonalnie) — dowolny tekst"
+            placeholder="Klub (opcjonalnie) — możesz wybrać z listy"
             value={clubText}
             onChange={(e) => setClubText(e.target.value)}
           />
@@ -135,9 +134,8 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
             ))}
           </datalist>
           <p className="text-xs text-gray-500 mt-1">
-            Wybierz z podpowiedzi lub wpisz własną nazwę. Jeśli nie trafimy w
-            listę klubów, zapisze się tylko tekst (konto nie będzie przypisane
-            do klubu).
+            To pole jest informacyjne. Jeśli wpisana nazwa nie zgadza się
+            dokładnie z listą klubów, konto nie będzie przypisane do klubu.
           </p>
         </div>
 
