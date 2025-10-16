@@ -224,7 +224,7 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
           {coverUrl && (
             <img
               src={coverUrl}
-              className="w-full max-h-64 object-cover rounded-lg mb-2"
+              className="w-full max-h-64 object-contain rounded-lg mb-2 bg-white"
               alt="cover"
             />
           )}
