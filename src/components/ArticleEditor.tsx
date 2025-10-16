@@ -11,6 +11,12 @@ import {
   type Article,
 } from "../lib/articles";
 import { supabase } from "../lib/supabase";
+import {
+  uploadArticleImage,
+  listArticleImages,
+  deleteArticleImage,
+  type ArticleImage,
+} from "../lib/articles";
 
 type Props = {
   /** null = nowy artykuł, string = edycja istniejącego */
@@ -27,12 +33,47 @@ const cls = {
   primary: "px-3 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700",
 };
 
+const MAX_PHOTOS = 10;
+
+/** Kompresja obrazka do JPEG 80%, max 1600x1200 (bezpiecznie: pomija SVG i bardzo małe pliki) */
+async function compressImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+  if (file.type === "image/svg+xml") return file; // SVG pomijamy (wektor)
+  if (file.size < 120 * 1024) return file; // <120KB – zostaw jak jest
+
+  const bitmap = await createImageBitmap(file);
+  const maxW = 1600;
+  const maxH = 1200;
+  let { width, height } = bitmap;
+  const ratio = Math.min(maxW / width, maxH / height, 1);
+  width = Math.round(width * ratio);
+  height = Math.round(height * ratio);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+  ctx.drawImage(bitmap, 0, 0, width, height);
+
+  const blob: Blob = await new Promise((res) =>
+    canvas.toBlob((b) => res(b as Blob), "image/jpeg", 0.8)
+  );
+  const newName =
+    file.name.replace(/\.(png|jpg|jpeg|webp|gif)$/i, "") + ".jpg";
+  return new File([blob], newName, { type: "image/jpeg" });
+}
+
 export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved }) => {
   const [draft, setDraft] = React.useState<Partial<Article>>({ title: "" });
   const [coverUrl, setCoverUrl] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
+
+  // Galeria
+  const [images, setImages] = React.useState<ArticleImage[]>([]);
+  const remaining = Math.max(0, MAX_PHOTOS - images.length);
 
   // sprawdź rolę (czy Admin) — do przycisków publikacji/odrzucenia
   React.useEffect(() => {
@@ -67,10 +108,14 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
           const a = data as Article;
           setDraft(a);
           setCoverUrl(getPublicUrl(a.cover_path || undefined));
+          // wczytaj galerię
+          const pics = await listArticleImages(a.id);
+          setImages(pics);
         } else {
           const a = await createDraft({ title: "Nowy artykuł" });
           setDraft(a);
           setCoverUrl(getPublicUrl(a.cover_path || undefined));
+          setImages([]); // nowy szkic – pusta galeria
         }
       } catch (e: any) {
         alert("Nie udało się wczytać edytora: " + e.message);
@@ -171,6 +216,39 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
     }
   }
 
+  // Upload zdjęć do galerii (z kompresją i limitem)
+  async function onUploadGallery(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    try {
+      const id = await ensureDraftId();
+      if (images.length >= MAX_PHOTOS) {
+        alert(`Osiągnięto limit ${MAX_PHOTOS} zdjęć.`);
+        return;
+      }
+      const list = Array.from(files).slice(0, remaining);
+      for (const f of list) {
+        const compressed = await compressImage(f);
+        await uploadArticleImage(id, compressed);
+      }
+      const refreshed = await listArticleImages(id);
+      setImages(refreshed);
+    } catch (e: any) {
+      alert("Błąd dodawania zdjęć: " + e.message);
+    }
+  }
+
+  async function onRemoveImage(img: ArticleImage) {
+    if (!draft?.id) return;
+    if (!confirm("Usunąć to zdjęcie z galerii?")) return;
+    try {
+      await deleteArticleImage(img.id);
+      const refreshed = await listArticleImages(draft.id);
+      setImages(refreshed);
+    } catch (e: any) {
+      alert("Błąd usuwania zdjęcia: " + e.message);
+    }
+  }
+
   if (loading) {
     return (
       <section className="max-w-4xl mx-auto">
@@ -244,6 +322,66 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
           value={draft.content || ""}
           onChange={(e) => setDraft({ ...draft, content: e.target.value })}
         />
+
+        {/* Galeria zdjęć */}
+        <div className="rounded-lg border p-3 bg-white/70">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium">
+              Galeria zdjęć <span className="text-gray-500">(max {MAX_PHOTOS})</span>
+            </div>
+            <div className="text-xs text-gray-600">
+              {images.length}/{MAX_PHOTOS}
+            </div>
+          </div>
+
+          {images.length > 0 && (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-2">
+              {images.map((img) => {
+                const url = getPublicUrl(img.path);
+                return (
+                  <div key={img.id} className="relative group rounded overflow-hidden border bg-white">
+                    {url && (
+                      <img
+                        src={url}
+                        className="w-full h-24 object-cover"
+                        alt="miniatura"
+                        loading="lazy"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 text-xs bg-white/90 border rounded px-1 opacity-0 group-hover:opacity-100 transition"
+                      onClick={() => onRemoveImage(img)}
+                      title="Usuń zdjęcie"
+                    >
+                      Usuń
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <label className={cls.btn + " inline-block cursor-pointer"}>
+            Dodaj zdjęcia
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              disabled={remaining === 0}
+              onChange={(e) => onUploadGallery(e.target.files)}
+            />
+          </label>
+          {remaining === 0 && (
+            <span className="ml-2 text-xs text-gray-600">
+              Osiągnięto limit zdjęć.
+            </span>
+          )}
+          <div className="text-xs text-gray-500 mt-1">
+            Zdjęcia są automatycznie kompresowane (max ~1600×1200, JPEG ~80%).
+          </div>
+        </div>
 
         <input
           className={cls.input}
