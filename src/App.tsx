@@ -2401,7 +2401,7 @@ const delegateCandidateNames = Array.from(new Set([
     </>
   )}
 
-// LISTA
+
 {page === 'articles' && (
   <ArticleList
     onBack={goHome}          // „Strona główna”
@@ -2410,7 +2410,7 @@ const delegateCandidateNames = Array.from(new Set([
   />
 )}
 
-// PODGLĄD
+
 {page === 'article' && openedArticleId && (
   <ArticleView
     id={openedArticleId}
