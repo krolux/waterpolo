@@ -11,14 +11,9 @@ export function useSupabaseAuth() {
   useEffect(() => {
     (async () => {
       try {
-        // 1) Po powrocie z maila/OAuth zamień kod/hash na sesję:
-        await supabase.auth
-          .exchangeCodeForSession({ currentUrl: window.location.href })
-          .catch(() => {
-            // cichy fallback — jeżeli nie było kodu w URL, nic się nie stanie
-          })
-
-        // 2) Posprzątaj parametry auth z paska adresu:
+        // Wersja supabase-js oczekuje stringa (URL), nie obiektu:
+        await supabase.auth.exchangeCodeForSession(window.location.href).catch(() => {})
+        // Sprzątanie parametrów z URL-a
         try {
           const url = new URL(window.location.href)
           const hasCode = url.searchParams.get('code')
@@ -28,18 +23,12 @@ export function useSupabaseAuth() {
           if (hasCode || hasTokenInHash) {
             window.history.replaceState({}, '', url.origin + url.pathname)
           }
-        } catch {
-          /* no-op */
-        }
-      } catch {
-        /* no-op */
-      }
+        } catch {}
+      } catch {}
 
-      // 3) Ustal obecnego użytkownika po ewentualnej wymianie kodu:
+      // Ustal obecnego usera po ewentualnej wymianie kodu
       const { data, error } = await supabase.auth.getUser()
-      if (error) {
-        console.warn('[auth.getUser] error', error)
-      }
+      if (error) console.warn('[auth.getUser] error', error)
       const u = data?.user
       if (u?.id) {
         setUserId(u.id)
@@ -47,7 +36,6 @@ export function useSupabaseAuth() {
       }
     })()
 
-    // Subskrypcja zmian sesji
     const { data: sub } = supabase.auth.onAuthStateChange((evt, session) => {
       const u = session?.user
       console.log('[onAuthStateChange]', evt, u?.id)
@@ -101,7 +89,7 @@ export function useSupabaseAuth() {
       throw error
     }
     console.log('[signIn] ok', data.user?.id)
-    if (data.user?.id) await loadProfile(data.user.id) // natychmiast dociągnij profil
+    if (data.user?.id) await loadProfile(data.user.id)
   }
 
   async function signOut() {
