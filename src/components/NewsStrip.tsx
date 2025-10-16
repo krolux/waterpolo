@@ -4,7 +4,6 @@ import { listTopPublished, getPublicUrl, type Article } from "../lib/articles";
 
 const cardBase =
   "rounded-2xl overflow-hidden border bg-white shadow hover:shadow-md transition cursor-pointer";
-const imgCls = "w-full h-40 object-cover";
 
 /**
  * Pasek z trzema najnowszymi artykułami (na stronie głównej).
@@ -42,14 +41,18 @@ export const NewsStrip: React.FC<{
               className={cardBase}
               onClick={() => a.id && onOpen?.(a.id)}
             >
-              {url && (
-                <img
-                  src={url}
-                  alt={a.title}
-                  className={imgCls}
-                  loading="lazy"
-                />
-              )}
+              {/* Kontener o stałym aspekcie + object-contain, żeby nie rozciągać logotypów/zdjęć */}
+              <div className="w-full aspect-[16/9] bg-white flex items-center justify-center">
+                {url ? (
+                  <img
+                    src={url}
+                    alt={a.title}
+                    className="w-full h-full object-contain"
+                    loading="lazy"
+                  />
+                ) : null}
+              </div>
+
               <div className="p-3">
                 <h3 className="font-semibold leading-tight mb-1 line-clamp-2">
                   {a.title}
