@@ -2401,28 +2401,28 @@ const delegateCandidateNames = Array.from(new Set([
     </>
   )}
 
-  {/* === [3.3] LISTA ARTYKUŁÓW === */}
-  {page === 'articles' && (
-    <ArticleList
-      onBack={goHome}
-      onOpen={openArticle}
-    />
-  )}
+// LISTA
+{page === 'articles' && (
+  <ArticleList
+    onBack={goHome}          // „Strona główna”
+    onGoList={() => setPage('articles')} // „Lista artykułów” 
+    onOpen={(id: string) => openArticle(id)}
+  />
+)}
 
-  {/* === [3.3] PODGLĄD JEDNEGO ARTYKUŁU === */}
-{page === 'article' ? (
-  openedArticleId ? (
-    <ArticleView
-      id={openedArticleId}
-      onBack={() => setPage('articles')}
-      onEdit={
-        effectiveUser && isEditor(effectiveUser)
-          ? () => openEditor(openedArticleId)
-          : undefined
-      }
-    />
-  ) : null
-) : null}
+// PODGLĄD
+{page === 'article' && openedArticleId && (
+  <ArticleView
+    id={openedArticleId}
+    onGoHome={goHome}        // „Strona główna”
+    onBack={() => setPage('articles')} // „Lista artykułów”
+    onEdit={
+      effectiveUser && isEditor(effectiveUser)
+        ? () => openEditor(openedArticleId)
+        : undefined
+    }
+  />
+)}
 
   {/* === [3.3] EDYTOR ARTYKUŁU (Admin/Editor) === */}
 {page === 'editor' && (
