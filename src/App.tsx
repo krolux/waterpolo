@@ -2330,7 +2330,7 @@ const delegateCandidateNames = Array.from(new Set([
       onClick={() => setPage('register')}
       title="Załóż konto, by móc komentować artykuły"
     >
-      Zarejestruj się
+      Rejestracja
     </button>
     <span className="text-sm text-gray-600">Niezalogowany</span>
   </div>
