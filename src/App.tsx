@@ -1860,8 +1860,10 @@ const UserChip: React.FC<{
 );
 
 export default function App(){
-const { userDisplay, role: sRole } = useSupabaseAuth()
-const supaUser = sRole !== 'Guest'
+const { userId, userDisplay, role: sRole } = useSupabaseAuth()
+
+// Zalogowany = mamy session (userId), rola może być nawet 'Guest'
+const supaUser = userId
   ? ({ name: userDisplay, role: sRole as Role } as { name: string; role: Role })
   : null
 // demo fallback
