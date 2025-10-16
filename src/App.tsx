@@ -2461,8 +2461,8 @@ const delegateCandidateNames = Array.from(new Set([
     }}
   />
 )}
-  {page === 'register' && (
-  <RegisterForm onCancel={() => setPage('home')} />
+{page === 'register' && (
+  <RegisterForm onDone={() => setPage('home')} />
 )}
 </main>
 
