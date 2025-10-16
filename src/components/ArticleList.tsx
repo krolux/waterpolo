@@ -37,14 +37,18 @@ export const ArticleList: React.FC<Props> = ({ onOpen, onBack }) => {
                 className="rounded-2xl overflow-hidden border bg-white hover:shadow transition cursor-pointer"
                 onClick={() => a.id && onOpen?.(a.id)}
               >
-                {url && (
-                  <img
-                    src={url}
-                    className="w-full h-40 object-cover"
-                    alt={a.title}
-                    loading="lazy"
-                  />
-                )}
+                {/* stały aspekt + object-contain, żeby nie rozciągać grafik */}
+                <div className="w-full aspect-[16/9] bg-white flex items-center justify-center">
+                  {url ? (
+                    <img
+                      src={url}
+                      alt={a.title}
+                      className="w-full h-full object-contain"
+                      loading="lazy"
+                    />
+                  ) : null}
+                </div>
+
                 <div className="p-3">
                   <h3 className="font-semibold mb-1 line-clamp-2">{a.title}</h3>
                   {a.excerpt && (
