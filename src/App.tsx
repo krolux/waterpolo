@@ -15,6 +15,7 @@ import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
 import { ArticleEditor } from "./components/ArticleEditor";
 import { ArticleModeration } from "./components/ArticleModeration";
+import { RegisterForm } from "./components/RegisterForm";
 
 
 
@@ -1864,9 +1865,14 @@ const supaUser = sRole !== 'Guest'
   ? ({ name: userDisplay, role: sRole as Role } as { name: string; role: Role })
   : null
 // demo fallback
-  const [demoUser, setDemoUser] = useState<{name:string; role:Role; club?:string}|null>(()=>{
-    const raw = localStorage.getItem("wpr-auth-user"); return raw? JSON.parse(raw): null
-  });
+const [demoUser, setDemoUser] = useState<{name:string; role:Role; club?:string} | null>(null);
+
+useEffect(() => {
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem("wpr-auth-user") : null;
+    if (raw) setDemoUser(JSON.parse(raw));
+  } catch {}
+}, []);
   function demoLogin(n:string,r:Role,c?:string){ const u={name:n, role:r, club:c}; setDemoUser(u); localStorage.setItem("wpr-auth-user", JSON.stringify(u)); }
   function demoLogout(){ setDemoUser(null); localStorage.removeItem("wpr-auth-user"); }
   // === Auth user z Supabase (id + email) – użyjemy do dopasowania profilu po id ===
@@ -1892,7 +1898,7 @@ function handleQuickEdit(matchId: string) {
   }, 50);
 }
 // === [3.3] PROSTA NAWIGACJA ARTYKUŁÓW (mini-router) ===
-const [page, setPage] = useState<'home' | 'articles' | 'article' | 'editor' | 'moderation'>('home');
+const [page, setPage] = useState<'home' | 'articles' | 'article' | 'editor' | 'moderation' | 'register'>('home');
   function openModeration() { setPage('moderation'); }
 const [openedArticleId, setOpenedArticleId] = useState<string | null>(null);
 
@@ -2316,10 +2322,19 @@ const delegateCandidateNames = Array.from(new Set([
       </div>
     )}
 
-    {/* Wersja dla niezalogowanego – osobny blok, bez ternary */}
-    {!effectiveUser && (
-      <span className="text-sm text-gray-600">Niezalogowany</span>
-    )}
+{/* Wersja dla niezalogowanego – przycisk rejestracji */}
+{!effectiveUser && (
+  <div className="flex items-center gap-2">
+    <button
+      className={classes.btnSecondary}
+      onClick={() => setPage('register')}
+      title="Załóż konto, by móc komentować artykuły"
+    >
+      Zarejestruj się
+    </button>
+    <span className="text-sm text-gray-600">Niezalogowany</span>
+  </div>
+)}
   </div>
 </header>
 
@@ -2445,6 +2460,9 @@ const delegateCandidateNames = Array.from(new Set([
       setPage('editor');
     }}
   />
+)}
+  {page === 'register' && (
+  <RegisterForm onCancel={() => setPage('home')} />
 )}
 </main>
 
