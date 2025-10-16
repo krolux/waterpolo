@@ -18,7 +18,7 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
   const [clubText, setClubText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
 
-  // Podpowiedzi klubów
+  // Podpowiedzi klubów (id, name)
   const [clubs, setClubs] = React.useState<ClubRow[]>([]);
   React.useEffect(() => {
     (async () => {
@@ -30,6 +30,14 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
     })();
   }, []);
 
+  // Dopasuj wpisany tekst do listy klubów (case-insensitive)
+  function resolveClubId(text: string): string | null {
+    const t = (text || "").trim().toLowerCase();
+    if (!t) return null;
+    const hit = clubs.find((c) => (c.name || "").trim().toLowerCase() === t);
+    return hit?.id ?? null;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -38,7 +46,6 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
     const first = firstName.trim();
     const last = lastName.trim();
     const disp = displayName.trim();
-    const clubRaw = clubText.trim();
 
     if (!emailNorm || !passNorm || !first || !last || !disp) {
       alert("Uzupełnij: e-mail, hasło, imię, nazwisko i nazwę konta.");
@@ -54,35 +61,33 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
       });
       if (signErr) throw signErr;
 
-      const uid = sign.user?.id;
-      if (!uid) throw new Error("Nie udało się utworzyć konta (brak ID).");
+      // 2) Jeśli jest już sesja (e-mail confirmation wyłączone), uzupełnij profil UPDATE'em
+      const { data: sess } = await supabase.auth.getSession();
+      const session = sess?.session;
 
-      // 2) Dopasowanie klubu po nazwie (case-insensitive). Jeśli nie ma – club_id = null
-      let club_id: string | null = null;
-      if (clubRaw) {
-        const hit = clubs.find(
-          (c) => (c.name || "").trim().toLowerCase() === clubRaw.toLowerCase()
-        );
-        club_id = hit?.id ?? null;
+      if (session?.user?.id) {
+        const club_id = resolveClubId(clubText);
+        const { error: updErr } = await supabase
+          .from("profiles")
+          .update({
+            display_name: disp,
+            first_name: first,
+            last_name: last,
+            club_id: club_id, // może być null
+            // role/approved pozostają wg defaultów i/lub edycji admina
+          })
+          .eq("id", session.user.id);
+
+        if (updErr) throw updErr;
+
+        alert("Konto utworzone. Profil uzupełniony.");
+        onDone?.();
+        return;
       }
 
-      // 3) Zapis profilu – bez kolumny club_name (której nie ma w schemacie)
-      const { error: profErr } = await supabase.from("profiles").upsert(
-        {
-          id: uid,
-          display_name: disp,
-          first_name: first,
-          last_name: last,
-          role: "Guest",     // nowy użytkownik jako Gość
-          approved: false,   // do zatwierdzenia przez admina
-          club_id,           // może być null
-        },
-        { onConflict: "id" }
-      );
-      if (profErr) throw profErr;
-
+      // 3) Jeśli sesji nie ma (np. wymagane potwierdzenie e-mail)
       alert(
-        "Zarejestrowano! Administrator musi zatwierdzić Twoje konto zanim dodasz komentarz."
+        "Zarejestrowano! Sprawdź skrzynkę i potwierdź e-mail. Po pierwszym zalogowaniu uzupełnisz profil."
       );
       onDone?.();
     } catch (e: any) {
@@ -119,12 +124,12 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
           onChange={(e) => setDisplayName(e.target.value)}
         />
 
-        {/* Klub – dowolny tekst + podpowiedzi z bazy (nieobowiązkowe) */}
+        {/* Klub – datalist (opcjonalny) */}
         <div>
           <input
             list="club-hints"
             className={cls.input}
-            placeholder="Klub (opcjonalnie) — możesz wybrać z listy"
+            placeholder="Klub (opcjonalnie) — wybierz z listy lub zostaw puste"
             value={clubText}
             onChange={(e) => setClubText(e.target.value)}
           />
@@ -134,24 +139,24 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
             ))}
           </datalist>
           <p className="text-xs text-gray-500 mt-1">
-            To pole jest informacyjne. Jeśli wpisana nazwa nie zgadza się
-            dokładnie z listą klubów, konto nie będzie przypisane do klubu.
+            To pole jest informacyjne. Tylko dokładne wybranie z listy przypisze
+            konto do klubu; w innym wypadku konto pozostanie bez klubu.
           </p>
         </div>
 
         <input
-          className={cls.input}
-          type="email"
-          placeholder="E-mail"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+            className={cls.input}
+            type="email"
+            placeholder="E-mail"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
         />
         <input
-          className={cls.input}
-          type="password"
-          placeholder="Hasło"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+            className={cls.input}
+            type="password"
+            placeholder="Hasło"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
         />
 
         <div className="flex gap-2">
@@ -161,8 +166,8 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
         </div>
 
         <p className="text-xs text-gray-600">
-          Po rejestracji administrator musi zatwierdzić konto. Do tego czasu nie
-          będziesz mógł/mogła dodawać komentarzy.
+          Po rejestracji administrator może nadać dodatkowe uprawnienia (np.
+          rola Klubu). Sam wybór klubu przy rejestracji nie daje uprawnień.
         </p>
       </form>
     </section>
