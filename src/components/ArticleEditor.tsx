@@ -9,7 +9,7 @@ import {
   uploadCover,
   getPublicUrl,
   type Article,
-  // --- GALERIA ---
+  // GALERIA:
   uploadArticleImage,
   listArticleImages,
   deleteArticleImage,
@@ -18,12 +18,9 @@ import {
 import { supabase } from "../lib/supabase";
 
 type Props = {
-  /** null = nowy artykuł, string = edycja istniejącego */
-  articleId: string | null;
-  /** powrót (np. do listy lub podglądu) */
-  onCancel: () => void;
-  /** po zapisie/opublikowaniu — zwracamy id artykułu */
-  onSaved: (id: string) => void;
+  articleId: string | null;     // null = nowy artykuł, string = edycja
+  onCancel: () => void;         // powrót (np. do listy/podglądu)
+  onSaved: (id: string) => void; // po zapisie/opublikowaniu — id
 };
 
 const cls = {
@@ -99,9 +96,9 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
     return created.id;
   }
 
-  async function refreshImagesFor(articleId: string) {
+  async function refreshImagesFor(id: string) {
     try {
-      const pics = await listArticleImages(articleId);
+      const pics = await listArticleImages(id);
       setImages(pics);
     } catch (e: any) {
       alert("Nie udało się odświeżyć listy zdjęć: " + e.message);
@@ -133,7 +130,6 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
       }
 
       for (const f of toUpload) {
-        // ⭐️ WAŻNE: poprawne wywołanie – najpierw articleId, potem file
         await uploadArticleImage(id, f);
       }
 
@@ -196,10 +192,7 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
   async function onPublish() {
     if (!draft?.id) return;
     try {
-      await publishArticle(
-        draft.id,
-        (await supabase.auth.getUser()).data.user?.id || undefined
-      );
+      await publishArticle(draft.id, (await supabase.auth.getUser()).data.user?.id || undefined);
       alert("Opublikowano artykuł.");
       onSaved(draft.id);
     } catch (e: any) {
@@ -292,11 +285,7 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
               Dodatkowe zdjęcia (max {MAX_IMAGES}):{" "}
               <span className="font-medium">{images.length}</span>
             </div>
-            {draft?.id && (
-              <div className="text-xs text-gray-600">
-                Pozostało: {imagesLeft}
-              </div>
-            )}
+            {draft?.id && <div className="text-xs text-gray-600">Pozostało: {imagesLeft}</div>}
           </div>
 
           <div className="mb-2">
@@ -384,9 +373,7 @@ export const ArticleEditor: React.FC<Props> = ({ articleId, onCancel, onSaved })
         {draft?.status && (
           <div className="text-xs text-gray-600">
             Status: {draft.status}
-            {draft?.published_at
-              ? ` • opublikowano: ${new Date(draft.published_at).toLocaleDateString()}`
-              : ""}
+            {draft?.published_at ? ` • opublikowano: ${new Date(draft.published_at).toLocaleDateString()}` : ""}
           </div>
         )}
       </div>
