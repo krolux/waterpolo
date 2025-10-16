@@ -74,7 +74,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onEdit }) 
       </div>
 
       {cover && (
-        <img src={cover} alt={article.title} className="w-full rounded-xl mb-3" />
+        <img src={cover} alt={article.title} className="w-full max-h-64 object-contain rounded-lg mb-2 bg-white" />
       )}
 
       <h1 className="text-3xl font-bold mb-2">{article.title}</h1>
@@ -96,7 +96,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onEdit }) 
             <img
               src={author.avatar_url}
               alt={author.display_name}
-              className="w-12 h-12 rounded-full object-cover"
+              className="w-full max-h-64 object-contain rounded-lg mb-2 bg-white"
             />
           )}
           <div>
