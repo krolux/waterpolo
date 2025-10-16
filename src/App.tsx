@@ -13,8 +13,8 @@ import { namesOfAvailableReferees } from "./lib/availability";
 import { NewsStrip } from "./components/NewsStrip";
 import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
-import { Article } from "./lib/articles";
 import { ArticleEditor } from "./components/ArticleEditor";
+import { ArticleModeration } from "./components/ArticleModeration";
 
 
 
@@ -1892,7 +1892,8 @@ function handleQuickEdit(matchId: string) {
   }, 50);
 }
 // === [3.3] PROSTA NAWIGACJA ARTYKUŁÓW (mini-router) ===
-const [page, setPage] = useState<'home' | 'articles' | 'article' | 'editor'>('home');
+const [page, setPage] = useState<'home' | 'articles' | 'article' | 'editor' | 'moderation'>('home');
+  function openModeration() { setPage('moderation'); }
 const [openedArticleId, setOpenedArticleId] = useState<string | null>(null);
 
 function goHome() { setPage('home'); setOpenedArticleId(null); }
@@ -2303,6 +2304,15 @@ const delegateCandidateNames = Array.from(new Set([
     + Napisz artykuł
   </button>
 )}
+        {effectiveUser && isAdmin(effectiveUser) && (
+  <button
+    onClick={openModeration}
+    className={clsx(classes.btnSecondary, "whitespace-nowrap")}
+    title="Moderacja artykułów"
+  >
+    Moderacja
+  </button>
+)}
       </div>
     )}
 
@@ -2321,7 +2331,7 @@ const delegateCandidateNames = Array.from(new Set([
       {/* Pasek newsów nad tabelą wyników */}
       <NewsStrip
         onMore={openArticles}
-        onOpen={(id: string) => openArticle(id)}
+        onOpen={(id: string)
       />
 
       {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin} />}
@@ -2395,7 +2405,7 @@ const delegateCandidateNames = Array.from(new Set([
   {page === 'articles' && (
     <ArticleList
       onBack={goHome}
-      onOpen={(id: string) => openArticle(id)}
+      onOpen={(id: string)
     />
   )}
 
@@ -2425,7 +2435,15 @@ const delegateCandidateNames = Array.from(new Set([
     }}
   />
 )}
-
+{page === 'moderation' && effectiveUser && isAdmin(effectiveUser) && (
+  <ArticleModeration
+    onBack={goHome}
+    onEdit={(id: string) => {
+      setOpenedArticleId(id);
+      setPage('editor');
+    }}
+  />
+)}
 </main>
 
     <footer className="max-w-6xl mx-auto mt-8 text-xs text-gray-500">
