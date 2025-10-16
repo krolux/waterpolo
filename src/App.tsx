@@ -1972,27 +1972,18 @@ useEffect(() => {
   if (sRole) refreshProfiles();
 }, [sRole]);
 
-// Wyprowadź użytkownika efektywnego: dopasowanie profilu po authUser.id (pewne)
-// z fallbackiem po e-mailu lub display_name
+// Efektywny użytkownik:
+// - jeśli jest sesja (supaUser) → traktujemy jako zalogowanego nawet z rolą 'Guest'
+// - profile służy tylko do doczepienia nazwy klubu (jeśli rola to 'Club')
 const effectiveUser = useMemo(() => {
-  // 1) najpierw po id z auth (najpewniejsze)
-  const myProfile =
-    profiles.find(p => p.id === authUser?.id)
-    // 2) opcjonalny fallback – jeśli w profiles trzymasz email w kolumnie (nie zawsze jest):
-    // || profiles.find((p: any) => p.email === authUser?.email)
-    // 3) ostateczny fallback po display_name (może nie pasować do e-maila)
-    || profiles.find(p => p.display_name === userDisplay);
-
-  const finalRole = (myProfile?.role ?? sRole) as Role | undefined;
-
-  if (finalRole && finalRole !== "Guest") {
-    const club = finalRole === "Club" ? (myProfile?.club_name ?? undefined) : undefined;
-    return { name: userDisplay, role: finalRole, club };
+  if (supaUser) {
+    const myProfile = profiles.find(p => p.id === authUser?.id);
+    const club = supaUser.role === "Club" ? (myProfile?.club_name ?? undefined) : undefined;
+    return { ...supaUser, club };
   }
-
-  // Brak zalogowanego supaUser/profilu – fallback do trybu demo
+  // brak sesji → ewentualny tryb demo
   return demoUser;
-}, [profiles, authUser, sRole, userDisplay, demoUser]);
+}, [supaUser, profiles, authUser?.id, demoUser]);
 
   
 // --- Penalties state (+load)
