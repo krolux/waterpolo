@@ -249,7 +249,7 @@ const DocBadge: React.FC<{
   </div>
 );
 
-
+const prettyRole = (r: Role) => (r === 'Guest' ? 'Zarejestrowany' : r);
 // === MULTI-ROLE HELPERS (NEW) ===
 type BaseRole = 'Guest' | 'Admin' | 'Club' | 'Delegate' | 'Referee' | 'Editor';
 function isEditor(u:{role:Role})  { return hasRole(u,'Editor') || isAdmin(u); }
@@ -1860,7 +1860,7 @@ const UserChip: React.FC<{
 );
 
 export default function App(){
-const { userId, userDisplay, role: sRole } = useSupabaseAuth()
+const { userId, userDisplay, role: sRole, signOut } = useSupabaseAuth()
 
 // Zalogowany = mamy session (userId), rola może być nawet 'Guest'
 const supaUser = userId
@@ -1972,18 +1972,16 @@ useEffect(() => {
   if (sRole) refreshProfiles();
 }, [sRole]);
 
-// Efektywny użytkownik:
-// - jeśli jest sesja (supaUser) → traktujemy jako zalogowanego nawet z rolą 'Guest'
-// - profile służy tylko do doczepienia nazwy klubu (jeśli rola to 'Club')
 const effectiveUser = useMemo(() => {
   if (supaUser) {
     const myProfile = profiles.find(p => p.id === authUser?.id);
-    const club = supaUser.role === "Club" ? (myProfile?.club_name ?? undefined) : undefined;
-    return { ...supaUser, club };
+    const finalRole = (myProfile?.role ?? supaUser.role) as Role;
+    const club = finalRole === "Club" ? (myProfile?.club_name ?? undefined) : undefined;
+    return { name: userDisplay, role: finalRole, club };
   }
-  // brak sesji → ewentualny tryb demo
   return demoUser;
-}, [supaUser, profiles, authUser?.id, demoUser]);
+  // zależności – ważne, by reagowało na zmianę profilu/roli
+}, [supaUser, profiles, authUser?.id, userDisplay, demoUser]);
 
   
 // --- Penalties state (+load)
@@ -2275,49 +2273,45 @@ const delegateCandidateNames = Array.from(new Set([
 
    <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
     
+{/* Zalogowany vs. niezalogowany */}
+{effectiveUser ? (
+  <div className="flex items-center gap-2 shrink-0">
+    <Badge tone="blue">
+      {prettyRole(effectiveUser.role)}
+      {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
+    </Badge>
+    <span className="text-sm text-gray-700">{effectiveUser.name}</span>
+
+    {/* Wyloguj */}
+    <button onClick={signOut} className={classes.btnSecondary} title="Wyloguj">
+      Wyloguj
+    </button>
+
+    {/* Akcje dla uprawnień */}
+    {isEditor(effectiveUser) && (
+      <button
+        onClick={() => openEditor(null)}
+        className={clsx(classes.btnPrimary, "whitespace-nowrap")}
+        title="Utwórz nowy artykuł"
+      >
+        + Napisz artykuł
+      </button>
+    )}
+    {isAdmin(effectiveUser) && (
+      <button
+        onClick={openModeration}
+        className={clsx(classes.btnSecondary, "whitespace-nowrap")}
+        title="Moderacja artykułów"
+      >
+        Moderacja
+      </button>
+    )}
+  </div>
+) : (
+  <div className="flex items-center gap-2 w-full sm:w-auto">
     <div className="w-full sm:w-auto">
       <LoginBox classes={classes} />
     </div>
-
-    
-    {effectiveUser && (
-      <div className="flex items-center gap-2 shrink-0">
-        <Badge tone="blue">
-          {effectiveUser.role}
-          {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
-        </Badge>
-        <span className="text-sm text-gray-700">{effectiveUser.name}</span>
-        {!supaUser && (
-          <button onClick={demoLogout} className={classes.btnSecondary}>
-            <LogOut className="w-4 h-4 inline mr-1" />
-            Wyloguj (demo)
-          </button>
-        )}
-        {/* [3.3] Nowy artykuł – widoczny dla Admin/Editor */}
-{effectiveUser && isEditor(effectiveUser) && (
-  <button
-    onClick={() => openEditor(null)}
-    className={clsx(classes.btnPrimary, "whitespace-nowrap")}
-    title="Utwórz nowy artykuł"
-  >
-    + Napisz artykuł
-  </button>
-)}
-        {effectiveUser && isAdmin(effectiveUser) && (
-  <button
-    onClick={openModeration}
-    className={clsx(classes.btnSecondary, "whitespace-nowrap")}
-    title="Moderacja artykułów"
-  >
-    Moderacja
-  </button>
-)}
-      </div>
-    )}
-
-{/* Wersja dla niezalogowanego – przycisk rejestracji */}
-{!effectiveUser && (
-  <div className="flex items-center gap-2">
     <button
       className={classes.btnSecondary}
       onClick={() => setPage('register')}
@@ -2325,7 +2319,6 @@ const delegateCandidateNames = Array.from(new Set([
     >
       Rejestracja
     </button>
-    <span className="text-sm text-gray-600">Niezalogowany</span>
   </div>
 )}
   </div>
