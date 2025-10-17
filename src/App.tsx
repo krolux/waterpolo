@@ -2308,12 +2308,12 @@ const delegateCandidateNames = Array.from(new Set([
     )}
   </div>
 ) : (
-  <div className="flex items-center gap-2 w-full sm:w-auto">
-    <div className="w-full sm:w-auto">
+  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-stretch sm:items-center">
+    <div className="w-full min-w-0 sm:w-auto">
       <LoginBox classes={classes} />
     </div>
     <button
-      className={classes.btnSecondary}
+      className={clsx(classes.btnSecondary, "w-full sm:w-auto")}
       onClick={() => setPage('register')}
       title="Załóż konto, by móc komentować artykuły"
     >
@@ -2335,7 +2335,7 @@ const delegateCandidateNames = Array.from(new Set([
           onOpen={openArticle}
       />
 
-      {!effectiveUser && <LoginPanel users={state.users} onLogin={demoLogin} />}
+     
 
       <RankingTable matches={state.matches} clubs={clubs} />
 
