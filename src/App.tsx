@@ -1934,15 +1934,27 @@ useEffect(() => {
     setAuthUser(u ? { id: u.id, email: u.email ?? "" } : null);
   });
 }, [userId]);
-// MÓJ profil (1 wiersz) – działa dla każdego zalogowanego (RLS = id = auth.uid())
-// MÓJ profil (1 wiersz) – SELECT tylko z "profiles"
+// MÓJ profil (upsert + select)
 const [myProfile, setMyProfile] = useState<ProfileRow | null>(null);
 
 useEffect(() => {
   (async () => {
     if (!authUser?.id) { setMyProfile(null); return; }
 
-    // 1) Tylko profiles — bez klubów (RLS na profiles: id = auth.uid())
+    // 1) Upewnij się, że rekord w 'profiles' istnieje (RLS: insert gdy id=auth.uid())
+    await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: authUser.id,
+          display_name: userDisplay || authUser.email || "Użytkownik",
+          role: "Guest",     // domyślna rola (admin później podnosi)
+          club_id: null
+        },
+        { onConflict: "id", ignoreDuplicates: true }
+      );
+
+    // 2) Wczytaj profil (RLS: id = auth.uid())
     const { data, error } = await supabase
       .from("profiles")
       .select("id, display_name, role, club_id")
@@ -1955,29 +1967,27 @@ useEffect(() => {
       return;
     }
 
-    // wstępne dane (bez nazwy klubu)
-    setMyProfile({
-      id: data.id,
-      display_name: data.display_name,
-      role: data.role as Role,
-      club_id: data.club_id,
-      club_name: null,
-    });
-
-    // 2) Jeśli chcesz pokazywać nazwę klubu — dociągnij ją osobno (jeśli RLS pozwoli)
+    // 3) Dociągnij nazwę klubu (jeśli RLS na 'clubs' pozwala)
+    let clubName: string | null = null;
     if (data.club_id) {
       const { data: clubRow, error: clubErr } = await supabase
         .from("clubs")
         .select("name")
         .eq("id", data.club_id)
         .maybeSingle();
-
-      if (!clubErr && clubRow?.name) {
-        setMyProfile(p => p ? { ...p, club_name: clubRow.name } : p);
-      }
+      if (!clubErr && clubRow?.name) clubName = clubRow.name;
     }
+
+    setMyProfile({
+      id: data.id,
+      display_name: data.display_name,
+      role: data.role as Role,
+      club_id: data.club_id,
+      club_name: clubName,
+    });
   })();
-}, [authUser?.id]);
+  // zależności: zmiana userId/nicka ma odświeżyć profil
+}, [authUser?.id, userDisplay, authUser?.email]);
 
 
 // --- quick edit (Admin): scroll do panelu + załaduj mecz ---
