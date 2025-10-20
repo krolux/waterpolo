@@ -250,7 +250,7 @@ const DocBadge: React.FC<{
   </div>
 );
 
-const prettyRole = (r: Role) => (r === 'Guest' ? 'Zarejestrowany' : r);
+const prettyRole = (r: Role) => r; // pokazuj prawdziwą rolę
 // === MULTI-ROLE HELPERS (NEW) ===
 type BaseRole = 'Guest' | 'Admin' | 'Club' | 'Delegate' | 'Referee' | 'Editor';
 function isEditor(u:{role:Role})  { return hasRole(u,'Editor') || isAdmin(u); }
@@ -1927,7 +1927,6 @@ useEffect(() => {
   // === Auth user z Supabase (id + email) – użyjemy do dopasowania profilu po id ===
 const [authUser, setAuthUser] = useState<{ id: string; email: string } | null>(null);
 
-// Pobierz usera przy starcie oraz po każdej zmianie roli (czyli po zalogowaniu/wylogowaniu)
 useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {
     const u = data.user;
