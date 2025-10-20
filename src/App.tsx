@@ -1071,29 +1071,22 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
 };
 
 const AdminAvailableReferees: React.FC<{ matchId: string }> = ({ matchId }) => {
-  const [list, setList] = React.useState<{ id?: string; name: string }[]>([]);
+  const [list, setList] = React.useState<Array<string | { name: string }>>([]);
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const rows = await listAvailableReferees(matchId);
-
-       const normalized: { id?: string; name: string }[] = Array.isArray(rows)
-          ? rows
-              .map((r: any) =>
-                typeof r === "string"
-                  ? { name: r }
-                  : r && typeof r === "object"
-                    ? { id: r.id, name: r.name ?? "" }
-                    : null
-              )
-              .filter((x): x is { id?: string; name: string } => !!x && !!x.name)
-          : [];
-
+        const array = Array.isArray(rows) ? rows : [];
+        const normalized = array.reduce<Array<string | { name: string }>>((acc, r) => {
+          if (typeof r === "string" && r.trim()) acc.push(r.trim());
+          else if (r && typeof r === "object" && typeof r.name === "string" && r.name.trim()) acc.push({ name: r.name.trim() });
+          return acc;
+        }, []);
         if (!cancelled) setList(normalized);
       } catch (e: any) {
-        console.warn("listAvailableReferees error:", e.message);
+        console.warn("listAvailableReferees error:", e?.message || e);
         if (!cancelled) setList([]);
       }
     })();
@@ -1102,8 +1095,14 @@ const AdminAvailableReferees: React.FC<{ matchId: string }> = ({ matchId }) => {
     };
   }, [matchId]);
 
-  if (list.length === 0) return <span className="text-gray-500">–</span>;
-  return <span className="text-xs">{list.map((x) => x.name).join(", ")}</span>;
+  if (!list.length) return <span className="text-gray-500">–</span>;
+
+  const names = list
+    .map(x => (typeof x === "string" ? x : x.name))
+    .filter(Boolean)
+    .join(", ");
+
+  return <span className="text-xs">{names}</span>;
 };
 
 const PerMatchActions: React.FC<{
@@ -1598,22 +1597,27 @@ React.useEffect(() => {
         return;
       }
 
-      const res = await namesOfAvailableReferees(draft.id);
-      // Obsługujemy Set<string> | {name:string}[] | string[]
-      const names =
-        res instanceof Set
-          ? Array.from(res)
-          : Array.isArray(res)
-            ? res.map((r: any) => (typeof r === "string" ? r : r?.name)).filter(Boolean)
-            : [];
+      const result = await namesOfAvailableReferees(draft.id);
+      let safe = new Set<string>();
 
-      if (!cancelled) setAvailNames(new Set<string>(names));
+      if (result instanceof Set) {
+        safe = result as Set<string>;
+      } else if (Array.isArray(result)) {
+        const arr = (result as any[])
+          .map(r => (typeof r === "string" ? r : r?.name ?? ""))
+          .filter(Boolean);
+        safe = new Set<string>(arr);
+      }
+
+      if (!cancelled) setAvailNames(safe);
     } catch (e: any) {
-      console.warn("namesOfAvailableReferees error:", e.message);
+      console.warn("namesOfAvailableReferees error:", e?.message || e);
       if (!cancelled) setAvailNames(new Set());
     }
   })();
-  return () => { cancelled = true; };
+  return () => {
+    cancelled = true;
+  };
 }, [draft?.id]);
 
 // ⤵️ Quick-edit z tabeli: po otrzymaniu id meczu ustawiamy formularz i tryb edycji
