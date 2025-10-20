@@ -1933,7 +1933,7 @@ useEffect(() => {
     const u = data.user;
     setAuthUser(u ? { id: u.id, email: u.email ?? "" } : null);
   });
-}, [sRole]);
+}, [userId]);
 // MÓJ profil (1 wiersz) – działa dla każdego zalogowanego (RLS = id = auth.uid())
 // MÓJ profil (1 wiersz) – SELECT tylko z "profiles"
 const [myProfile, setMyProfile] = useState<ProfileRow | null>(null);
@@ -2207,11 +2207,11 @@ const matches: Match[] = rows.map((r: any) => ({
     
 // Dociągnij metadane dokumentów z docs_meta i scal
 try {
-  // 👇 Jeśli jesteśmy Gościem, nie czytamy docs_meta (RLS i tak nie pozwoli).
-  if (sRole === "Guest") {
-    setLoadingMatches(false);
-    return;
-  }
+  // 👇 Jeśli realnie jesteśmy Gościem, nie czytamy docs_meta (RLS i tak nie pozwoli).
+if (!effectiveUser || effectiveUser.role === "Guest") {
+  setLoadingMatches(false);
+  return;
+}
 
   const matchIds = matches.map((m) => m.id);
   if (matchIds.length > 0) {
@@ -2338,7 +2338,8 @@ try {
 
 useEffect(() => {
   refreshMatches();
-}, [sRole]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [effectiveUser?.role]);
 
 const refereeNames = profiles.filter(p => hasRole(p, "Referee")).map(p => p.display_name).filter(Boolean);
 const delegateNames = profiles.filter(p => hasRole(p, "Delegate")).map(p => p.display_name).filter(Boolean);
