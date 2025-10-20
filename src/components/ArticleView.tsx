@@ -3,6 +3,7 @@ import React from "react";
 import { Article } from "../lib/articles";
 import { supabase } from "../lib/supabase";
 import { getPublicUrl, listArticleImages, type ArticleImage } from "../lib/articles";
+import { useSupabaseAuth } from "../hooks/useSupabaseAuth";
 
 export type ArticleViewProps = {
   id: string;
@@ -19,6 +20,10 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onGoHome, 
     author_footer?: string | null;
     bio?: string | null;
   }>({ display_name: "" });
+
+  // auth (tylko sesja; rola nie jest ważna do komentowania)
+  const { userId, userDisplay } = useSupabaseAuth();
+  const isLoggedIn = !!userId;
 
   // Galeria zdjęć
   const [images, setImages] = React.useState<ArticleImage[]>([]);
@@ -212,6 +217,14 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onGoHome, 
             </div>
           </div>
         </div>
+
+        {/* --- KOMENTARZE --- */}
+        <CommentsSection
+          articleId={article.id}
+          isLoggedIn={isLoggedIn}
+          userId={userId || ""}
+          userName={userDisplay || "Użytkownik"}
+        />
       </article>
 
       {/* LIGHTBOX (overlay) */}
@@ -276,5 +289,108 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onGoHome, 
         </div>
       )}
     </section>
+  );
+};
+
+/* =======================
+   Komponent komentarzy
+   ======================= */
+type CommentsSectionProps = {
+  articleId: string;
+  isLoggedIn: boolean;
+  userId: string;
+  userName: string;
+};
+
+const CommentsSection: React.FC<CommentsSectionProps> = ({
+  articleId,
+  isLoggedIn,
+  userId,
+  userName,
+}) => {
+  const [comments, setComments] = React.useState<
+    { id: string; author_name: string | null; body: string; created_at: string }[]
+  >([]);
+  const [body, setBody] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+
+  async function load() {
+    const { data, error } = await supabase
+      .from("article_comments")
+      .select("id, author_name, body, created_at")
+      .eq("article_id", articleId)
+      .order("created_at", { ascending: true });
+    if (!error && data) setComments(data as any);
+  }
+
+  React.useEffect(() => {
+    load();
+  }, [articleId]);
+
+  async function addComment() {
+    const text = body.trim();
+    if (!text) return;
+    setLoading(true);
+    const { error } = await supabase.from("article_comments").insert({
+      article_id: articleId,
+      author_id: userId,
+      author_name: userName,
+      body: text,
+    });
+    setLoading(false);
+    if (error) {
+      alert("Nie udało się dodać komentarza: " + error.message);
+      return;
+    }
+    setBody("");
+    load();
+  }
+
+  return (
+    <div className="mt-8 border-t pt-4">
+      <h3 className="text-lg font-semibold mb-3">Komentarze</h3>
+
+      {/* Lista komentarzy */}
+      {comments.length === 0 ? (
+        <div className="text-sm text-gray-500 mb-3">Nie ma jeszcze komentarzy.</div>
+      ) : (
+        <ul className="space-y-3 mb-4">
+          {comments.map((c) => (
+            <li key={c.id} className="rounded-xl border bg-white p-3">
+              <div className="text-xs text-gray-500">
+                {c.author_name || "Użytkownik"} • {new Date(c.created_at).toLocaleString()}
+              </div>
+              <div className="mt-1 whitespace-pre-wrap">{c.body}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Formularz dodawania – tylko gdy zalogowany */}
+      {isLoggedIn ? (
+        <div className="grid gap-2">
+          <textarea
+            className="w-full px-3 py-2 rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-sky-300"
+            rows={3}
+            placeholder="Napisz komentarz…"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+          <div>
+            <button
+              onClick={addComment}
+              disabled={loading || body.trim().length === 0}
+              className="px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow disabled:opacity-50"
+            >
+              Dodaj komentarz
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 text-sm">
+          Aby dodać komentarz, zaloguj się w nagłówku (przycisk „Zaloguj”).
+        </div>
+      )}
+    </div>
   );
 };
