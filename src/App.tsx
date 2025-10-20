@@ -1888,6 +1888,28 @@ useEffect(() => {
     setAuthUser(u ? { id: u.id, email: u.email ?? "" } : null);
   });
 }, [sRole]);
+// MÓJ profil (1 wiersz) – działa dla każdego zalogowanego (RLS = id = auth.uid())
+const [myProfile, setMyProfile] = useState<ProfileRow | null>(null);
+useEffect(() => {
+  (async () => {
+    if (!authUser?.id) { setMyProfile(null); return; }
+    const { data } = await supabase
+      .from("profiles")
+      .select(`id, display_name, role, club_id, club:clubs(name)`)
+      .eq("id", authUser.id)
+      .single();
+    if (data) {
+      setMyProfile({
+        id: data.id,
+        display_name: data.display_name,
+        role: data.role as Role,
+        club_id: data.club_id,
+        club_name: data.club?.name ?? null,
+      });
+    }
+  })();
+}, [authUser?.id]);
+
 
 // --- quick edit (Admin): scroll do panelu + załaduj mecz ---
 const adminPanelRef = React.useRef<HTMLDivElement>(null);
@@ -1975,15 +1997,12 @@ useEffect(() => {
 
 const effectiveUser = useMemo(() => {
   if (supaUser) {
-    const myProfile = profiles.find(p => p.id === authUser?.id);
     const finalRole = (myProfile?.role ?? supaUser.role) as Role;
     const club = finalRole === "Club" ? (myProfile?.club_name ?? undefined) : undefined;
     return { name: userDisplay, role: finalRole, club };
   }
   return demoUser;
-  // zależności – ważne, by reagowało na zmianę profilu/roli
-}, [supaUser, profiles, authUser?.id, userDisplay, demoUser]);
-
+}, [supaUser, myProfile?.role, myProfile?.club_name, userDisplay, demoUser]);
   
 // --- Penalties state (+load)
 const [penalties, setPenalties] = useState<Penalty[]>([]);
@@ -2276,24 +2295,23 @@ const delegateCandidateNames = Array.from(new Set([
     
 {/* Zalogowany vs. niezalogowany */}
 {effectiveUser ? (
-  <div className="flex items-center gap-2 shrink-0">
+  <div className="flex flex-wrap items-center gap-2 justify-end">
     <Badge tone="blue">
       {prettyRole(effectiveUser.role)}
       {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
     </Badge>
+    <span className="text-sm text-gray-700 truncate max-w-[40vw] sm:max-w-none">
+      {effectiveUser.name}
+    </span>
 
-    <span className="text-sm text-gray-700">{effectiveUser.name}</span>
-
-    {/* Wyloguj */}
     <button onClick={signOut} className={classes.btnSecondary} title="Wyloguj">
       Wyloguj
     </button>
 
-    {/* Akcje dla uprawnień */}
     {isEditor(effectiveUser) && (
       <button
         onClick={() => openEditor(null)}
-        className={clsx(classes.btnPrimary, "whitespace-nowrap")}
+        className={clsx(classes.btnPrimary, "whitespace-nowrap w-full sm:w-auto")}
         title="Utwórz nowy artykuł"
       >
         + Napisz artykuł
@@ -2304,16 +2322,15 @@ const delegateCandidateNames = Array.from(new Set([
       <>
         <button
           onClick={openModeration}
-          className={clsx(classes.btnSecondary, "whitespace-nowrap")}
+          className={clsx(classes.btnSecondary, "whitespace-nowrap w-full sm:w-auto")}
           title="Moderacja artykułów"
         >
           Moderacja
         </button>
-
         <button
           onClick={() => setPage('approvals')}
-          className={clsx(classes.btnSecondary, "whitespace-nowrap")}
-          title="Użytkownicy do akceptacji"
+          className={clsx(classes.btnSecondary, "whitespace-nowrap w-full sm:w-auto")}
+          title="Użytkownicy"
         >
           Użytkownicy
         </button>
