@@ -1935,28 +1935,46 @@ useEffect(() => {
   });
 }, [sRole]);
 // MÓJ profil (1 wiersz) – działa dla każdego zalogowanego (RLS = id = auth.uid())
+// MÓJ profil (1 wiersz) – SELECT tylko z "profiles"
 const [myProfile, setMyProfile] = useState<ProfileRow | null>(null);
+
 useEffect(() => {
   (async () => {
     if (!authUser?.id) { setMyProfile(null); return; }
-    const { data } = await supabase
+
+    // 1) Tylko profiles — bez klubów (RLS na profiles: id = auth.uid())
+    const { data, error } = await supabase
       .from("profiles")
-      .select(`id, display_name, role, club_id, club:clubs(name)`)
+      .select("id, display_name, role, club_id")
       .eq("id", authUser.id)
       .single();
-    if (data) {
-      const clubName =
-  Array.isArray((data as any).club)
-    ? (data as any).club[0]?.name ?? null
-    : (data as any).club?.name ?? null;
 
-setMyProfile({
-  id: data.id,
-  display_name: data.display_name,
-  role: data.role as Role,
-  club_id: data.club_id,
-  club_name: clubName,
-});
+    if (error || !data) {
+      console.warn("profiles select error:", error?.message);
+      setMyProfile(null);
+      return;
+    }
+
+    // wstępne dane (bez nazwy klubu)
+    setMyProfile({
+      id: data.id,
+      display_name: data.display_name,
+      role: data.role as Role,
+      club_id: data.club_id,
+      club_name: null,
+    });
+
+    // 2) Jeśli chcesz pokazywać nazwę klubu — dociągnij ją osobno (jeśli RLS pozwoli)
+    if (data.club_id) {
+      const { data: clubRow, error: clubErr } = await supabase
+        .from("clubs")
+        .select("name")
+        .eq("id", data.club_id)
+        .maybeSingle();
+
+      if (!clubErr && clubRow?.name) {
+        setMyProfile(p => p ? { ...p, club_name: clubRow.name } : p);
+      }
     }
   })();
 }, [authUser?.id]);
