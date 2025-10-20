@@ -2281,6 +2281,7 @@ const delegateCandidateNames = Array.from(new Set([
       {prettyRole(effectiveUser.role)}
       {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
     </Badge>
+
     <span className="text-sm text-gray-700">{effectiveUser.name}</span>
 
     {/* Wyloguj */}
@@ -2297,34 +2298,26 @@ const delegateCandidateNames = Array.from(new Set([
       >
         + Napisz artykuł
       </button>
-    {isAdmin(effectiveUser) && (
-  <>
-    <button
-      onClick={openModeration}
-      className={clsx(classes.btnSecondary, "whitespace-nowrap")}
-      title="Moderacja artykułów"
-    >
-      Moderacja
-    </button>
-
-    <button
-      onClick={() => setPage('approvals')}
-      className={clsx(classes.btnSecondary, "whitespace-nowrap")}
-      title="Użytkownicy"
-    >
-      Użytkownicy
-    </button>
-  </>
-)}
     )}
+
     {isAdmin(effectiveUser) && (
-      <button
-        onClick={openModeration}
-        className={clsx(classes.btnSecondary, "whitespace-nowrap")}
-        title="Moderacja artykułów"
-      >
-        Moderacja
-      </button>
+      <>
+        <button
+          onClick={openModeration}
+          className={clsx(classes.btnSecondary, "whitespace-nowrap")}
+          title="Moderacja artykułów"
+        >
+          Moderacja
+        </button>
+
+        <button
+          onClick={() => setPage('approvals')}
+          className={clsx(classes.btnSecondary, "whitespace-nowrap")}
+          title="Użytkownicy do akceptacji"
+        >
+          Użytkownicy
+        </button>
+      </>
     )}
   </div>
 ) : (
