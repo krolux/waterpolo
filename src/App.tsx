@@ -2072,11 +2072,6 @@ async function refreshProfiles() {
   setProfiles(rows);
   setLoadingProfiles(false);
 }
-useEffect(() => {
-  if (effectiveUser && effectiveUser.role && (effectiveUser.role === "Admin" || effectiveUser.role?.toString().includes("Admin"))) {
-    refreshProfiles();
-  }
-}, [effectiveUser?.role]);
 const effectiveUser = useMemo(() => {
   if (supaUser) {
     const finalRole = (myProfile?.role ?? supaUser.role) as Role;
@@ -2085,7 +2080,15 @@ const effectiveUser = useMemo(() => {
   }
   return demoUser;
 }, [supaUser, myProfile?.role, myProfile?.club_name, userDisplay, demoUser]);
-  
+
+useEffect(() => {
+  // Ładuj profile tylko gdy jestem Adminem
+  if (effectiveUser?.role && effectiveUser.role.toString().includes("Admin")) {
+    refreshProfiles();
+  } else {
+    setProfiles([]); // opcjonalne czyszczenie, żeby nic nie „przeciekało”
+  }
+}, [effectiveUser?.role]);
 // --- Penalties state (+load)
 const [penalties, setPenalties] = useState<Penalty[]>([]);
 
