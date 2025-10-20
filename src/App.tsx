@@ -1071,16 +1071,30 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
 };
 
 const AdminAvailableReferees: React.FC<{ matchId: string }> = ({ matchId }) => {
-  const [list, setList] = React.useState<{ id: string; name: string }[]>([]);
+  const [list, setList] = React.useState<{ id?: string; name: string }[]>([]);
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const rows = await listAvailableReferees(matchId);
-        if (!cancelled) setList(Array.isArray(rows) ? rows : []);
+
+       const normalized: { id?: string; name: string }[] = Array.isArray(rows)
+          ? rows
+              .map((r: any) =>
+                typeof r === "string"
+                  ? { name: r }
+                  : r && typeof r === "object"
+                    ? { id: r.id, name: r.name ?? "" }
+                    : null
+              )
+              .filter((x): x is { id?: string; name: string } => !!x && !!x.name)
+          : [];
+
+        if (!cancelled) setList(normalized);
       } catch (e: any) {
         console.warn("listAvailableReferees error:", e.message);
+        if (!cancelled) setList([]);
       }
     })();
     return () => {
@@ -1579,16 +1593,24 @@ React.useEffect(() => {
   let cancelled = false;
   (async () => {
     try {
-      if (draft?.id) {
-        const result = await namesOfAvailableReferees(draft.id);
-const safeSet = new Set<string>(Array.isArray(result) ? result.map((r:any) => r.name ?? r) : []);
-if (!cancelled) setAvailNames(safeSet);
-        if (!cancelled) setAvailNames(set);
-      } else {
-        setAvailNames(new Set());
+      if (!draft?.id) {
+        if (!cancelled) setAvailNames(new Set());
+        return;
       }
-    } catch (e:any) {
+
+      const res = await namesOfAvailableReferees(draft.id);
+      // Obsługujemy Set<string> | {name:string}[] | string[]
+      const names =
+        res instanceof Set
+          ? Array.from(res)
+          : Array.isArray(res)
+            ? res.map((r: any) => (typeof r === "string" ? r : r?.name)).filter(Boolean)
+            : [];
+
+      if (!cancelled) setAvailNames(new Set<string>(names));
+    } catch (e: any) {
       console.warn("namesOfAvailableReferees error:", e.message);
+      if (!cancelled) setAvailNames(new Set());
     }
   })();
   return () => { cancelled = true; };
