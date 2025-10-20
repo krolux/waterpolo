@@ -2029,41 +2029,54 @@ useEffect(() => {
   // Load profiles (for admin select lists)
   const [profiles,setProfiles]=useState<ProfileRow[]>([])
   const [loadingProfiles,setLoadingProfiles]=useState(false)
-  async function refreshProfiles() {
+async function refreshProfiles() {
+  // Tę listę wykorzystujesz w panelu admina – rób to tylko jako Admin.
   setLoadingProfiles(true);
+
+  // 1) Bez JOIN – same profile
   const { data, error } = await supabase
     .from("profiles")
-    .select(`
-      id,
-      display_name,
-      role,
-      club_id,
-      club:clubs ( name )
-    `)
+    .select("id, display_name, role, club_id")
     .order("display_name", { ascending: true });
 
-  if (!error && data) {
-    const rows = (data as any[]).map(r => ({
-      id: r.id,
-      display_name: r.display_name,
-      role: r.role as Role,
-      club_id: r.club_id,
-      club_name: r.club?.name ?? null,
-    })) as ProfileRow[];
-    setProfiles(rows);
+  if (error || !data) {
+    console.warn("refreshProfiles error:", error?.message);
+    setProfiles([]);
+    setLoadingProfiles(false);
+    return;
   }
+
+  // 2) Opcjonalnie dociągnij nazwy klubów (jeśli RLS na clubs pozwoli)
+  const rows: ProfileRow[] = data.map(r => ({
+    id: r.id,
+    display_name: r.display_name,
+    role: r.role as Role,
+    club_id: r.club_id,
+    club_name: null,
+  }));
+
+  // Zbierz unikalne club_id, dociągnij hurtowo (jeśli są)
+  const clubIds = Array.from(new Set(rows.map(r => r.club_id).filter(Boolean))) as string[];
+  if (clubIds.length) {
+    const { data: clubsRows, error: clubsErr } = await supabase
+      .from("clubs")
+      .select("id, name")
+      .in("id", clubIds);
+
+    if (!clubsErr && clubsRows) {
+      const byId = new Map(clubsRows.map(c => [c.id, c.name as string]));
+      rows.forEach(r => { if (r.club_id) r.club_name = byId.get(r.club_id) ?? null; });
+    }
+  }
+
+  setProfiles(rows);
   setLoadingProfiles(false);
 }
-// 1) Załaduj profiles na starcie, żeby mieć rolę/klub nawet jeśli hook chwilowo widzi "Guest"
 useEffect(() => {
-  refreshProfiles();
-}, []);
-
-// 2) Dodatkowo dociągaj po każdej zmianie sRole (np. po zalogowaniu)
-useEffect(() => {
-  if (sRole) refreshProfiles();
-}, [sRole]);
-
+  if (effectiveUser && effectiveUser.role && (effectiveUser.role === "Admin" || effectiveUser.role?.toString().includes("Admin"))) {
+    refreshProfiles();
+  }
+}, [effectiveUser?.role]);
 const effectiveUser = useMemo(() => {
   if (supaUser) {
     const finalRole = (myProfile?.role ?? supaUser.role) as Role;
