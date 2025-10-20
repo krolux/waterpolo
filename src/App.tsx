@@ -16,6 +16,7 @@ import { ArticleView } from "./components/ArticleView";
 import { ArticleEditor } from "./components/ArticleEditor";
 import { ArticleModeration } from "./components/ArticleModeration";
 import { RegisterForm } from "./components/RegisterForm";
+import { AdminUserApprovals } from "./components/AdminUserApprovals";
 
 
 
@@ -1900,7 +1901,7 @@ function handleQuickEdit(matchId: string) {
   }, 50);
 }
 // === [3.3] PROSTA NAWIGACJA ARTYKUŁÓW (mini-router) ===
-const [page, setPage] = useState<'home' | 'articles' | 'article' | 'editor' | 'moderation' | 'register'>('home');
+const [page, setPage] = useState<'home' | 'articles' | 'article' | 'editor' | 'moderation' | 'register' | 'approvals'>('home');
   function openModeration() { setPage('moderation'); }
 const [openedArticleId, setOpenedArticleId] = useState<string | null>(null);
 
@@ -2296,6 +2297,25 @@ const delegateCandidateNames = Array.from(new Set([
       >
         + Napisz artykuł
       </button>
+    {isAdmin(effectiveUser) && (
+  <>
+    <button
+      onClick={openModeration}
+      className={clsx(classes.btnSecondary, "whitespace-nowrap")}
+      title="Moderacja artykułów"
+    >
+      Moderacja
+    </button>
+
+    <button
+      onClick={() => setPage('approvals')}
+      className={clsx(classes.btnSecondary, "whitespace-nowrap")}
+      title="Użytkownicy"
+    >
+      Użytkownicy
+    </button>
+  </>
+)}
     )}
     {isAdmin(effectiveUser) && (
       <button
@@ -2411,6 +2431,9 @@ const delegateCandidateNames = Array.from(new Set([
   />
 )}
 
+  {page === 'approvals' && effectiveUser && isAdmin(effectiveUser) && (
+  <AdminUserApprovals onBack={() => setPage('home')} />
+)}
 
 {page === 'article' && openedArticleId && (
   <ArticleView
