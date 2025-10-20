@@ -350,21 +350,53 @@ const CommentsSection: React.FC<CommentsSectionProps> = ({
     <div className="mt-8 border-t pt-4">
       <h3 className="text-lg font-semibold mb-3">Komentarze</h3>
 
-      {/* Lista komentarzy */}
-      {comments.length === 0 ? (
-        <div className="text-sm text-gray-500 mb-3">Nie ma jeszcze komentarzy.</div>
-      ) : (
-        <ul className="space-y-3 mb-4">
-          {comments.map((c) => (
-            <li key={c.id} className="rounded-xl border bg-white p-3">
-              <div className="text-xs text-gray-500">
-                {c.author_name || "Użytkownik"} • {new Date(c.created_at).toLocaleString()}
-              </div>
-              <div className="mt-1 whitespace-pre-wrap">{c.body}</div>
-            </li>
-          ))}
-        </ul>
-      )}
+{/* LISTA KOMENTARZY */}
+<div className="mt-3 space-y-3">
+  {comments.map((c) => {
+    const canDelete =
+      (profileRole === 'Admin' || profileRole === 'Editor') ||
+      (c.author_id === currentUserId);
+
+    return (
+      <div
+        key={c.id}
+        className="rounded-xl border bg-white px-4 py-3 shadow-sm relative"
+      >
+        <div className="text-xs text-gray-500 mb-1">
+          <span className="font-medium">{c.author_name || 'Użytkownik'}</span>
+          {" • "}{new Date(c.created_at).toLocaleString('pl-PL')}
+        </div>
+
+        <div className="whitespace-pre-wrap">{c.content}</div>
+
+        {canDelete && (
+          <button
+            className="absolute top-2 right-2 text-xs px-2 py-1 rounded-md border hover:bg-red-50 text-red-700"
+            title="Usuń komentarz"
+            onClick={async () => {
+              if (!confirm('Usunąć ten komentarz?')) return;
+              const { error } = await supabase
+                .from('article_comments')
+                .delete()
+                .eq('id', c.id);
+              if (error) {
+                alert('Błąd usuwania: ' + error.message);
+                return;
+              }
+              // odśwież lokalną listę po udanym DELETE
+              setComments((prev) => prev.filter((x) => x.id !== c.id));
+            }}
+          >
+            Usuń
+          </button>
+        )}
+      </div>
+    );
+  })}
+  {comments.length === 0 && (
+    <div className="text-sm text-gray-600">Brak komentarzy.</div>
+  )}
+</div>
 
       {/* Formularz dodawania – tylko gdy zalogowany */}
       {isLoggedIn ? (
