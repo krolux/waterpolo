@@ -1945,13 +1945,18 @@ useEffect(() => {
       .eq("id", authUser.id)
       .single();
     if (data) {
-      setMyProfile({
-        id: data.id,
-        display_name: data.display_name,
-        role: data.role as Role,
-        club_id: data.club_id,
-        club_name: data.club?.name ?? null,
-      });
+      const clubName =
+  Array.isArray((data as any).club)
+    ? (data as any).club[0]?.name ?? null
+    : (data as any).club?.name ?? null;
+
+setMyProfile({
+  id: data.id,
+  display_name: data.display_name,
+  role: data.role as Role,
+  club_id: data.club_id,
+  club_name: clubName,
+});
     }
   })();
 }, [authUser?.id]);
