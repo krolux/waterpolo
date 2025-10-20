@@ -1035,7 +1035,7 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
         )
       }));
     } catch (e:any) {
-      alert("Błąd zapisu dostępności: " + e.message);
+      alert("Błąd zapisu dostępności:" + e.message);
     }
   }}
 >
