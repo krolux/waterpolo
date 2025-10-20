@@ -1071,22 +1071,25 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
 };
 
 const AdminAvailableReferees: React.FC<{ matchId: string }> = ({ matchId }) => {
-  const [list, setList] = React.useState<{id:string; name:string}[]>([]);
+  const [list, setList] = React.useState<{ id: string; name: string }[]>([]);
+
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const rows = await listAvailableReferees(matchId);
-        if (!cancelled) setList(rows);
-      } catch (e:any) {
+        if (!cancelled) setList(Array.isArray(rows) ? rows : []);
+      } catch (e: any) {
         console.warn("listAvailableReferees error:", e.message);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [matchId]);
 
   if (list.length === 0) return <span className="text-gray-500">–</span>;
-  return <span className="text-xs">{list.map(x => x.name).join(", ")}</span>;
+  return <span className="text-xs">{list.map((x) => x.name).join(", ")}</span>;
 };
 
 const PerMatchActions: React.FC<{
