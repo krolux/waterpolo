@@ -1600,27 +1600,28 @@ React.useEffect(() => {
         return;
       }
 
-      const result = await namesOfAvailableReferees(draft.id);
+      // Ręcznie określany typ, żeby TS nie robił z tego { name: any }[]
+      const result: unknown = await namesOfAvailableReferees(draft.id);
+
       let safe = new Set<string>();
 
       if (result instanceof Set) {
-        // zakładamy Set<string>
-        safe = new Set<string>(Array.from(result as Set<any>).map(String).filter(Boolean));
+        safe = new Set<string>(Array.from(result as Set<unknown>)
+          .map(String)
+          .filter(Boolean));
       } else if (Array.isArray(result)) {
-        // akceptujemy: string[] | {name:string}[] | {display_name:string}[]
+        // Obsługuje: string[] | { name:string }[] | { display_name:string }[]
         const arr = (result as any[])
           .map((r) => {
             if (typeof r === "string") return r;
             if (r && typeof r === "object") {
-              if (typeof r.name === "string") return r.name;
-              if (typeof r.display_name === "string") return r.display_name;
+              if (typeof (r as any).name === "string") return (r as any).name;
+              if (typeof (r as any).display_name === "string") return (r as any).display_name;
             }
             return "";
           })
-          .filter(Boolean);
+          .filter((x) => typeof x === "string" && x.length > 0);
         safe = new Set<string>(arr);
-      } else {
-        safe = new Set();
       }
 
       if (!cancelled) setAvailNames(safe);
