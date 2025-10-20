@@ -2263,10 +2263,10 @@ const delegateCandidateNames = Array.from(new Set([
     </div>
     <div>
       <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">
-        Kolegium Sędziów Piłki Wodnej – Portal
+        WPOLO.PL - Piłka wodna w Polsce
       </h1>
       <p className="text-sm text-gray-600">
-        Tabela meczów • Dokumenty klubów • Raporty delegatów
+        Portal dla ludzi w czekpu urodzonych.
       </p>
     </div>
   </div>
