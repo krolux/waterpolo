@@ -21,7 +21,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onGoHome, 
     bio?: string | null;
   }>({ display_name: "" });
 
-  // auth (tylko sesja; rola nie jest ważna do komentowania)
+  // auth (sesja)
   const { userId, userDisplay } = useSupabaseAuth();
   const isLoggedIn = !!userId;
 
@@ -40,9 +40,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onGoHome, 
         .single();
       if (!error && data && !cancelled) setArticle(data as Article);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [id]);
 
   // Autor (publiczny odczyt profilu)
@@ -302,25 +300,56 @@ type CommentsSectionProps = {
   userName: string;
 };
 
+// Typ wiersza komentarza zgodny z tabelą (kolumna treści = `body`)
+type CommentRow = {
+  id: string;
+  author_id: string | null;
+  author_name: string | null;
+  body: string;
+  created_at: string;
+};
+
 const CommentsSection: React.FC<CommentsSectionProps> = ({
   articleId,
   isLoggedIn,
   userId,
   userName,
 }) => {
-  const [comments, setComments] = React.useState<
-    { id: string; author_name: string | null; body: string; created_at: string }[]
-  >([]);
+  const [comments, setComments] = React.useState<CommentRow[]>([]);
   const [body, setBody] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+
+  // do autoryzacji usuwania
+  const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
+  const [profileRole, setProfileRole] = React.useState<string | null>(null);
+
+  // Ustal aktualnego usera i jego rolę (Admin/Editor mają prawo kasować wszystko)
+  React.useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      const uid = data.user?.id ?? null;
+      setCurrentUserId(uid);
+
+      if (uid) {
+        const { data: prow } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", uid)
+          .single();
+        setProfileRole((prow?.role as string) ?? null);
+      } else {
+        setProfileRole(null);
+      }
+    })();
+  }, []);
 
   async function load() {
     const { data, error } = await supabase
       .from("article_comments")
-      .select("id, author_name, body, created_at")
+      .select("id, author_id, author_name, body, created_at")
       .eq("article_id", articleId)
       .order("created_at", { ascending: true });
-    if (!error && data) setComments(data as any);
+    if (!error && data) setComments(data as CommentRow[]);
   }
 
   React.useEffect(() => {
@@ -335,7 +364,7 @@ const CommentsSection: React.FC<CommentsSectionProps> = ({
       article_id: articleId,
       author_id: userId,
       author_name: userName,
-      body: text,
+      body: text,                // <-- kolumna treści
     });
     setLoading(false);
     if (error) {
@@ -350,53 +379,53 @@ const CommentsSection: React.FC<CommentsSectionProps> = ({
     <div className="mt-8 border-t pt-4">
       <h3 className="text-lg font-semibold mb-3">Komentarze</h3>
 
-{/* LISTA KOMENTARZY */}
-<div className="mt-3 space-y-3">
-  {comments.map((c) => {
-    const canDelete =
-      (profileRole === 'Admin' || profileRole === 'Editor') ||
-      (c.author_id === currentUserId);
+      {/* LISTA KOMENTARZY */}
+      <div className="mt-3 space-y-3">
+        {comments.map((c) => {
+          const canDelete =
+            profileRole === "Admin" ||
+            profileRole === "Editor" ||
+            (!!c.author_id && c.author_id === currentUserId);
 
-    return (
-      <div
-        key={c.id}
-        className="rounded-xl border bg-white px-4 py-3 shadow-sm relative"
-      >
-        <div className="text-xs text-gray-500 mb-1">
-          <span className="font-medium">{c.author_name || 'Użytkownik'}</span>
-          {" • "}{new Date(c.created_at).toLocaleString('pl-PL')}
-        </div>
+          return (
+            <div
+              key={c.id}
+              className="rounded-xl border bg-white px-4 py-3 shadow-sm relative"
+            >
+              <div className="text-xs text-gray-500 mb-1">
+                <span className="font-medium">{c.author_name || "Użytkownik"}</span>
+                {" • "}{new Date(c.created_at).toLocaleString("pl-PL")}
+              </div>
 
-        <div className="whitespace-pre-wrap">{c.content}</div>
+              <div className="whitespace-pre-wrap">{c.body}</div>
 
-        {canDelete && (
-          <button
-            className="absolute top-2 right-2 text-xs px-2 py-1 rounded-md border hover:bg-red-50 text-red-700"
-            title="Usuń komentarz"
-            onClick={async () => {
-              if (!confirm('Usunąć ten komentarz?')) return;
-              const { error } = await supabase
-                .from('article_comments')
-                .delete()
-                .eq('id', c.id);
-              if (error) {
-                alert('Błąd usuwania: ' + error.message);
-                return;
-              }
-              // odśwież lokalną listę po udanym DELETE
-              setComments((prev) => prev.filter((x) => x.id !== c.id));
-            }}
-          >
-            Usuń
-          </button>
+              {canDelete && (
+                <button
+                  className="absolute top-2 right-2 text-xs px-2 py-1 rounded-md border hover:bg-red-50 text-red-700"
+                  title="Usuń komentarz"
+                  onClick={async () => {
+                    if (!confirm("Usunąć ten komentarz?")) return;
+                    const { error } = await supabase
+                      .from("article_comments")
+                      .delete()
+                      .eq("id", c.id);
+                    if (error) {
+                      alert("Błąd usuwania: " + error.message);
+                      return;
+                    }
+                    setComments((prev) => prev.filter((x) => x.id !== c.id));
+                  }}
+                >
+                  Usuń
+                </button>
+              )}
+            </div>
+          );
+        })}
+        {comments.length === 0 && (
+          <div className="text-sm text-gray-600">Brak komentarzy.</div>
         )}
       </div>
-    );
-  })}
-  {comments.length === 0 && (
-    <div className="text-sm text-gray-600">Brak komentarzy.</div>
-  )}
-</div>
 
       {/* Formularz dodawania – tylko gdy zalogowany */}
       {isLoggedIn ? (
