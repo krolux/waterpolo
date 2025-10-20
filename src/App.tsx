@@ -1071,19 +1071,28 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
 };
 
 const AdminAvailableReferees: React.FC<{ matchId: string }> = ({ matchId }) => {
-  const [list, setList] = React.useState<Array<string | { name: string }>>([]);
+  // Trzymamy wyniki jako tablicę dowolnych rekordów i dopiero przy renderze wyciągamy nazwę
+  const [list, setList] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const rows = await listAvailableReferees(matchId);
-        const array = Array.isArray(rows) ? rows : [];
-        const normalized = array.reduce<Array<string | { name: string }>>((acc, r) => {
-          if (typeof r === "string" && r.trim()) acc.push(r.trim());
-          else if (r && typeof r === "object" && typeof r.name === "string" && r.name.trim()) acc.push({ name: r.name.trim() });
-          return acc;
-        }, []);
+        const arr: any[] = Array.isArray(rows) ? rows : [];
+
+        // Akceptujemy: string | { name: string } | { display_name: string } | cokolwiek z polem 'name'
+        const normalized = arr
+          .map((r) => {
+            if (typeof r === "string") return r;
+            if (r && typeof r === "object") {
+              if (typeof r.name === "string") return r.name;
+              if (typeof r.display_name === "string") return r.display_name;
+            }
+            return "";
+          })
+          .filter((s) => typeof s === "string" && s);
+
         if (!cancelled) setList(normalized);
       } catch (e: any) {
         console.warn("listAvailableReferees error:", e?.message || e);
@@ -1096,13 +1105,7 @@ const AdminAvailableReferees: React.FC<{ matchId: string }> = ({ matchId }) => {
   }, [matchId]);
 
   if (!list.length) return <span className="text-gray-500">–</span>;
-
-  const names = list
-    .map(x => (typeof x === "string" ? x : x.name))
-    .filter(Boolean)
-    .join(", ");
-
-  return <span className="text-xs">{names}</span>;
+  return <span className="text-xs">{list.join(", ")}</span>;
 };
 
 const PerMatchActions: React.FC<{
@@ -1601,12 +1604,23 @@ React.useEffect(() => {
       let safe = new Set<string>();
 
       if (result instanceof Set) {
-        safe = result as Set<string>;
+        // zakładamy Set<string>
+        safe = new Set<string>(Array.from(result as Set<any>).map(String).filter(Boolean));
       } else if (Array.isArray(result)) {
+        // akceptujemy: string[] | {name:string}[] | {display_name:string}[]
         const arr = (result as any[])
-          .map(r => (typeof r === "string" ? r : r?.name ?? ""))
+          .map((r) => {
+            if (typeof r === "string") return r;
+            if (r && typeof r === "object") {
+              if (typeof r.name === "string") return r.name;
+              if (typeof r.display_name === "string") return r.display_name;
+            }
+            return "";
+          })
           .filter(Boolean);
         safe = new Set<string>(arr);
+      } else {
+        safe = new Set();
       }
 
       if (!cancelled) setAvailNames(safe);
