@@ -1580,7 +1580,9 @@ React.useEffect(() => {
   (async () => {
     try {
       if (draft?.id) {
-        const set = await namesOfAvailableReferees(draft.id); // Set<string>
+        const result = await namesOfAvailableReferees(draft.id);
+const safeSet = new Set<string>(Array.isArray(result) ? result.map((r:any) => r.name ?? r) : []);
+if (!cancelled) setAvailNames(safeSet);
         if (!cancelled) setAvailNames(set);
       } else {
         setAvailNames(new Set());
