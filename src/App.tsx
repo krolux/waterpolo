@@ -39,7 +39,7 @@ async function removeWholeSlot(
   clubOrNeutral: string,
   _path?: string // 4. argument opcjonalny – wywołania mogą go podawać; ignorujemy
 ) {
-  // 1) pobierz ścieżki plików z  metadanych
+  // 1) pobierz ścieżki plików z metadanych
   const { data: rows, error: qerr } = await supabase
     .from("docs_meta")
     .select("path")
