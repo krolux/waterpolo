@@ -2381,13 +2381,13 @@ const delegateCandidateNames = Array.from(new Set([
   alt="WPOLO.PL"
   className="
     shrink-0
-    w-10 h-10          /* baza: telefony */
-    sm:w-12 sm:h-12    /* małe ekrany */
-    md:w-14 md:h-14    /* desktop */
-    rounded-2xl        /* miękko zaokrąglone (koło, bo kwadrat) */
-    bg-white shadow    /* jak dotychczasowy „kafelek” */
-    object-contain     /* nie rozciąga logo, zachowuje proporcje */
-    p-1                /* delikatny margines w obramowaniu */
+    h-16 w-16              /* większe: 64x64 na mobile */
+    sm:h-20 sm:w-20        /* 80x80 na większych ekranach */
+    md:h-24 md:w-24        /* 96x96 na desktopie */
+    object-contain         /* zachowuje proporcje */
+    rounded-none           /* brak zaokrągleń */
+    bg-transparent         /* całkowicie przezroczyste tło */
+    shadow-none            /* usuwa cień */
   "
 />
     <div>
