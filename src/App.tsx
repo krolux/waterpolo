@@ -1814,9 +1814,12 @@ const RankingTable: React.FC<{ matches: Match[]; clubs: string[] }> = ({ matches
       const away = ensure(m.away);
       if (!home || !away) continue;
 
-      const [aStr, bStr] = String(m.result).split(":");
-      const a = Number(aStr), b = Number(bStr);
-      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+// akceptuj 10:9, 10-9, 10–9, 10—9 (z ewentualnymi spacjami)
+const score = String(m.result);
+const mScore = score.match(/^\s*(\d+)\s*[:\-–—]\s*(\d+)\s*$/);
+if (!mScore) continue;
+const a = Number(mScore[1]);
+const b = Number(mScore[2]);
 
       const H = stats[home];
       const A = stats[away];
