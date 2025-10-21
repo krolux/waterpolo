@@ -2376,9 +2376,20 @@ const delegateCandidateNames = Array.from(new Set([
   <div className="pointer-events-none absolute -bottom-32 left-1/4 w-[560px] h-[560px] rounded-full bg-[#001f54]/30 blur-3xl" />
  <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between rounded-2xl p-3 sm:p-4 border border-white/40 bg-white/50 backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
   <div className="flex items-center gap-3">
-    <div className="w-10 h-10 rounded-2xl bg-white shadow flex items-center justify-center">
-      <Users className="w-5 h-5" />
-    </div>
+<img
+  src="/logo.png"
+  alt="WPOLO.PL"
+  className="
+    shrink-0
+    w-10 h-10          /* baza: telefony */
+    sm:w-12 sm:h-12    /* małe ekrany */
+    md:w-14 md:h-14    /* desktop */
+    rounded-2xl        /* miękko zaokrąglone (koło, bo kwadrat) */
+    bg-white shadow    /* jak dotychczasowy „kafelek” */
+    object-contain     /* nie rozciąga logo, zachowuje proporcje */
+    p-1                /* delikatny margines w obramowaniu */
+  "
+/>
     <div>
       <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">
         WPOLO.PL - Piłka wodna w Polsce
