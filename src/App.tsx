@@ -349,7 +349,8 @@ const MatchesTable: React.FC<{
     onQuickEdit,
 }) => {
 const [q, setQ] = useState("");
-
+const [sortKey, setSortKey] = useState<"date" | "round">("date"); // domyślnie po dacie
+const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");     // domyślnie rosnąco
 
   // Kolory kart i paskowanie w zależności od wariantu
   const cardBg =
@@ -365,20 +366,36 @@ const [q, setQ] = useState("");
 const sorted = useMemo(() => {
   const arr = [...state.matches];
 
+  const parseRound = (r?: string) => {
+    const n = parseInt(String(r ?? "").trim(), 10);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   arr.sort((a, b) => {
-    // 1) po dacie (rosnąco: najbliższe najpierw)
+    if (sortKey === "date") {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      if (da !== db) return sortDir === "asc" ? da - db : db - da;
+
+      // tie-breaker: nr meczu rosnąco
+      const ra = parseRound(a.round);
+      const rb = parseRound(b.round);
+      return ra - rb;
+    }
+
+    // sortKey === "round"
+    const ra = parseRound(a.round);
+    const rb = parseRound(b.round);
+    if (ra !== rb) return sortDir === "asc" ? ra - rb : rb - ra;
+
+    // tie-breaker: data rosnąco
     const da = new Date(a.date).getTime();
     const db = new Date(b.date).getTime();
-    if (da !== db) return da - db;
-
-    // 2) przy tej samej dacie — po numerze/„round” (rosnąco)
-    const ra = parseInt(String(a.round ?? "").trim(), 10) || 0;
-    const rb = parseInt(String(b.round ?? "").trim(), 10) || 0;
-    return ra - rb;
+    return da - db;
   });
 
   return arr;
-}, [state.matches]);
+}, [state.matches, sortKey, sortDir]);
 
   const filtered = useMemo(
     () =>
