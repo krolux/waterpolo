@@ -349,8 +349,7 @@ const MatchesTable: React.FC<{
     onQuickEdit,
 }) => {
 const [q, setQ] = useState("");
-const [sortKey, setSortKey] = useState<"date" | "round">("round");
-const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
 
   // Kolory kart i paskowanie w zależności od wariantu
   const cardBg =
@@ -367,29 +366,19 @@ const sorted = useMemo(() => {
   const arr = [...state.matches];
 
   arr.sort((a, b) => {
-    if (sortKey === "date") {
-      const A = (a.date || "");
-      const B = (b.date || "");
-      const cmp = A.localeCompare(B);
-      return sortDir === "asc" ? cmp : -cmp;
-    }
+    // 1) po dacie (rosnąco: najbliższe najpierw)
+    const da = new Date(a.date).getTime();
+    const db = new Date(b.date).getTime();
+    if (da !== db) return da - db;
 
-    const An = Number((a.round || "").toString().trim());
-    const Bn = Number((b.round || "").toString().trim());
-    const aIsNum = Number.isFinite(An);
-    const bIsNum = Number.isFinite(Bn);
-
-    let cmp = 0;
-    if (aIsNum && bIsNum) cmp = An - Bn;
-    else if (aIsNum && !bIsNum) cmp = -1;
-    else if (!aIsNum && bIsNum) cmp = 1;
-    else cmp = (a.round || "").localeCompare(b.round || "");
-
-    return sortDir === "asc" ? cmp : -cmp;
+    // 2) przy tej samej dacie — po numerze/„round” (rosnąco)
+    const ra = parseInt(String(a.round ?? "").trim(), 10) || 0;
+    const rb = parseInt(String(b.round ?? "").trim(), 10) || 0;
+    return ra - rb;
   });
 
   return arr;
-}, [state.matches, sortKey, sortDir]);
+}, [state.matches]);
 
   const filtered = useMemo(
     () =>
@@ -402,6 +391,11 @@ const sorted = useMemo(() => {
     [sorted, q]
   );
 
+const formatDate = (iso: string) =>
+  new Date(iso)
+    .toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "2-digit" })
+    .replace(/\./g, "-");
+  
 const isGuest = !user || hasRole(user, 'Guest');
 const canDownload = !!user && !isGuest;
 const isUserReferee = !!user && user.role === "Referee";
@@ -483,7 +477,7 @@ function renderResult(m: Match) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs text-gray-500 truncate">
-              {m.date}{m.time ? ` ${m.time}` : ""} • {m.location}
+              {formatDate(m.date)}{m.time ? ` ${m.time}` : ""} • {m.location}
             </div>
             <div className="font-medium break-words">{m.home} vs {m.away}</div>
 <div className="text-xs text-gray-600 break-words">
@@ -797,7 +791,9 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
   const streamHref = sanitizeUrl(m.streamUrl);
   return (
     <tr key={m.id} className={clsx("border-b hover:bg-sky-50 transition-colors align-top", rowStriping)}>
-          <td className="px-2 py-1 whitespace-nowrap text-center">{m.date}{m.time ? ` ${m.time}` : ""}</td>
+        <td className="px-2 py-1 whitespace-nowrap text-center">
+  {formatDate(m.date)}{m.time ? ` ${m.time}` : ""}
+</td>
           <td className="px-2 py-1 whitespace-nowrap text-center">{m.round ?? "-"}</td>
           <td className="px-2 py-1 break-words">{m.location}</td>
           <td className="px-2 py-1 break-words">{m.home}</td>
