@@ -141,6 +141,7 @@ type Match = {
   date: string;
   time?: string;
   round?: string;
+    seriesRound?: string | null;
   location: string;
   home: string;
   away: string;
@@ -349,7 +350,7 @@ const MatchesTable: React.FC<{
     onQuickEdit,
 }) => {
 const [q, setQ] = useState("");
-const [sortKey, setSortKey] = useState<"date" | "round">("date"); // domyślnie po dacie
+const [sortKey, setSortKey] = useState<"date" | "seriesRound">("date");
 const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");     // domyślnie rosnąco
 
   // Kolory kart i paskowanie w zależności od wariantu
@@ -371,28 +372,46 @@ const sorted = useMemo(() => {
     return Number.isFinite(n) ? n : 0;
   };
 
-  arr.sort((a, b) => {
-    if (sortKey === "date") {
-      const da = new Date(a.date).getTime();
-      const db = new Date(b.date).getTime();
-      if (da !== db) return sortDir === "asc" ? da - db : db - da;
+arr.sort((a, b) => {
+  const as = (a.seriesRound ?? "").toString().trim();
+  const bs = (b.seriesRound ?? "").toString().trim();
 
-      // tie-breaker: nr meczu rosnąco
-      const ra = parseRound(a.round);
-      const rb = parseRound(b.round);
-      return ra - rb;
+  const parseNum = (v: string) => {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  if (sortKey === "seriesRound") {
+    const na = parseNum(as);
+    const nb = parseNum(bs);
+
+    if (na !== null && nb !== null && na !== nb) {
+      return sortDir === "asc" ? na - nb : nb - na;
     }
+    if (as !== bs) {
+      return sortDir === "asc" ? as.localeCompare(bs, "pl") : bs.localeCompare(as, "pl");
+    }
+    // tie-breaker: po numerze meczu (round = nr meczu) rosnąco
+    const ma = parseNum(String(a.round ?? ""));
+    const mb = parseNum(String(b.round ?? ""));
+    if (ma !== null && mb !== null && ma !== mb) return ma - mb;
 
-    // sortKey === "round"
-    const ra = parseRound(a.round);
-    const rb = parseRound(b.round);
-    if (ra !== rb) return sortDir === "asc" ? ra - rb : rb - ra;
-
-    // tie-breaker: data rosnąco
+    // ostatecznie po dacie
     const da = new Date(a.date).getTime();
     const db = new Date(b.date).getTime();
     return da - db;
-  });
+  }
+
+  // sort wg daty
+  const da = new Date(a.date).getTime();
+  const db = new Date(b.date).getTime();
+  if (da !== db) return sortDir === "asc" ? da - db : db - da;
+
+  // tie-breaker: po numerze meczu rosnąco
+  const ma = parseNum(String(a.round ?? ""));
+  const mb = parseNum(String(b.round ?? ""));
+  return (ma ?? 0) - (mb ?? 0);
+});
 
   return arr;
 }, [state.matches, sortKey, sortDir]);
@@ -413,7 +432,7 @@ const groupedByRound = useMemo(() => {
   const groups: Record<string, Match[]> = {};
 
   for (const m of filtered) {
-    const key = (m.round ?? "").toString().trim() || "—";
+const key = (m.seriesRound ?? "").toString().trim() || "—";
     if (!groups[key]) groups[key] = [];
     groups[key].push(m);
   }
@@ -471,17 +490,16 @@ function renderResult(m: Match) {
           />
         </div>
 
-        <select
-          value={sortKey}
-          onChange={(e) => setSortKey(e.target.value as "date" | "round")}
-          className={classes.input}
-          style={{ maxWidth: 170 }}
-          title="Sortuj wg…"
-        >
-          <option value="date">Sortuj wg daty</option>
-          <option value="round">Sortuj wg rundy</option>
-
-        </select>
+<select
+  value={sortKey}
+  onChange={(e) => setSortKey(e.target.value as "date" | "seriesRound")}
+  className={classes.input}
+  style={{ maxWidth: 170 }}
+  title="Sortuj wg…"
+>
+  <option value="date">Sortuj wg daty</option>
+  <option value="seriesRound">Sortuj wg rundy</option>
+</select>
 
         <button
           onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
@@ -791,7 +809,7 @@ function renderResult(m: Match) {
     <thead className="bg-white">
       <tr className="text-left border-b">
         <th className="px-2 py-1 whitespace-nowrap w-[90px] text-center">Data</th>
-<th className="px-2 py-1 whitespace-nowrap w-[64px] text-center">Runda</th>
+<th className="px-2 py-1 whitespace-nowrap w-[80px] text-center">Nr meczu</th>
 
         <th className="px-2 py-1 break-words w-[120px]">Miejsce</th>
         <th className="px-2 py-1 break-words w-[150px]">Gospodarz</th>
@@ -1622,6 +1640,7 @@ const blank: Match = {
   date: new Date().toISOString().slice(0,10),
   time: "",
   round: "",
+  seriesRound: null,
   location: "",
   home: "",
   away: "",
@@ -1703,6 +1722,7 @@ function toDbRow(m: Match){
     date: m.date,
     time: m.time || null,
     round: m.round || null,
+        series_round: m.seriesRound || null,
     location: m.location,
     home: m.home,
     away: m.away,
@@ -1738,7 +1758,26 @@ function toDbRow(m: Match){
     <div className="grid md:grid-cols-2 gap-6">
       <div><div className="font-medium mb-2">Dodaj / edytuj mecz</div><div className="grid gap-2">
         <div className="grid grid-cols-2 gap-2"><input className={classes.input} type="date" value={draft.date} onChange={e=>setDraft({...draft, date:e.target.value})}/><input className={classes.input} placeholder="Godzina (opcjonalnie)" value={draft.time||""} onChange={e=>setDraft({...draft, time:e.target.value})}/></div>
-        <div className="grid grid-cols-2 gap-2"><input className={classes.input} placeholder="Nr meczu" value={draft.round||""} onChange={e=>setDraft({...draft, round:e.target.value})}/><input className={classes.input} placeholder="Miejsce" value={draft.location} onChange={e=>setDraft({...draft, location:e.target.value})}/></div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+  <input
+    className={classes.input}
+    placeholder="Nr meczu"
+    value={draft.round || ""}
+    onChange={e => setDraft({ ...draft, round: e.target.value })}
+  />
+  <input
+    className={classes.input}
+    placeholder="Runda"
+    value={draft.seriesRound || ""}
+    onChange={e => setDraft({ ...draft, seriesRound: e.target.value })}
+  />
+  <input
+    className={classes.input}
+    placeholder="Miejsce"
+    value={draft.location}
+    onChange={e => setDraft({ ...draft, location: e.target.value })}
+  />
+</div>
         <div className="grid grid-cols-2 gap-2">
           <select className={classes.input} value={draft.home} onChange={e=>setDraft({...draft, home:e.target.value})}><option value="">Wybierz gospodarza</option>{clubs.map(c=><option key={c} value={c}>{c}</option>)}</select>
           <select className={classes.input} value={draft.away} onChange={e=>setDraft({...draft, away:e.target.value})}><option value="">Wybierz gości</option>{clubs.map(c=><option key={c} value={c}>{c}</option>)}</select>
@@ -2246,6 +2285,7 @@ const matches: Match[] = rows.map((r: any) => ({
   date: r.date,
   time: r.time || "",
   round: r.round || "",
+    seriesRound: r.series_round || null,
   location: r.location,
   home: r.home,
   away: r.away,
