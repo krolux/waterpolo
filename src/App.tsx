@@ -432,10 +432,7 @@ const groupedByRound = useMemo(() => {
   return { groups, sortedRounds };
 }, [filtered]);
 
-// --- [ILE KOLUMN MA NAGŁÓWEK RUNDY W TABELI DESKTOP] ---
-let desktopColSpan = 11; // Data, Runda, Miejsce, Gospodarz, Goście, Wynik, Sędziowie, Delegat, Kary(H), Kary(A), Dokumenty
-if (variant === "upcoming" && isUserReferee) desktopColSpan += 1; // kolumna „Dostępność”
-if (isUserAdmin) desktopColSpan += 1; // kolumna „Sędziowie dostępni”
+
 
 const formatDate = (iso: string) =>
   new Date(iso)
@@ -822,12 +819,16 @@ function renderResult(m: Match) {
       <React.Fragment key={runda}>
         {/* NAGŁÓWEK RUNDY */}
         <tr>
-          <td
-            colSpan={desktopColSpan}
-            className="bg-amber-50 border-y-2 border-amber-400 text-center font-semibold text-amber-800 py-2"
-          >
-            Runda {runda}
-          </td>
+<td
+  colSpan={
+    11 +
+    (variant === "upcoming" && isUserReferee ? 1 : 0) +
+    (isUserAdmin ? 1 : 0)
+  }
+  className="bg-amber-50 border-y-2 border-amber-400 text-center font-semibold text-amber-800 py-2"
+>
+  Runda {runda}
+</td>
         </tr>
 
         {/* MECZE DANEJ RUNDY */}
