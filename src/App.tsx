@@ -423,6 +423,35 @@ function renderResult(m: Match) {
   if (!r) return "-";
   if (!m.shootout) return r;
 
+  // --- [GRUPOWANIE WG RUNDY] ---
+const groupedByRound = useMemo(() => {
+  const groups: Record<string, Match[]> = {};
+
+  for (const m of filtered) {
+    const key = (m.round ?? "").toString().trim() || "—";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(m);
+  }
+
+  // Rundy numericzne najpierw rosnąco, nienumeryczne po nazwie
+  const sortedRounds = Object.keys(groups).sort((a, b) => {
+    const na = parseInt(a, 10);
+    const nb = parseInt(b, 10);
+    const aNum = Number.isFinite(na);
+    const bNum = Number.isFinite(nb);
+    if (aNum && bNum) return na - nb;
+    if (aNum !== bNum) return aNum ? -1 : 1;
+    return a.localeCompare(b, "pl");
+  });
+
+  return { groups, sortedRounds };
+}, [filtered]);
+
+// --- [ILE KOLUMN MA NAGŁÓWEK RUNDY W TABELI DESKTOP] ---
+let desktopColSpan = 11; // Data, Runda, Miejsce, Gospodarz, Goście, Wynik, Sędziowie, Delegat, Kary(H), Kary(A), Dokumenty
+if (variant === "upcoming" && isUserReferee) desktopColSpan += 1; // kolumna „Dostępność”
+if (isUserAdmin) desktopColSpan += 1; // kolumna „Sędziowie dostępni”
+
   const [aStr, bStr] = r.split(":");
   const a = parseInt(aStr, 10);
   const b = parseInt(bStr, 10);
