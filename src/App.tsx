@@ -408,21 +408,6 @@ const sorted = useMemo(() => {
     [sorted, q]
   );
 
-const formatDate = (iso: string) =>
-  new Date(iso)
-    .toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "2-digit" })
-    .replace(/\./g, "-");
-  
-const isGuest = !user || hasRole(user, 'Guest');
-const canDownload = !!user && !isGuest;
-const isUserReferee = !!user && user.role === "Referee";
-const isUserAdmin = !!user && isAdmin(user);
-
-function renderResult(m: Match) {
-  const r = (m.result || "").trim();
-  if (!r) return "-";
-  if (!m.shootout) return r;
-
   // --- [GRUPOWANIE WG RUNDY] ---
 const groupedByRound = useMemo(() => {
   const groups: Record<string, Match[]> = {};
@@ -451,6 +436,21 @@ const groupedByRound = useMemo(() => {
 let desktopColSpan = 11; // Data, Runda, Miejsce, Gospodarz, Goście, Wynik, Sędziowie, Delegat, Kary(H), Kary(A), Dokumenty
 if (variant === "upcoming" && isUserReferee) desktopColSpan += 1; // kolumna „Dostępność”
 if (isUserAdmin) desktopColSpan += 1; // kolumna „Sędziowie dostępni”
+
+const formatDate = (iso: string) =>
+  new Date(iso)
+    .toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "2-digit" })
+    .replace(/\./g, "-");
+  
+const isGuest = !user || hasRole(user, 'Guest');
+const canDownload = !!user && !isGuest;
+const isUserReferee = !!user && user.role === "Referee";
+const isUserAdmin = !!user && isAdmin(user);
+
+function renderResult(m: Match) {
+  const r = (m.result || "").trim();
+  if (!r) return "-";
+  if (!m.shootout) return r;
 
   const [aStr, bStr] = r.split(":");
   const a = parseInt(aStr, 10);
