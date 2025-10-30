@@ -453,7 +453,8 @@ function renderResult(m: Match) {
           title="Sortuj wg…"
         >
           <option value="date">Sortuj wg daty</option>
-          <option value="round">Sortuj wg nr meczu</option>
+          <option value="round">Sortuj wg rundy</option>
+
         </select>
 
         <button
@@ -483,299 +484,280 @@ function renderResult(m: Match) {
   </div>
 )}
 
-{/* MOBILE: karty */}
-<div className="md:hidden space-y-3">
-  {filtered.map((m) => {
-    const homePens = penaltyMap.get(m.id)?.home || [];
-    const awayPens  = penaltyMap.get(m.id)?.away || [];
-  const streamHref = sanitizeUrl(m.streamUrl);
-    return (
-    <div key={m.id} className={clsx("rounded-xl border p-3 shadow-sm", cardBg)}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-xs text-gray-500 truncate">
-              {formatDate(m.date)}{m.time ? ` ${m.time}` : ""} • {m.location}
-            </div>
-            <div className="font-medium break-words">{m.home} vs {m.away}</div>
-<div className="text-xs text-gray-600 break-words">
-  Sędziowie: {m.referees.filter(Boolean).join(", ") || "–"}
-  {m.delegate ? ` • Delegat: ${m.delegate}` : ""}
-  {user && isAdmin(user) && onQuickEdit && (
-    <button
-      className="ml-2 underline text-blue-700"
-      onClick={() => onQuickEdit(m.id)}
-      title="Szybka edycja w panelu admina"
-    >
-      Edytuj
-    </button>
-  )}
-</div>
-
-          </div>
-          <div className="text-right text-sm font-semibold shrink-0">
-            {renderResult(m)}
-          </div>
-        </div>
-
-        {/* Kary – tylko dla zalogowanych */}
-        <div className="mt-2 grid grid-cols-1 gap-2">
-          <div className="text-xs">
-            <span className="font-semibold">Kary (Gospodarz): </span>
-{isGuest ? (
-  <span className="text-gray-500">–</span>
-) : homePens.length === 0 ? (
-  <span className="text-gray-500">–</span>
-) : (
-  <span className="inline-flex flex-wrap gap-1 align-top">
-    {homePens.map(p => (
-      <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-        {p.name}
-{(user && (isAdmin(user) || isDelegate(user))) && (
-  <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
-)}
-
-      </span>
-    ))}
-  </span>
-)}
-
-          </div>
-
-          <div className="text-xs">
-            <span className="font-semibold">Kary (Goście): </span>
-{isGuest ? (
-              <span className="text-gray-500">–</span>
-            ) : awayPens.length === 0 ? (
-              <span className="text-gray-500">–</span>
-            ) : (
-              <span className="inline-flex flex-wrap gap-1 align-top">
-                {awayPens.map(p => (
-                  <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-                    {p.name}
-{(user && (isAdmin(user) || m.delegate === user.name)) &&  (
-  <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
-)}
-
-
-
-                  </span>
-                ))}
-              </span>
-            )}
-          </div>
-{isUserReferee && variant === "upcoming" && (
-  <div className="text-xs">
-    <span className="font-semibold mr-1">Dostępność:</span>
-    <span className="inline-flex items-center gap-2">
-      {/* DOSTĘPNY */}
-<button
-  className={clsx(
-    "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
-    m.myAvailabilitySet
-      ? (m.myAvailable
-          ? "bg-green-50 border-green-300 text-green-700"
-          : "bg-gray-100 border-gray-300 text-gray-500")
-      : "bg-green-50 border-green-300 text-green-700"
-  )}
-  onClick={async () => {
-    try {
-      await setMyAvailability(m.id, true);
-      setState(s => ({
-        ...s,
-        matches: s.matches.map(x =>
-          x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x
-        )
-      }));
-    } catch (e:any) {
-      alert("Błąd zapisu dostępności: " + e.message);
-    }
-  }}
->
-  <span className="inline-flex items-center gap-1">
-    <Check
-      className={clsx(
-        "w-4 h-4",
-        m.myAvailabilitySet
-          ? (m.myAvailable ? "text-green-700" : "text-gray-400")
-          : "text-green-700"
-      )}
-    />
-    Dostępny
-  </span>
-</button>
-
-      {/* NIEDOSTĘPNY */}
-<button
-  className={clsx(
-    "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
-    m.myAvailabilitySet
-      ? (!m.myAvailable
-          ? "bg-red-50 border-red-300 text-red-700"
-          : "bg-gray-100 border-gray-300 text-gray-500")
-      : "bg-red-50 border-red-300 text-red-700"
-  )}
-  onClick={async () => {
-    try {
-      await setMyAvailability(m.id, false);
-      setState(s => ({
-        ...s,
-        matches: s.matches.map(x =>
-          x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x
-        )
-      }));
-    } catch (e:any) {
-      alert("Błąd zapisu dostępności: " + e.message);
-    }
-  }}
->
-  <span className="inline-flex items-center gap-1">
-    <X
-      className={clsx(
-        "w-4 h-4",
-        m.myAvailabilitySet
-          ? (!m.myAvailable ? "text-red-700" : "text-gray-400")
-          : "text-red-700"
-      )}
-    />
-    Niedostępny
-  </span>
-</button>
-
-
-    </span>
-  </div>
-)}
-        </div>
-
-        {/* Dokumenty */}
-<div className="mt-2 flex flex-wrap gap-2">
-{m.commsByClub.home && (
-  <DocBadge
-    file={m.commsByClub.home}
-    label="Komunikat"
-    disabled={!canDownload}
-    canRemove={!!user && isAdmin(user)}
-    onRemove={async () => {
-      try {
-await removeWholeSlot("comms", m.id, normKey(m.home), m.commsByClub.home!.path);
-
-        setState({
-          ...state,
-          matches: state.matches.map(x =>
-            x.id === m.id
-              ? { ...x, commsByClub: { ...x.commsByClub, home: null } }
-              : x
-          ),
-        });
-      } catch (e: any) {
-        alert("Błąd usuwania: " + e.message);
-      }
-    }}
-  />
-)}
-
-
-
-{m.rosterByClub.home && (
-  <DocBadge
-    file={m.rosterByClub.home}
-    label="Skład (Home)"
-    disabled={!canDownload}
-    canRemove={!!user && isAdmin(user)}
-    onRemove={async () => {
-      try {await removeWholeSlot("roster", m.id, normKey(m.home), m.rosterByClub.home!.path);
-
-        setState({
-          ...state,
-          matches: state.matches.map(x =>
-            x.id === m.id
-              ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } }
-              : x
-          ),
-        });
-      } catch (e: any) {
-        alert("Błąd usuwania: " + e.message);
-      }
-    }}
-  />
-)}
-
-
-{m.rosterByClub.away && (
-  <DocBadge
-    file={m.rosterByClub.away}
-    label="Skład (Away)"
-    disabled={!canDownload}
-    canRemove={!!user && isAdmin(user)}
-    onRemove={async () => {
-      try {
-await removeWholeSlot("roster", m.id, normKey(m.away), m.rosterByClub.away!.path);
-
-        setState({
-          ...state,
-          matches: state.matches.map(x =>
-            x.id === m.id
-              ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } }
-              : x
-          ),
-        });
-      } catch (e: any) {
-        alert("Błąd usuwania: " + e.message);
-      }
-    }}
-  />
-)}
-
-
-{m.matchReport && (
-  <DocBadge
-    file={m.matchReport}
-    label="Protokół"
-    disabled={!canDownload}
-    canRemove={!!user && isAdmin(user)}
-    onRemove={async () => {
-      try {
-await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
-
-        setState({
-          ...state,
-          matches: state.matches.map(x =>
-            x.id === m.id ? { ...x, matchReport: null } : x
-          ),
-        });
-      } catch (e: any) {
-        alert("Błąd usuwania: " + e.message);
-      }
-    }}
-  />
-)}
-
-
-
-  {m.reportPhotos.length > 0 && (
-    <span className={classes.pill}>
-      <Image className="w-3.5 h-3.5" />
-      Zdjęcia: {m.reportPhotos.length}
-    </span>
-  )}
-
-{streamHref && (
-  <a
-    href={streamHref}
-    target="_blank"
-    rel="noopener noreferrer"
-    className={clsx(classes.pill, "hover:shadow")}
-    title="Otwórz transmisję w nowej karcie"
-  >
-    ▶︎ Transmisja
-  </a>
-)}
-</div>
-
+{/* MOBILE: grupy wg Rundy (karty) */}
+<div className="md:hidden space-y-4">
+  {groupedByRound.sortedRounds.map((runda) => (
+    <div key={runda} className="rounded-xl border-2 border-amber-400 overflow-hidden bg-white">
+      <div className="bg-amber-50 text-amber-800 font-semibold text-center py-1">
+        Runda {runda}
       </div>
-    );
-  })}
+
+      <div className="p-3 space-y-3">
+        {groupedByRound.groups[runda].map((m) => {
+          const homePens = penaltyMap.get(m.id)?.home || [];
+          const awayPens = penaltyMap.get(m.id)?.away || [];
+          const streamHref = sanitizeUrl(m.streamUrl);
+
+          return (
+            <div key={m.id} className={clsx("rounded-xl border p-3 shadow-sm", cardBg)}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs text-gray-500 truncate">
+                    {formatDate(m.date)}{m.time ? ` ${m.time}` : ""} • {m.location}
+                  </div>
+                  <div className="font-medium break-words">{m.home} vs {m.away}</div>
+
+                  <div className="text-xs text-gray-600 break-words">
+                    Sędziowie: {m.referees.filter(Boolean).join(", ") || "–"}
+                    {m.delegate ? ` • Delegat: ${m.delegate}` : ""}
+                    {user && isAdmin(user) && onQuickEdit && (
+                      <button
+                        className="ml-2 underline text-blue-700"
+                        onClick={() => onQuickEdit(m.id)}
+                        title="Szybka edycja w panelu admina"
+                      >
+                        Edytuj
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-right text-sm font-semibold shrink-0">
+                  {renderResult(m)}
+                </div>
+              </div>
+
+              {/* Kary – tylko dla zalogowanych */}
+              <div className="mt-2 grid grid-cols-1 gap-2">
+                <div className="text-xs">
+                  <span className="font-semibold">Kary (Gospodarz): </span>
+                  {isGuest ? (
+                    <span className="text-gray-500">–</span>
+                  ) : homePens.length === 0 ? (
+                    <span className="text-gray-500">–</span>
+                  ) : (
+                    <span className="inline-flex flex-wrap gap-1 align-top">
+                      {homePens.map(p => (
+                        <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
+                          {p.name}
+                          {(user && (isAdmin(user) || isDelegate(user))) && (
+                            <button
+                              onClick={() => onRemovePenalty(p.id)}
+                              className="ml-1 rounded px-1 leading-none hover:bg-red-100"
+                              title="Usuń karę"
+                            >×</button>
+                          )}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-xs">
+                  <span className="font-semibold">Kary (Goście): </span>
+                  {isGuest ? (
+                    <span className="text-gray-500">–</span>
+                  ) : awayPens.length === 0 ? (
+                    <span className="text-gray-500">–</span>
+                  ) : (
+                    <span className="inline-flex flex-wrap gap-1 align-top">
+                      {awayPens.map(p => (
+                        <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
+                          {p.name}
+                          {(user && (isAdmin(user) || m.delegate === user.name)) && (
+                            <button
+                              onClick={() => onRemovePenalty(p.id)}
+                              className="ml-1 rounded px-1 leading-none hover:bg-red-100"
+                              title="Usuń karę"
+                            >×</button>
+                          )}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </div>
+
+                {isUserReferee && variant === "upcoming" && (
+                  <div className="text-xs">
+                    <span className="font-semibold mr-1">Dostępność:</span>
+                    <span className="inline-flex items-center gap-2">
+                      {/* DOSTĘPNY */}
+                      <button
+                        className={clsx(
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
+                          m.myAvailabilitySet
+                            ? (m.myAvailable
+                                ? "bg-green-50 border-green-300 text-green-700"
+                                : "bg-gray-100 border-gray-300 text-gray-500")
+                            : "bg-green-50 border-green-300 text-green-700"
+                        )}
+                        onClick={async () => {
+                          try {
+                            await setMyAvailability(m.id, true);
+                            setState(s => ({
+                              ...s,
+                              matches: s.matches.map(x =>
+                                x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x
+                              )
+                            }));
+                          } catch (e:any) {
+                            alert("Błąd zapisu dostępności: " + e.message);
+                          }
+                        }}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <Check className={clsx("w-4 h-4",
+                            m.myAvailabilitySet ? (m.myAvailable ? "text-green-700" : "text-gray-400") : "text-green-700"
+                          )}/>
+                          Dostępny
+                        </span>
+                      </button>
+
+                      {/* NIEDOSTĘPNY */}
+                      <button
+                        className={clsx(
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
+                          m.myAvailabilitySet
+                            ? (!m.myAvailable
+                                ? "bg-red-50 border-red-300 text-red-700"
+                                : "bg-gray-100 border-gray-300 text-gray-500")
+                            : "bg-red-50 border-red-300 text-red-700"
+                        )}
+                        onClick={async () => {
+                          try {
+                            await setMyAvailability(m.id, false);
+                            setState(s => ({
+                              ...s,
+                              matches: s.matches.map(x =>
+                                x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x
+                              )
+                            }));
+                          } catch (e:any) {
+                            alert("Błąd zapisu dostępności: " + e.message);
+                          }
+                        }}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <X className={clsx("w-4 h-4",
+                            m.myAvailabilitySet ? (!m.myAvailable ? "text-red-700" : "text-gray-400") : "text-red-700"
+                          )}/>
+                          Niedostępny
+                        </span>
+                      </button>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Dokumenty + transmisja */}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {m.commsByClub.home && (
+                  <DocBadge
+                    file={m.commsByClub.home}
+                    label="Komunikat"
+                    disabled={!canDownload}
+                    canRemove={!!user && isAdmin(user)}
+                    onRemove={async () => {
+                      try {
+                        await removeWholeSlot("comms", m.id, normKey(m.home), m.commsByClub.home!.path);
+                        setState({
+                          ...state,
+                          matches: state.matches.map(x =>
+                            x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
+                          ),
+                        });
+                      } catch (e:any) { alert("Błąd usuwania: " + e.message); }
+                    }}
+                  />
+                )}
+
+                {m.rosterByClub.home && (
+                  <DocBadge
+                    file={m.rosterByClub.home}
+                    label="Skład (Home)"
+                    disabled={!canDownload}
+                    canRemove={!!user && isAdmin(user)}
+                    onRemove={async () => {
+                      try {
+                        await removeWholeSlot("roster", m.id, normKey(m.home), m.rosterByClub.home!.path);
+                        setState({
+                          ...state,
+                          matches: state.matches.map(x =>
+                            x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
+                          ),
+                        });
+                      } catch (e:any) { alert("Błąd usuwania: " + e.message); }
+                    }}
+                  />
+                )}
+
+                {m.rosterByClub.away && (
+                  <DocBadge
+                    file={m.rosterByClub.away}
+                    label="Skład (Away)"
+                    disabled={!canDownload}
+                    canRemove={!!user && isAdmin(user)}
+                    onRemove={async () => {
+                      try {
+                        await removeWholeSlot("roster", m.id, normKey(m.away), m.rosterByClub.away!.path);
+                        setState({
+                          ...state,
+                          matches: state.matches.map(x =>
+                            x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
+                          ),
+                        });
+                      } catch (e:any) { alert("Błąd usuwania: " + e.message); }
+                    }}
+                  />
+                )}
+
+                {m.matchReport && (
+                  <DocBadge
+                    file={m.matchReport}
+                    label="Protokół"
+                    disabled={!canDownload}
+                    canRemove={!!user && isAdmin(user)}
+                    onRemove={async () => {
+                      try {
+                        await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
+                        setState({
+                          ...state,
+                          matches: state.matches.map(x =>
+                            x.id === m.id ? { ...x, matchReport: null } : x
+                          ),
+                        });
+                      } catch (e:any) { alert("Błąd usuwania: " + e.message); }
+                    }}
+                  />
+                )}
+
+                {m.reportPhotos.length > 0 && (
+                  <span className={classes.pill}>
+                    <Image className="w-3.5 h-3.5" />
+                    Zdjęcia: {m.reportPhotos.length}
+                  </span>
+                )}
+
+                {streamHref && (
+                  <a
+                    href={streamHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={clsx(classes.pill, "hover:shadow")}
+                    title="Otwórz transmisję w nowej karcie"
+                  >
+                    ▶︎ Transmisja
+                  </a>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ))}
 </div>
+
 
 {/* DESKTOP: tabela bez scrolla, węższe kolumny + zawijanie */}
 <div className="hidden md:block">
@@ -783,7 +765,8 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
     <thead className="bg-white">
       <tr className="text-left border-b">
         <th className="px-2 py-1 whitespace-nowrap w-[90px] text-center">Data</th>
-        <th className="px-2 py-1 whitespace-nowrap w-[64px] text-center">Nr</th>
+<th className="px-2 py-1 whitespace-nowrap w-[64px] text-center">Runda</th>
+
         <th className="px-2 py-1 break-words w-[120px]">Miejsce</th>
         <th className="px-2 py-1 break-words w-[150px]">Gospodarz</th>
         <th className="px-2 py-1 break-words w-[150px]">Goście</th>
@@ -803,280 +786,303 @@ await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
       </tr>
     </thead>
 
-    <tbody>
-{filtered.map((m) => {
-  const streamHref = sanitizeUrl(m.streamUrl);
-  return (
-    <tr key={m.id} className={clsx("border-b hover:bg-sky-50 transition-colors align-top", rowStriping)}>
-        <td className="px-2 py-1 whitespace-nowrap text-center">
-  {formatDate(m.date)}{m.time ? ` ${m.time}` : ""}
-</td>
-          <td className="px-2 py-1 whitespace-nowrap text-center">{m.round ?? "-"}</td>
-          <td className="px-2 py-1 break-words">{m.location}</td>
-          <td className="px-2 py-1 break-words">{m.home}</td>
-          <td className="px-2 py-1 break-words">{m.away}</td>
-          <td className="px-2 py-1 whitespace-nowrap text-center">{renderResult(m)}</td>
-<td className="px-2 py-1 break-words">
-  {m.referees.join(", ")}
-  {user && isAdmin(user) && onQuickEdit && (
-    <button
-      className="ml-2 underline text-blue-700"
-      onClick={() => onQuickEdit(m.id)}
-      title="Szybka edycja w panelu admina"
-    >
-      Edytuj
-    </button>
-  )}
-</td>
-
-          <td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
-
-          {/* Kary – tylko dla zalogowanych */}
-          <td className="px-2 py-1">
-        {isGuest ? (
-              <span className="text-gray-500">–</span>
-            ) : (
-              <div className="flex flex-wrap gap-1">
-                {(penaltyMap.get(m.id)?.home || []).map(p => (
-                  <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-                    {p.name}
-{(user && (isAdmin(user) || isDelegate(user))) && (
-  <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
-)}
-
-                  </span>
-                ))}
-                {((penaltyMap.get(m.id)?.home || []).length === 0) && <span className="text-gray-500">–</span>}
-              </div>
-            )}
+<tbody>
+  {groupedByRound.sortedRounds.map((runda) => {
+    const group = groupedByRound.groups[runda];
+    return (
+      <React.Fragment key={runda}>
+        {/* NAGŁÓWEK RUNDY */}
+        <tr>
+          <td
+            colSpan={desktopColSpan}
+            className="bg-amber-50 border-y-2 border-amber-400 text-center font-semibold text-amber-800 py-2"
+          >
+            Runda {runda}
           </td>
+        </tr>
 
-          <td className="px-2 py-1">
-          {isGuest ? (
-              <span className="text-gray-500">–</span>
-            ) : (
-              <div className="flex flex-wrap gap-1">
-                {(penaltyMap.get(m.id)?.away || []).map(p => (
-                  <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-                    {p.name}
-{(user && (isAdmin(user) || m.delegate === user.name)) &&  (
-  <button onClick={() => onRemovePenalty(p.id)} className="ml-1 rounded px-1 leading-none hover:bg-red-100" title="Usuń karę">×</button>
-)}
+        {/* MECZE DANEJ RUNDY */}
+        {group.map((m, i) => {
+          const isLast = i === group.length - 1;
+          const sideBorders = "border-l-2 border-r-2 border-amber-400";
+          const bottomBorder = isLast ? "border-b-2 border-amber-400" : "";
+          const streamHref = sanitizeUrl(m.streamUrl);
 
-                  </span>
-                ))}
-                {((penaltyMap.get(m.id)?.away || []).length === 0) && <span className="text-gray-500">–</span>}
-              </div>
-            )}
-          </td>
+          return (
+            <tr
+              key={m.id}
+              className={clsx(
+                "hover:bg-sky-50 transition-colors align-top",
+                rowStriping,
+                sideBorders,
+                bottomBorder
+              )}
+            >
+              <td className="px-2 py-1 whitespace-nowrap text-center">
+                {formatDate(m.date)}{m.time ? ` ${m.time}` : ""}
+              </td>
+              <td className="px-2 py-1 whitespace-nowrap text-center">{m.round ?? "-"}</td>
+              <td className="px-2 py-1 break-words">{m.location}</td>
+              <td className="px-2 py-1 break-words">{m.home}</td>
+              <td className="px-2 py-1 break-words">{m.away}</td>
+              <td className="px-2 py-1 whitespace-nowrap text-center">{renderResult(m)}</td>
 
-<td className="px-2 py-1">
-  <div className="flex flex-wrap gap-2">
-    {m.commsByClub.home && (
-      <DocBadge
-        file={m.commsByClub.home}
-        label="Komunikat"
-        disabled={!canDownload}
-        canRemove={!!user && isAdmin(user)}
-        onRemove={async () => {
-          try {
-await removeWholeSlot("comms", m.id, normKey(m.home), m.commsByClub.home!.path);
+              <td className="px-2 py-1 break-words">
+                {m.referees.join(", ")}
+                {user && isAdmin(user) && onQuickEdit && (
+                  <button
+                    className="ml-2 underline text-blue-700"
+                    onClick={() => onQuickEdit(m.id)}
+                    title="Szybka edycja w panelu admina"
+                  >
+                    Edytuj
+                  </button>
+                )}
+              </td>
 
-            setState({
-              ...state,
-              matches: state.matches.map(x =>
-                x.id === m.id
-                  ? { ...x, commsByClub: { ...x.commsByClub, home: null } }
-                  : x
-              ),
-            });
-          } catch (e: any) {
-            alert("Błąd usuwania: " + e.message);
-          }
-        }}
-      />
-    )}
+              <td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
 
-    {m.rosterByClub.home && (
-      <DocBadge
-        file={m.rosterByClub.home}
-        label="Skład (Home)"
-        disabled={!canDownload}
-        canRemove={!!user && isAdmin(user)}
-        onRemove={async () => {
-          try {
-await removeWholeSlot("roster", m.id, normKey(m.home), m.rosterByClub.home!.path);
+              {/* Kary (Gospodarz) */}
+              <td className="px-2 py-1">
+                {isGuest ? (
+                  <span className="text-gray-500">–</span>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {(penaltyMap.get(m.id)?.home || []).map(p => (
+                      <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
+                        {p.name}
+                        {(user && (isAdmin(user) || isDelegate(user))) && (
+                          <button
+                            onClick={() => onRemovePenalty(p.id)}
+                            className="ml-1 rounded px-1 leading-none hover:bg-red-100"
+                            title="Usuń karę"
+                          >×</button>
+                        )}
+                      </span>
+                    ))}
+                    {((penaltyMap.get(m.id)?.home || []).length === 0) && <span className="text-gray-500">–</span>}
+                  </div>
+                )}
+              </td>
 
-            setState({
-              ...state,
-              matches: state.matches.map(x =>
-                x.id === m.id
-                  ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } }
-                  : x
-              ),
-            });
-          } catch (e: any) {
-            alert("Błąd usuwania: " + e.message);
-          }
-        }}
-      />
-    )}
+              {/* Kary (Goście) */}
+              <td className="px-2 py-1">
+                {isGuest ? (
+                  <span className="text-gray-500">–</span>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {(penaltyMap.get(m.id)?.away || []).map(p => (
+                      <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
+                        {p.name}
+                        {(user && (isAdmin(user) || m.delegate === user.name)) && (
+                          <button
+                            onClick={() => onRemovePenalty(p.id)}
+                            className="ml-1 rounded px-1 leading-none hover:bg-red-100"
+                            title="Usuń karę"
+                          >×</button>
+                        )}
+                      </span>
+                    ))}
+                    {((penaltyMap.get(m.id)?.away || []).length === 0) && <span className="text-gray-500">–</span>}
+                  </div>
+                )}
+              </td>
 
-    {m.rosterByClub.away && (
-      <DocBadge
-        file={m.rosterByClub.away}
-        label="Skład (Away)"
-        disabled={!canDownload}
-        canRemove={!!user && isAdmin(user)}
-        onRemove={async () => {
-          try {
-await removeWholeSlot("roster", m.id, normKey(m.away), m.rosterByClub.away!.path);
+              {/* Dokumenty + transmisja */}
+              <td className="px-2 py-1">
+                <div className="flex flex-wrap gap-2">
+                  {m.commsByClub.home && (
+                    <DocBadge
+                      file={m.commsByClub.home}
+                      label="Komunikat"
+                      disabled={!canDownload}
+                      canRemove={!!user && isAdmin(user)}
+                      onRemove={async () => {
+                        try {
+                          await removeWholeSlot("comms", m.id, normKey(m.home), m.commsByClub.home!.path);
+                          setState({
+                            ...state,
+                            matches: state.matches.map(x =>
+                              x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
+                            ),
+                          });
+                        } catch (e:any) { alert("Błąd usuwania: " + e.message); }
+                      }}
+                    />
+                  )}
 
-            setState({
-              ...state,
-              matches: state.matches.map(x =>
-                x.id === m.id
-                  ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } }
-                  : x
-              ),
-            });
-          } catch (e: any) {
-            alert("Błąd usuwania: " + e.message);
-          }
-        }}
-      />
-    )}
+                  {m.rosterByClub.home && (
+                    <DocBadge
+                      file={m.rosterByClub.home}
+                      label="Skład (Home)"
+                      disabled={!canDownload}
+                      canRemove={!!user && isAdmin(user)}
+                      onRemove={async () => {
+                        try {
+                          await removeWholeSlot("roster", m.id, normKey(m.home), m.rosterByClub.home!.path);
+                          setState({
+                            ...state,
+                            matches: state.matches.map(x =>
+                              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
+                            ),
+                          });
+                        } catch (e:any) { alert("Błąd usuwania: " + e.message); }
+                      }}
+                    />
+                  )}
 
-    {m.matchReport && (
-      <DocBadge
-        file={m.matchReport}
-        label="Protokół"
-        disabled={!canDownload}
-        canRemove={!!user && isAdmin(user)}
-        onRemove={async () => {
-          try {
-await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
+                  {m.rosterByClub.away && (
+                    <DocBadge
+                      file={m.rosterByClub.away}
+                      label="Skład (Away)"
+                      disabled={!canDownload}
+                      canRemove={!!user && isAdmin(user)}
+                      onRemove={async () => {
+                        try {
+                          await removeWholeSlot("roster", m.id, normKey(m.away), m.rosterByClub.away!.path);
+                          setState({
+                            ...state,
+                            matches: state.matches.map(x =>
+                              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
+                            ),
+                          });
+                        } catch (e:any) { alert("Błąd usuwania: " + e.message); }
+                      }}
+                    />
+                  )}
 
-            setState({
-              ...state,
-              matches: state.matches.map(x =>
-                x.id === m.id ? { ...x, matchReport: null } : x
-              ),
-            });
-          } catch (e: any) {
-            alert("Błąd usuwania: " + e.message);
-          }
-        }}
-      />
-    )}
+                  {m.matchReport && (
+                    <DocBadge
+                      file={m.matchReport}
+                      label="Protokół"
+                      disabled={!canDownload}
+                      canRemove={!!user && isAdmin(user)}
+                      onRemove={async () => {
+                        try {
+                          await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
+                          setState({
+                            ...state,
+                            matches: state.matches.map(x =>
+                              x.id === m.id ? { ...x, matchReport: null } : x
+                            ),
+                          });
+                        } catch (e:any) { alert("Błąd usuwania: " + e.message); }
+                      }}
+                    />
+                  )}
 
-{m.reportPhotos.length > 0 && (
-  <span className={classes.pill}>
-    <Image className="w-3.5 h-3.5" />
-    Zdjęcia: {m.reportPhotos.length}
-  </span>
-)}
-{streamHref && (
-  <a
-    href={streamHref}
-    target="_blank"
-    rel="noopener noreferrer"
-    className={clsx(classes.pill, "hover:shadow")}
-    title="Otwórz transmisję w nowej karcie"
-  >
-    ▶︎ Transmisja
-  </a>
-)}
-  </div>
-</td>
-{variant === "upcoming" && isUserReferee && (
-  <td className="px-2 py-1">
-    <div className="flex items-center gap-2 justify-center">
-{/* DOSTĘPNY */}
-<button
-  className={clsx(
-    "px-2 py-1 rounded border text-sm min-w-[36px]",
-    m.myAvailabilitySet
-      ? (m.myAvailable
-          ? "bg-green-50 border-green-300 text-green-700"
-          : "bg-gray-100 border-gray-300 text-gray-500")
-      : "bg-green-50 border-green-300 text-green-700"
-  )}
-  title="Jestem dostępny"
-  onClick={async () => {
-    try {
-      await setMyAvailability(m.id, true);
-      setState(s => ({
-        ...s,
-        matches: s.matches.map(x =>
-          x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x
-        )
-      }));
-    } catch (e:any) {
-      alert("Błąd zapisu dostępności: " + e.message);
-    }
-  }}
->
-  <Check
-    className={clsx(
-      "w-4 h-4",
-      m.myAvailabilitySet
-        ? (m.myAvailable ? "text-green-700" : "text-gray-400")
-        : "text-green-700"
-    )}
-  />
-</button>
+                  {m.reportPhotos.length > 0 && (
+                    <span className={classes.pill}>
+                      <Image className="w-3.5 h-3.5" />
+                      Zdjęcia: {m.reportPhotos.length}
+                    </span>
+                  )}
 
-{/* NIEDOSTĘPNY */}
-<button
-  className={clsx(
-    "px-2 py-1 rounded border text-sm min-w-[36px]",
-    m.myAvailabilitySet
-      ? (!m.myAvailable
-          ? "bg-red-50 border-red-300 text-red-700"
-          : "bg-gray-100 border-gray-300 text-gray-500")
-      : "bg-red-50 border-red-300 text-red-700"
-  )}
-  title="Nie mogę"
-  onClick={async () => {
-    try {
-      await setMyAvailability(m.id, false);
-      setState(s => ({
-        ...s,
-        matches: s.matches.map(x =>
-          x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x
-        )
-      }));
-    } catch (e:any) {
-      alert("Błąd zapisu dostępności:" + e.message);
-    }
-  }}
->
-  <X
-    className={clsx(
-      "w-4 h-4",
-      m.myAvailabilitySet
-        ? (!m.myAvailable ? "text-red-700" : "text-gray-400")
-        : "text-red-700"
-    )}
-  />
-</button>
+                  {streamHref && (
+                    <a
+                      href={streamHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={clsx(classes.pill, "hover:shadow")}
+                      title="Otwórz transmisję w nowej karcie"
+                    >
+                      ▶︎ Transmisja
+                    </a>
+                  )}
+                </div>
+              </td>
 
+              {/* Dostępność (dla sędziego) */}
+              {variant === "upcoming" && isUserReferee && (
+                <td className="px-2 py-1">
+                  <div className="flex items-center gap-2 justify-center">
+                    {/* DOSTĘPNY */}
+                    <button
+                      className={clsx(
+                        "px-2 py-1 rounded border text-sm min-w-[36px]",
+                        m.myAvailabilitySet
+                          ? (m.myAvailable
+                              ? "bg-green-50 border-green-300 text-green-700"
+                              : "bg-gray-100 border-gray-300 text-gray-500")
+                          : "bg-green-50 border-green-300 text-green-700"
+                      )}
+                      title="Jestem dostępny"
+                      onClick={async () => {
+                        try {
+                          await setMyAvailability(m.id, true);
+                          setState(s => ({
+                            ...s,
+                            matches: s.matches.map(x =>
+                              x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x
+                            )
+                          }));
+                        } catch (e:any) {
+                          alert("Błąd zapisu dostępności: " + e.message);
+                        }
+                      }}
+                    >
+                      <Check
+                        className={clsx(
+                          "w-4 h-4",
+                          m.myAvailabilitySet
+                            ? (m.myAvailable ? "text-green-700" : "text-gray-400")
+                            : "text-green-700"
+                        )}
+                      />
+                    </button>
 
+                    {/* NIEDOSTĘPNY */}
+                    <button
+                      className={clsx(
+                        "px-2 py-1 rounded border text-sm min-w-[36px]",
+                        m.myAvailabilitySet
+                          ? (!m.myAvailable
+                              ? "bg-red-50 border-red-300 text-red-700"
+                              : "bg-gray-100 border-gray-300 text-gray-500")
+                          : "bg-red-50 border-red-300 text-red-700"
+                      )}
+                      title="Nie mogę"
+                      onClick={async () => {
+                        try {
+                          await setMyAvailability(m.id, false);
+                          setState(s => ({
+                            ...s,
+                            matches: s.matches.map(x =>
+                              x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x
+                            )
+                          }));
+                        } catch (e:any) {
+                          alert("Błąd zapisu dostępności:" + e.message);
+                        }
+                      }}
+                    >
+                      <X
+                        className={clsx(
+                          "w-4 h-4",
+                          m.myAvailabilitySet
+                            ? (!m.myAvailable ? "text-red-700" : "text-gray-400")
+                            : "text-red-700"
+                        )}
+                      />
+                    </button>
+                  </div>
+                </td>
+              )}
 
-    </div>
-  </td>
-)}
+              {/* Sędziowie dostępni (Admin) */}
+              {isUserAdmin && (
+                <td className="px-2 py-1 break-words">
+                  <AdminAvailableReferees matchId={m.id} />
+                </td>
+              )}
+            </tr>
+          );
+        })}
+      </React.Fragment>
+    );
+  })}
+</tbody>
 
-{isUserAdmin && (
-  <td className="px-2 py-1 break-words">
-    <AdminAvailableReferees matchId={m.id} />
-  </td>
-)}
-</tr>
-  );
-})}
-    </tbody>
   </table>
 </div>
     </Section>
