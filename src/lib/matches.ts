@@ -2,17 +2,20 @@ import { supabase } from './supabase'
 
 export type DbMatchRow = {
   id: string
-  date: string           // date as ISO yyyy-mm-dd
+  date: string                 // ISO yyyy-mm-dd
   time: string | null
-  round: string | null
+  round: string | null         // NR MECZU (zostaje jak było)
+  series_round: string | null  // NOWE: numer rundy do grupowania
   location: string
   home: string
   away: string
   result: string | null
+  shootout: boolean | null     // NOWE: informacja o rzutach karnych
   referee1: string | null
   referee2: string | null
   delegate: string | null
   notes: string | null
+  stream_url: string | null    // NOWE: link do transmisji
   created_by: string | null
   created_at: string | null
 }
@@ -23,16 +26,18 @@ export async function listMatches(): Promise<DbMatchRow[]> {
     .select('*')
     .order('date', { ascending: false })
     .order('time', { ascending: false, nullsFirst: false })
+
   if (error) throw error
   return (data || []) as DbMatchRow[]
 }
 
-export async function createMatch(row: Omit<DbMatchRow,'id'|'created_at'|'created_by'>) {
+export async function createMatch(row: Omit<DbMatchRow, 'id' | 'created_at' | 'created_by'>) {
   const { data, error } = await supabase
     .from('matches')
     .insert(row)
     .select('*')
     .single()
+
   if (error) throw error
   return data as DbMatchRow
 }
@@ -44,6 +49,7 @@ export async function updateMatch(id: string, patch: Partial<DbMatchRow>) {
     .eq('id', id)
     .select('*')
     .single()
+
   if (error) throw error
   return data as DbMatchRow
 }
@@ -53,6 +59,7 @@ export async function deleteMatch(id: string) {
     .from('matches')
     .delete()
     .eq('id', id)
+
   if (error) throw error
 }
 
@@ -61,7 +68,7 @@ export async function setMatchResult(id: string, result: string, shootout: boole
   const { error } = await supabase
     .from('matches')
     .update({ result, shootout })
-    .eq('id', id);
+    .eq('id', id)
 
-  if (error) throw error;
+  if (error) throw error
 }
