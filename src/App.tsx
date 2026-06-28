@@ -1,22 +1,30 @@
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
-import React, { useEffect, useMemo, useState, PropsWithChildren } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, Check, RefreshCw, X } from "lucide-react";
-import { useSupabaseAuth, Role as SupaRole } from './hooks/useSupabaseAuth'
+import { useSupabaseAuth } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
 import { listMatches, createMatch, updateMatch as dbUpdateMatch, deleteMatch as dbDeleteMatch, setMatchResult } from './lib/matches'
 import { addPenalty, listPenalties, deletePenalty, type Penalty } from "./lib/penalties";
-import { uploadDoc, getSignedUrl } from "./lib/storage";
+import { uploadDoc } from "./lib/storage";
 import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 import { setMyAvailability, getMyAvailabilityForMatches, listAvailableReferees } from "./lib/availability";
 import { namesOfAvailableReferees } from "./lib/availability";
+import { listCompetitions, getCompetitionSeason, listStages, listTournaments, addStage, addTournament, deleteStage, deleteTournament, listTournamentMatches, addTournamentMatch, deleteTournamentMatch, listTournamentClubs, addTournamentClub, deleteTournamentClub, type Competition, type CompetitionSeason, type Stage, type Tournament, type TournamentClub } from "./lib/competitions";
 import { NewsStrip } from "./components/NewsStrip";
 import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
 import { ArticleEditor } from "./components/ArticleEditor";
 import { ArticleModeration } from "./components/ArticleModeration";
+import Ktpw from "./components/Ktpw";
 import { RegisterForm } from "./components/RegisterForm";
 import { AdminUserApprovals } from "./components/AdminUserApprovals";
+import { Section } from "./components/shared/Section";
+import { Badge } from "./components/shared/Badge";
+import { DocBadge } from "./components/shared/DocBadge";
+import { RankingTable } from "./components/matches/RankingTable";
+import { AdminAvailableReferees } from "./components/matches/AdminAvailableReferees";
+import type { Role, StoredFile, UploadLog, Match, AppState, ProfileRow } from "./types/wpolo";
 
 
 
@@ -74,6 +82,7 @@ const classes = {
   pill: "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white",
 };
 
+
 const HorizontalScroller: React.FC<React.PropsWithChildren<{ className?: string }>> = ({ className, children }) => {
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -106,74 +115,6 @@ const HorizontalScroller: React.FC<React.PropsWithChildren<{ className?: string 
   );
 };
 
-type Role = SupaRole;
-type SectionProps = PropsWithChildren<{ title: string; icon?: React.ReactNode; className?: string }>;
-const Section: React.FC<SectionProps> = ({ title, icon, children, className }) => (
-  <div
-    className={clsx(
-      "rounded-2xl p-3 sm:p-4 md:p-6",
-      "bg-white/50 backdrop-blur-xl backdrop-saturate-150",
-      "border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.08)]",
-      className
-    )}
-  >
-    <div className="flex items-center gap-2 mb-4">
-      {icon}
-      <h2 className="text-xl md:text-2xl font-semibold">{title}</h2>
-    </div>
-    {children}
-  </div>
-);
-
-const Badge: React.FC<{ children: React.ReactNode; tone?: "gray" | "green" | "blue" | "amber" }> = ({ children, tone="gray" }) => (
-  <span className={clsx("px-2 py-0.5 rounded-full text-xs font-medium border",
-  tone==="gray"&&"bg-gray-50 border-gray-200 text-gray-700",
-  tone==="green"&&"bg-green-50 border-green-200 text-green-700",
-  tone==="blue"&&"bg-blue-50 border-blue-200 text-blue-700",
-  tone==="amber"&&"bg-amber-50 border-amber-200 text-amber-700")}>{children}</span>
-);
-
-// Types
-type StoredFile = { id:string; name:string; mime:string; size:number; path:string; uploadedBy:string; uploadedAt:string; label?:string; };
-type UploadLog = { id:string; type:"comms"|"roster"|"protocol"|"photos"; matchId:string; club?:string|null; user:string; at:string; fileName:string; };
-type Match = {
-  id: string;
-  date: string;
-  time?: string;
-  round?: string;
-    seriesRound?: string | null;
-  location: string;
-  home: string;
-  away: string;
-  result?: string;
-  shootout?: boolean;               
-  referees: string[];
-  delegate?: string;
-  commsByClub: Record<string, StoredFile | null>;
-  rosterByClub: Record<string, StoredFile | null>;
-  matchReport?: StoredFile | null;
-  reportPhotos: StoredFile[];
-  notes?: string;
-  uploadsLog: UploadLog[];
-  myAvailable?: boolean;
-   myAvailabilitySet?: boolean;
-  streamUrl?: string | null;
-};
-type AppState = { matches: Match[]; users:{name:string; role:Role; club?:string}[]; };
-type ProfileRow = {
-  id: string;
-  display_name: string;
-  role: Role;
-  club_id: string | null;
-  club_name?: string | null;
-};
-
-
-
-
-
-
-
 // Files helpers
 async function toStoredFileUsingStorage(kind: "comms"|"roster"|"report"|"photos", matchId: string, clubOrNeutral: string, file: File, uploadedBy: string, label: string): Promise<StoredFile> {
   const path = await uploadDoc(kind, matchId, clubOrNeutral, file);
@@ -202,54 +143,6 @@ function sanitizeUrl(u?: string | null) {
     return null;
   }
 }
-
-async function downloadStoredFile(file: StoredFile) {
-const url = await getSignedUrl(file.path);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = file.label ? file.label : file.name;
-  a.click();
-}
-
-// Badge do pobierania dokumentów z Supabase Storage (podpisywane URL)
-const DocBadge: React.FC<{
-  file: StoredFile;
-  label: string;
-  disabled?: boolean;
-  canRemove?: boolean;
-  onRemove?: () => void;
-}> = ({ file, label, disabled, canRemove, onRemove }) => (
-  <div
-    className={clsx(
-      "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white",
-      disabled ? "opacity-50 cursor-not-allowed" : "hover:shadow"
-    )}
-    title={label}
-  >
-    <FileText className="w-3.5 h-3.5" />
-    <button
-      onClick={() => {
-        if (disabled) {
-          alert("Pobieranie dostępne po zalogowaniu (nie dla Gościa).");
-          return;
-        }
-        downloadStoredFile(file);
-      }}
-      className={clsx(!disabled && "hover:underline")}
-    >
-      {label}
-    </button>
-    {canRemove && (
-      <button
-        onClick={onRemove}
-        className="ml-1 rounded px-1 leading-none hover:bg-red-100 text-red-600"
-        title="Usuń dokument"
-      >
-        ×
-      </button>
-    )}
-  </div>
-);
 
 const prettyRole = (r: Role) => r; // pokazuj prawdziwą rolę
 // === MULTI-ROLE HELPERS (NEW) ===
@@ -332,9 +225,14 @@ const MatchesTable: React.FC<{
   onRemovePenalty: (id: string) => void;
   title?: string;
   sectionClassName?: string;
+  variant: "upcoming" | "finished";
   showExport?: boolean;
-  variant?: "upcoming" | "finished";
-    onQuickEdit?: (id: string) => void; 
+  onQuickEdit?: (matchId: string) => void;
+  clubs: readonly string[];
+  refereeNames: string[];
+  delegateNames: string[];
+  editingMatchId?: string | null;
+  onCancelEdit?: () => void;
 }> = ({
   state,
   setState,
@@ -343,28 +241,26 @@ const MatchesTable: React.FC<{
   loading,
   penaltyMap,
   onRemovePenalty,
-  title = "Tabela meczów",
+  title,
   sectionClassName,
+  variant,
   showExport = false,
-  variant = "upcoming",
-    onQuickEdit,
+  onQuickEdit,
+  clubs,
+  refereeNames,
+  delegateNames,
+  editingMatchId,
+  onCancelEdit,
 }) => {
-const [q, setQ] = useState("");
-const [sortKey, setSortKey] = useState<"date" | "seriesRound">("date");
-const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");     // domyślnie rosnąco
+  const [q, setQ] = useState("");
+  const [sortKey, setSortKey] = useState<"date" | "seriesRound">("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [openActionsMatchId, setOpenActionsMatchId] = useState<string | null>(null);
+  const activeEditorRef = React.useRef<HTMLDivElement>(null);
+  const cardBg = variant === "upcoming" ? "bg-white" : "bg-white/90";
+  const rowStriping = "";
 
-  // Kolory kart i paskowanie w zależności od wariantu
-  const cardBg =
-    variant === "finished"
-      ? "bg-[#e6f0ff] border-[#bcd4ff]"   // zakończone: jasny błękit
-      : "bg-white border-sky-100";        // nadchodzące: biały
-
-  const rowStriping =
-    variant === "finished"
-      ? "odd:bg-[#e6f0ff]/70 even:bg-[#d9e8ff]/70" // zakończone: błękitne pasy
-      : "odd:bg-white even:bg-slate-50/60";        // nadchodzące: jak było
-
-const sorted = useMemo(() => {
+  const sorted = useMemo(() => {
   const arr = [...state.matches];
 
   const parseRound = (r?: string) => {
@@ -413,8 +309,8 @@ arr.sort((a, b) => {
   return (ma ?? 0) - (mb ?? 0);
 });
 
-  return arr;
-}, [state.matches, sortKey, sortDir]);
+    return arr;
+  }, [state.matches, sortKey, sortDir]);
 
   const filtered = useMemo(
     () =>
@@ -541,9 +437,17 @@ function renderResult(m: Match) {
           const homePens = penaltyMap.get(m.id)?.home || [];
           const awayPens = penaltyMap.get(m.id)?.away || [];
           const streamHref = sanitizeUrl(m.streamUrl);
+          const isEditingThisMatch = editingMatchId === m.id;
 
           return (
-            <div key={m.id} className={clsx("rounded-xl border p-3 shadow-sm", cardBg)}>
+            <div
+              key={m.id}
+              className={clsx(
+                "rounded-xl border p-3 shadow-sm transition-colors",
+                cardBg,
+                isEditingThisMatch && "border-amber-400 bg-amber-50/80"
+              )}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-xs text-gray-500 truncate">
@@ -572,6 +476,26 @@ function renderResult(m: Match) {
               </div>
 
               {/* Kary – tylko dla zalogowanych */}
+              {user && isAdmin(user) && isEditingThisMatch && (
+                <div ref={activeEditorRef} className="mt-3">
+                  <AdminPanel
+                    state={state}
+                    setState={setState}
+                    clubs={clubs}
+                    refereeNames={refereeNames}
+                    delegateNames={delegateNames}
+                    onAfterChange={() => {
+                      onRefresh();
+                      onCancelEdit?.();
+                    }}
+                    canWrite={true}
+                    editingMatchId={m.id}
+                    clearEditing={onCancelEdit}
+                    compact
+                  />
+                </div>
+              )}
+
               <div className="mt-2 grid grid-cols-1 gap-2">
                 <div className="text-xs">
                   <span className="font-semibold">Kary (Gospodarz): </span>
@@ -794,6 +718,26 @@ function renderResult(m: Match) {
                   </a>
                 )}
               </div>
+
+              <button
+                type="button"
+                onClick={() => setOpenActionsMatchId(current => current === m.id ? null : m.id)}
+                className={clsx(classes.btnSecondary, "text-xs px-2 py-1")}
+              >
+                {openActionsMatchId === m.id ? "Ukryj akcje" : "Akcje"}
+              </button>
+
+              {openActionsMatchId === m.id && (
+                <div className="mt-2">
+                  <PerMatchActions
+                    state={state}
+                    setState={setState}
+                    user={user}
+                    onPenaltiesChange={onRefresh}
+                    fixedMatch={m}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -855,15 +799,17 @@ function renderResult(m: Match) {
           const sideBorders = "border-l-2 border-r-2 border-amber-400";
           const bottomBorder = isLast ? "border-b-2 border-amber-400" : "";
           const streamHref = sanitizeUrl(m.streamUrl);
+          const isEditingThisMatch = editingMatchId === m.id;
 
           return (
+            <React.Fragment key={m.id}>
             <tr
-              key={m.id}
               className={clsx(
                 "hover:bg-sky-50 transition-colors align-top",
                 rowStriping,
                 sideBorders,
-                bottomBorder
+                isEditingThisMatch ? "bg-amber-50/80" : "",
+                isEditingThisMatch ? "" : bottomBorder
               )}
             >
               <td className="px-2 py-1 whitespace-nowrap text-center">
@@ -1037,6 +983,14 @@ function renderResult(m: Match) {
                       ▶︎ Transmisja
                     </a>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => setOpenActionsMatchId(current => current === m.id ? null : m.id)}
+                    className={clsx(classes.btnSecondary, "text-xs px-2 py-1")}
+                  >
+                    {openActionsMatchId === m.id ? "Ukryj akcje" : "Akcje"}
+                  </button>
                 </div>
               </td>
 
@@ -1124,6 +1078,59 @@ function renderResult(m: Match) {
                 </td>
               )}
             </tr>
+
+            {openActionsMatchId === m.id && (
+              <tr className={clsx(sideBorders, bottomBorder)}>
+                <td
+                  colSpan={
+                    11 +
+                    (variant === "upcoming" && isUserReferee ? 1 : 0) +
+                    (isUserAdmin ? 1 : 0)
+                  }
+                  className="px-2 py-2 bg-slate-50"
+                >
+                  <PerMatchActions
+                    state={state}
+                    setState={setState}
+                    user={user}
+                    onPenaltiesChange={onRefresh}
+                    fixedMatch={m}
+                  />
+                </td>
+              </tr>
+            )}
+
+            {user && isAdmin(user) && isEditingThisMatch && (
+              <tr className={clsx(sideBorders, bottomBorder)}>
+                <td
+                  colSpan={
+                    11 +
+                    (variant === "upcoming" && isUserReferee ? 1 : 0) +
+                    (isUserAdmin ? 1 : 0)
+                  }
+                  className="px-2 py-2 bg-slate-50"
+                >
+                  <div ref={activeEditorRef}>
+                    <AdminPanel
+                      state={state}
+                      setState={setState}
+                      clubs={clubs}
+                      refereeNames={refereeNames}
+                      delegateNames={delegateNames}
+                      onAfterChange={() => {
+                        onRefresh();
+                        onCancelEdit?.();
+                      }}
+                      canWrite={true}
+                      editingMatchId={m.id}
+                      clearEditing={onCancelEdit}
+                      compact
+                    />
+                  </div>
+                </td>
+              </tr>
+            )}
+            </React.Fragment>
           );
         })}
       </React.Fragment>
@@ -1137,68 +1144,36 @@ function renderResult(m: Match) {
   );
 };
 
-const AdminAvailableReferees: React.FC<{ matchId: string }> = ({ matchId }) => {
-  // Trzymamy wyniki jako tablicę dowolnych rekordów i dopiero przy renderze wyciągamy nazwę
-  const [list, setList] = React.useState<any[]>([]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const rows = await listAvailableReferees(matchId);
-        const arr: any[] = Array.isArray(rows) ? rows : [];
-
-        // Akceptujemy: string | { name: string } | { display_name: string } | cokolwiek z polem 'name'
-        const normalized = arr
-          .map((r) => {
-            if (typeof r === "string") return r;
-            if (r && typeof r === "object") {
-              if (typeof r.name === "string") return r.name;
-              if (typeof r.display_name === "string") return r.display_name;
-            }
-            return "";
-          })
-          .filter((s) => typeof s === "string" && s);
-
-        if (!cancelled) setList(normalized);
-      } catch (e: any) {
-        console.warn("listAvailableReferees error:", e?.message || e);
-        if (!cancelled) setList([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [matchId]);
-
-  if (!list.length) return <span className="text-gray-500">–</span>;
-  return <span className="text-xs">{list.join(", ")}</span>;
-};
-
 const PerMatchActions: React.FC<{
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   user: { name: string; role: Role; club?: string };
   onPenaltiesChange: () => void;
-}> = ({ state, setState, user, onPenaltiesChange }) => {
+  fixedMatch?: Match;
+}> = ({ state, setState, user, onPenaltiesChange, fixedMatch }) => {
   const availableMatches = useMemo(() => {
-  if (user.role === "Delegate") {
-    return state.matches.filter(m => m.delegate === user.name);
-  }
-  if (user.role === "Club" && user.club) {
-    return state.matches.filter(m => m.home === user.club || m.away === user.club);
-  }
-  // Admin (lub inne role) widzą wszystko
-  return state.matches;
-}, [state.matches, user.role, user.name, user.club]);
+    if (fixedMatch) return [fixedMatch];
+    if (user.role === "Delegate") {
+      return state.matches.filter(m => m.delegate === user.name);
+    }
+    if (user.role === "Club" && user.club) {
+      return state.matches.filter(m => m.home === user.club || m.away === user.club);
+    }
+    // Admin (lub inne role) widzą wszystko
+    return state.matches;
+  }, [fixedMatch, state.matches, user.role, user.name, user.club]);
 
-const [selectedId, setSelectedId] = useState<string>(availableMatches[0]?.id ?? "");
+const [selectedId, setSelectedId] = useState<string>(fixedMatch?.id ?? availableMatches[0]?.id ?? "");
 useEffect(() => {
+  if (fixedMatch) {
+    setSelectedId(fixedMatch.id);
+    return;
+  }
   // gdy zmieni się lista dostępnych meczów, ustaw pierwszy jako domyślny
   setSelectedId(availableMatches[0]?.id ?? "");
-}, [availableMatches]);
+}, [availableMatches, fixedMatch]);
 
-const match = availableMatches.find(m => m.id === selectedId) || null;
+const match = fixedMatch ?? (availableMatches.find(m => m.id === selectedId) || null);
 const isMatchDelegate = !!match && (match.delegate === user.name);
 const canActAsDelegate = isAdmin(user) || isMatchDelegate;
   const [resultDraft, setResultDraft] = useState<string>(match?.result || "");
@@ -1207,7 +1182,7 @@ const canActAsDelegate = isAdmin(user) || isMatchDelegate;
   useEffect(() => {
     setResultDraft(match?.result || "");
     setShootoutDraft(!!match?.shootout);
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [match?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function pushLog(next: Match, entry: Omit<UploadLog, "id" | "matchId" | "at">) {
     next.uploadsLog = [
@@ -1385,20 +1360,22 @@ const canDelegateAct = () => isDelegate(user);
 
   return (
     <div className="grid gap-4">
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-amber-600">Wybierz mecz:</span>
-       <select className={classes.input} value={selectedId} onChange={e => setSelectedId(e.target.value)}>
-  {availableMatches.length === 0 ? (
-    <option value="" disabled>Brak meczów do wyboru</option>
-  ) : (
-    availableMatches.map(m => (
-      <option key={m.id} value={m.id}>
-        {m.date} {m.time ? m.time + " • " : ""}{m.home} vs {m.away}
-      </option>
-    ))
-  )}
+      {!fixedMatch && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-amber-600">Wybierz mecz:</span>
+         <select className={classes.input} value={selectedId} onChange={e => setSelectedId(e.target.value)}>
+    {availableMatches.length === 0 ? (
+      <option value="" disabled>Brak meczów do wyboru</option>
+    ) : (
+      availableMatches.map(m => (
+        <option key={m.id} value={m.id}>
+          {m.date} {m.time ? m.time + " • " : ""}{m.home} vs {m.away}
+        </option>
+      ))
+    )}
 </select>
-      </div>
+        </div>
+      )}
 
       {match && (
         <div className="flex flex-col gap-3">
@@ -1621,7 +1598,7 @@ const canDelegateAct = () => isDelegate(user);
 
 const AdminPanel: React.FC<{
   state: AppState;
-setState: React.Dispatch<React.SetStateAction<AppState>>; 
+  setState: React.Dispatch<React.SetStateAction<AppState>>;
   clubs: readonly string[];
   refereeNames: string[];
   delegateNames: string[];
@@ -1629,9 +1606,10 @@ setState: React.Dispatch<React.SetStateAction<AppState>>;
   canWrite: boolean;
   editingMatchId?: string | null;
   clearEditing?: () => void;
+  compact?: boolean;
 }> = ({
   state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite,
-  editingMatchId, clearEditing
+  editingMatchId, clearEditing, compact = false
 }) => {
 
 
@@ -1711,10 +1689,8 @@ useEffect(() => {
     setDraft(m);
     setEditId(m.id);
   }
-  // wyczyść trigger, żeby nie odpalać się ponownie
-  clearEditing?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [editingMatchId]);
+}, [editingMatchId, state.matches]);
 
   
 function toDbRow(m: Match){
@@ -1744,7 +1720,10 @@ function toDbRow(m: Match){
       } else {
         await createMatch(toDbRow(draft) as any)
       }
-      setDraft({ ...blank, id: crypto.randomUUID() }); setEditId(null); onAfterChange();
+      setDraft({ ...blank, id: crypto.randomUUID() });
+      setEditId(null);
+      clearEditing?.();
+      onAfterChange();
     } catch(e:any){ alert("Błąd zapisu: " + e.message) }
   }
 
@@ -1752,6 +1731,48 @@ function toDbRow(m: Match){
     if(!canWrite){ alert("Tylko Admin może usuwać mecze."); return; }
     if(!confirm("Usunąć mecz?")) return;
     try{ await dbDeleteMatch(id); onAfterChange(); } catch(e:any){ alert("Błąd usuwania: " + e.message) }
+  }
+
+  if (compact) {
+    return (
+      <div className="rounded-xl border border-sky-200 bg-slate-50/80 p-3">
+        <div className="mb-2 text-sm font-semibold text-slate-700">Edytuj mecz</div>
+        <div className="grid gap-2">
+          <div className="grid grid-cols-2 gap-2"><input className={classes.input} type="date" value={draft.date} onChange={e=>setDraft({...draft, date:e.target.value})}/><input className={classes.input} placeholder="Godzina (opcjonalnie)" value={draft.time||""} onChange={e=>setDraft({...draft, time:e.target.value})}/></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <input className={classes.input} placeholder="Nr meczu" value={draft.round || ""} onChange={e => setDraft({ ...draft, round: e.target.value })} />
+            <input className={classes.input} placeholder="Runda" value={draft.seriesRound || ""} onChange={e => setDraft({ ...draft, seriesRound: e.target.value })} />
+            <input className={classes.input} placeholder="Miejsce" value={draft.location} onChange={e => setDraft({ ...draft, location: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <select className={classes.input} value={draft.home} onChange={e=>setDraft({...draft, home:e.target.value})}><option value="">Wybierz gospodarza</option>{clubs.map(c=><option key={c} value={c}>{c}</option>)}</select>
+            <select className={classes.input} value={draft.away} onChange={e=>setDraft({...draft, away:e.target.value})}><option value="">Wybierz gości</option>{clubs.map(c=><option key={c} value={c}>{c}</option>)}</select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <select className={classes.input} value={draft.referees[0]} onChange={e=>setDraft({...draft, referees:[e.target.value, draft.referees[1]||""]})}>
+              <option value="">Sędzia 1</option>
+              {refereeNames.map(n => (
+                <option key={n} value={n}>{n}{availNames.has(n) ? " ✓" : ""}</option>
+              ))}
+            </select>
+            <select className={classes.input} value={draft.referees[1]} onChange={e=>setDraft({...draft, referees:[draft.referees[0]||"", e.target.value]})}>
+              <option value="">Sędzia 2</option>
+              {refereeNames.map(n => (
+                <option key={n} value={n}>{n}{availNames.has(n) ? " ✓" : ""}</option>
+              ))}
+            </select>
+          </div>
+          <select className={classes.input} value={draft.delegate||""} onChange={e=>setDraft({...draft, delegate:e.target.value})}><option value="">Delegat</option>{delegateNames.map(n=><option key={n} value={n}>{n}</option>)}</select>
+          <input className={classes.input} placeholder="Wynik (np. 10:9)" value={draft.result||""} onChange={e=>setDraft({...draft, result:e.target.value})}/>
+          <textarea className={classes.input + " min-h-[80px]"} placeholder="Notatki" value={draft.notes||""} onChange={e=>setDraft({...draft, notes:e.target.value})}/>
+          <input className={classes.input} placeholder="Link do transmisji (opcjonalny)" value={draft.streamUrl || ""} onChange={e => setDraft({ ...draft, streamUrl: e.target.value })} />
+          <div className="flex gap-2"><button onClick={saveDraft} className={clsx(classes.btnPrimary,"flex items-center gap-2")}><Save className="w-4 h-4"/>{editId?"Zapisz zmiany":"Dodaj mecz"}</button>{editId && (
+            <button className={classes.btnSecondary} onClick={() => { setDraft({ ...blank, id: crypto.randomUUID() }); setEditId(null); clearEditing?.(); }} >Anuluj edycję</button>
+          )}</div>
+          {!canWrite && <div className="text-xs text-amber-700">Zaloguj się jako Admin, aby dodać/edytować mecze.</div>}
+        </div>
+      </div>
+    );
   }
 
   return (<Section title="Panel administratora (mecze w bazie)" icon={<Settings className="w-5 h-5" />}> 
@@ -1824,6 +1845,7 @@ function toDbRow(m: Match){
     onClick={() => {
       setDraft({ ...blank, id: crypto.randomUUID() });
       setEditId(null);
+      clearEditing?.();
     }}
   >
     Anuluj edycję
@@ -1861,115 +1883,230 @@ const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=r
     <ul className="text-sm space-y-1">{tests.map((t,i)=>(<li key={i} className={t.pass?"text-green-700":"text-red-700"}>• {t.name} — {t.pass?"PASS":"FAIL"}{t.details?` (${t.details})`:''}</li>))}</ul></Section>)
 }
 
-const RankingTable: React.FC<{ matches: Match[]; clubs: string[] }> = ({ matches, clubs }) => {
-  const table = useMemo(() => {
-    type Row = { team: string; pts: number; played: number; goalsFor: number; goalsAgainst: number };
-    const stats: Record<string, Row> = {};
+type CompetitionMatchesViewProps = {
+  mode: 'competition' | 'tournament';
+  competitionSeasonId?: string | null;
+  stageId?: string | null;
+  tournamentId?: string | null;
+  matches: Match[];
+  penalties: Map<string, { home: { id: string; name: string }[]; away: { id: string; name: string }[] }>;
+  documents?: Match[];
+  currentUser: { name: string; role: Role; club?: string } | null;
+  state: AppState;
+  setState: React.Dispatch<React.SetStateAction<AppState>>;
+  clubs: readonly string[];
+  refereeNames: string[];
+  delegateNames: string[];
+  delegateCandidateNames: string[];
+  onRefreshMatches: () => void;
+  loadingMatches: boolean;
+  onRemovePenalty: (id: string) => void;
+  onQuickEdit: (matchId: string) => void;
+  onCancelEdit: () => void;
+  editingMatchId?: string | null;
+  tournamentClubs?: Map<string, TournamentClub[]>;
+  showAddTournamentClubForm?: boolean;
+  setShowAddTournamentClubForm?: React.Dispatch<React.SetStateAction<boolean>>;
+  tournamentClubFormData?: { clubName: string };
+  setTournamentClubFormData?: React.Dispatch<React.SetStateAction<{ clubName: string }>>;
+  onAddTournamentClub?: (tournamentId: string) => void;
+  onDeleteTournamentClub?: (clubId: string, tournamentId: string) => void;
+  onAddMatch?: (tournamentId: string) => void;
+};
 
-    // normalizacja nazw (usuwa kropki na końcu, podwójne spacje, NBSP itd.)
-    const normalizeTeam = (s: string) =>
-      (s || "")
-        .replace(/\u00A0/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .replace(/\.+$/, "");
+const CompetitionMatchesView: React.FC<CompetitionMatchesViewProps> = ({
+  mode,
+  competitionSeasonId,
+  stageId,
+  tournamentId,
+  matches,
+  penalties,
+  documents,
+  currentUser,
+  state,
+  setState,
+  clubs,
+  refereeNames,
+  delegateNames,
+  delegateCandidateNames,
+  onRefreshMatches,
+  loadingMatches,
+  onRemovePenalty,
+  onQuickEdit,
+  onCancelEdit,
+  editingMatchId,
+  tournamentClubs,
+  showAddTournamentClubForm,
+  setShowAddTournamentClubForm,
+  tournamentClubFormData,
+  setTournamentClubFormData,
+  onAddTournamentClub,
+  onDeleteTournamentClub,
+  onAddMatch,
+}) => {
+  const effectiveMatches = documents ?? matches;
+  const isCompetitionView = mode === 'competition';
+  const isTournamentView = mode === 'tournament';
+  const currentTournamentClubs = tournamentId ? (tournamentClubs?.get(tournamentId) ?? []) : [];
 
-    const seeded =
-      clubs?.length
-        ? clubs
-        : Array.from(new Set(matches.flatMap(m => [m.home, m.away])));
+  const upcomingViewMatches = effectiveMatches.filter(m => !m.result || m.result.trim() === '');
+  const finishedViewMatches = effectiveMatches.filter(m => !!m.result && m.result.trim() !== '');
 
-    // zainicjuj z listy klubów
-    seeded.forEach(raw => {
-      const name = normalizeTeam(raw);
-      if (!name) return;
-      stats[name] = { team: raw || name, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
-    });
+  const matchesSection = effectiveMatches.length === 0 ? (
+    <div className="p-2">
+      <div className="text-sm text-gray-500 mb-2">Brak meczów w tym turnieju</div>
+      {isTournamentView && currentUser && isAdmin(currentUser) && onAddMatch && tournamentId && (
+        <button
+          onClick={() => onAddMatch(tournamentId)}
+          className="text-sm px-2 py-1 text-blue-600 hover:bg-blue-100 rounded transition"
+        >
+          + Dodaj mecz
+        </button>
+      )}
+    </div>
+  ) : (
+    <div className="space-y-4 p-2">
+      <MatchesTable
+        title="Nadchodzące mecze"
+        variant="upcoming"
+        showExport
+        state={{ ...state, matches: upcomingViewMatches }}
+        setState={setState}
+        user={currentUser ?? undefined}
+        onRefresh={onRefreshMatches}
+        loading={loadingMatches}
+        penaltyMap={penalties}
+        onRemovePenalty={onRemovePenalty}
+        onQuickEdit={onQuickEdit}
+        clubs={clubs}
+        refereeNames={refereeNames}
+        delegateNames={delegateCandidateNames}
+        editingMatchId={editingMatchId}
+        onCancelEdit={onCancelEdit}
+      />
 
-    const ensure = (raw: string) => {
-      const name = normalizeTeam(raw);
-      if (!name) return null;
-      if (!stats[name]) {
-        stats[name] = { team: raw || name, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
-      }
-      return name;
-    };
+      <MatchesTable
+        title="Zakończone mecze"
+        variant="finished"
+        sectionClassName="bg-white/60"
+        state={{ ...state, matches: finishedViewMatches }}
+        setState={setState}
+        user={currentUser ?? undefined}
+        onRefresh={onRefreshMatches}
+        loading={loadingMatches}
+        penaltyMap={penalties}
+        onRemovePenalty={onRemovePenalty}
+        onQuickEdit={onQuickEdit}
+        clubs={clubs}
+        refereeNames={refereeNames}
+        delegateNames={delegateCandidateNames}
+        editingMatchId={editingMatchId}
+        onCancelEdit={onCancelEdit}
+      />
 
-    for (const m of matches) {
-      if (!m?.result) continue;
+      {isTournamentView && currentUser && isAdmin(currentUser) && onAddMatch && tournamentId && (
+        <button
+          onClick={() => onAddMatch(tournamentId)}
+          className="text-sm px-2 py-1 text-blue-600 hover:bg-blue-100 rounded transition"
+        >
+          + Dodaj mecz
+        </button>
+      )}
+    </div>
+  );
 
-      const home = ensure(m.home);
-      const away = ensure(m.away);
-      if (!home || !away) continue;
+  if (isCompetitionView) {
+    return (
+      <>
+        <RankingTable matches={state.matches} clubs={clubs as string[]} />
 
-// akceptuj 10:9, 10-9, 10–9, 10—9 (z ewentualnymi spacjami)
-const score = String(m.result);
-const mScore = score.match(/^\s*(\d+)\s*[:\-–—]\s*(\d+)\s*$/);
-if (!mScore) continue;
-const a = Number(mScore[1]);
-const b = Number(mScore[2]);
+        {matchesSection}
 
-      const H = stats[home];
-      const A = stats[away];
-
-      H.played++; A.played++;
-      H.goalsFor += a; H.goalsAgainst += b;
-      A.goalsFor += b; A.goalsAgainst += a;
-
-      if (m.shootout) {
-        if (a > b) { H.pts += 2; A.pts += 1; }
-        else       { A.pts += 2; H.pts += 1; }
-      } else {
-        if (a > b) H.pts += 3;
-        else if (b > a) A.pts += 3;
-      }
-    }
-
-    return Object.values(stats).sort((x, y) => {
-      if (x.played === 0 && y.played === 0) return x.team.localeCompare(y.team);
-      return (
-        y.pts - x.pts ||
-        (y.goalsFor - y.goalsAgainst) - (x.goalsFor - x.goalsAgainst) ||
-        y.goalsFor - x.goalsFor ||
-        x.team.localeCompare(y.team)
-      );
-    });
-  }, [matches, clubs]);
+        {currentUser && isAdmin(currentUser) && (
+          <AdminPanel
+            state={state}
+            setState={setState}
+            clubs={clubs}
+            refereeNames={refereeNames}
+            delegateNames={delegateCandidateNames}
+            onAfterChange={() => { onRefreshMatches(); }}
+            canWrite={true}
+            editingMatchId={editingMatchId}
+            clearEditing={onCancelEdit}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
-    <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
-      <table className="table-auto w-full text-xs sm:text-sm">
-        <thead className="bg-white shadow-sm">
-          <tr className="text-left border-b bg-gray-50">
-            <th className="px-2 py-1 whitespace-nowrap w-[80px] text-center">Miejsce</th>
-            <th className="px-2 py-1 break-words">Drużyna</th>
-            <th className="px-2 py-1 whitespace-nowrap w-[70px] text-center">Pkt</th>
-            <th className="px-2 py-1 whitespace-nowrap w-[70px] text-center">M</th>
-            <th className="px-2 py-1 whitespace-nowrap w-[90px] text-center">B</th>
-          </tr>
-        </thead>
-        <tbody>
-          {table.map((row, i) => (
-            <tr
-              key={row.team}
-              className={clsx(
-                "border-b hover:bg-sky-50 transition-colors",
-                i % 2 ? "bg-white" : "bg-slate-50/60",
-                i === 0 && "!bg-amber-200",
-                i === 1 && "!bg-gray-200",
-                i === 2 && "!bg-orange-200"
-              )}
-            >
-              <td className="px-2 py-1 whitespace-nowrap text-center">{i + 1}</td>
-              <td className="px-2 py-1 break-words">{row.team}</td>
-              <td className="px-2 py-1 whitespace-nowrap text-center">{row.pts}</td>
-              <td className="px-2 py-1 whitespace-nowrap text-center">{row.played}</td>
-              <td className="px-2 py-1 whitespace-nowrap text-center">{row.goalsFor}:{row.goalsAgainst}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Section>
+    <div className="space-y-4 p-2">
+      <div className="space-y-4">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <div className="font-semibold text-gray-900">Drużyny w turnieju</div>
+              <div className="text-sm text-gray-500">Dodaj i usuń kluby przypisane do tego turnieju.</div>
+            </div>
+            {currentUser && isAdmin(currentUser) && setShowAddTournamentClubForm && (
+              <button
+                onClick={() => setShowAddTournamentClubForm(prev => !prev)}
+                className="text-sm px-2 py-1 text-blue-600 hover:bg-blue-100 rounded transition"
+              >
+                {showAddTournamentClubForm ? 'Ukryj formularz' : '+ Dodaj klub'}
+              </button>
+            )}
+          </div>
+
+          {currentUser && isAdmin(currentUser) && showAddTournamentClubForm && tournamentClubFormData && setTournamentClubFormData && onAddTournamentClub && tournamentId && (
+            <div className="space-y-2 mb-4">
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={tournamentClubFormData.clubName}
+                  onChange={e => setTournamentClubFormData({ clubName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Wybierz klub</option>
+                  {clubs.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => onAddTournamentClub(tournamentId)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                >
+                  Dodaj klub
+                </button>
+              </div>
+            </div>
+          )}
+
+          {currentTournamentClubs.length === 0 ? (
+            <div className="text-sm text-gray-500">Brak przypisanych drużyn do tego turnieju.</div>
+          ) : (
+            <div className="space-y-2">
+              {currentTournamentClubs.map(club => (
+                <div key={club.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
+                  <span>{club.club_name}</span>
+                  {currentUser && isAdmin(currentUser) && onDeleteTournamentClub && tournamentId && (
+                    <button
+                      onClick={() => onDeleteTournamentClub(club.id, tournamentId)}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >Usuń</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {currentTournamentClubs.length > 0 && (
+          <RankingTable matches={effectiveMatches} clubs={currentTournamentClubs.map(c => c.club_name)} />
+        )}
+      </div>
+
+      {matchesSection}
+    </div>
   );
 };
 
@@ -2080,16 +2217,15 @@ useEffect(() => {
 }, [authUser?.id, userDisplay, authUser?.email]);
 
 
-// --- quick edit (Admin): scroll do panelu + załaduj mecz ---
-const adminPanelRef = React.useRef<HTMLDivElement>(null);
+// --- quick edit (Admin): otwieraj edycję inline pod wybranym meczem ---
 const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
 
 function handleQuickEdit(matchId: string) {
-  setEditingMatchId(matchId);
-  // delikatne opóźnienie, żeby DOM miał ref już wpięty
-  setTimeout(() => {
-    adminPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, 50);
+  setEditingMatchId((current) => (current === matchId ? null : matchId));
+}
+
+function handleCancelInlineEdit() {
+  setEditingMatchId(null);
 }
 // === [3.3] PROSTA NAWIGACJA ARTYKUŁÓW (mini-router) ===
 const [page, setPage] = useState<'home' | 'articles' | 'article' | 'editor' | 'moderation' | 'register' | 'approvals'>('home');
@@ -2103,6 +2239,8 @@ function openEditor(newId?: string | null) {
   setOpenedArticleId(newId ?? null);
   setPage('editor');
 }
+
+const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'my-matches' | 'club' | 'ktpw' | 'admin'>('dashboard');
 
   const [state,setState]=useState<AppState>({ matches: [], users:[
     {name:"Admin", role:"Admin"}, {name:"AZS Szczecin – Klub", role:"Club", club:"AZS Szczecin"}, {name:"KS Warszawa – Klub", role:"Club", club:"KS Warszawa"}, {name:"Anna Delegat", role:"Delegate"}, {name:"Sędzia – Demo", role:"Referee"}, {name:"Gość", role:"Guest"}
@@ -2125,6 +2263,357 @@ useEffect(() => {
   refreshClubs();
 }, [refreshClubs]);
 
+  // --- Competitions (rozgrywki) --- Layer 1
+  const fallbackCompetitions: Competition[] = [
+    { id: 'fallback-ekstraklasa', name: 'Ekstraklasa', short_name: 'EKS', type: 'league', level: 'senior', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-puchar-polski', name: 'Puchar Polski', short_name: 'PP', type: 'cup', level: 'senior', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-u23', name: 'U23', short_name: 'U23', type: 'league', level: 'U23', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-u19', name: 'U19', short_name: 'U19', type: 'league', level: 'U19', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-u17', name: 'U17', short_name: 'U17', type: 'league', level: 'U17', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-u15', name: 'U15', short_name: 'U15', type: 'league', level: 'U15', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-u13', name: 'U13', short_name: 'U13', type: 'league', level: 'U13', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+  ];
+const [competitions, setCompetitions] = useState<Competition[]>([]);
+const [selectedCompetitionId, setSelectedCompetitionId] = useState<string | null>(null);
+const [selectedCompetitionSeason, setSelectedCompetitionSeason] = useState<CompetitionSeason | null>(null);
+const [loadingCompetitions, setLoadingCompetitions] = useState(false);
+
+const refreshCompetitions = React.useCallback(async () => {
+  setLoadingCompetitions(true);
+  try {
+    const comps = await listCompetitions();
+    setCompetitions(comps);
+
+    setSelectedCompetitionId((current) => {
+      if (current && comps.some((c) => c.id === current)) {
+        return current;
+      }
+
+      const ekstraklasa = comps.find(
+        (c) => c.name === 'Ekstraklasa' || c.short_name === 'EKS'
+      );
+      return ekstraklasa?.id || comps[0]?.id || null;
+    });
+
+    const ekstraklasa = comps.find((c) => c.name === 'Ekstraklasa');
+    if (ekstraklasa) {
+      // Znajdź sezon 2025/2026 dla Ekstraklasy
+      try {
+        const { data: seasons, error: seErr } = await supabase
+          .from('seasons')
+          .select('id')
+          .eq('name', '2025/2026')
+          .single();
+
+        if (!seErr && seasons) {
+          const compSeason = await getCompetitionSeason(ekstraklasa.id, seasons.id);
+          setSelectedCompetitionSeason(compSeason);
+        }
+      } catch (e) {
+        console.warn('[refreshCompetitions] sezon lookup failed', e);
+      }
+    }
+  } catch (e: any) {
+    console.warn('[refreshCompetitions] error', e?.message);
+  }
+  setLoadingCompetitions(false);
+}, []);
+
+useEffect(() => {
+  refreshCompetitions();
+}, [refreshCompetitions]);
+
+useEffect(() => {
+  if (!selectedCompetitionId) {
+    const fallbackEkstraklasa = fallbackCompetitions.find(c => c.name === 'Ekstraklasa');
+    setSelectedCompetitionId(fallbackEkstraklasa?.id ?? fallbackCompetitions[0].id);
+  }
+}, [selectedCompetitionId, fallbackCompetitions]);
+
+const handleCompetitionChange = async (competitionId: string) => {
+  setSelectedCompetitionId(competitionId);
+  setSelectedCompetitionSeason(null);
+
+  if (competitionId.startsWith('fallback-')) {
+    return;
+  }
+
+  // Pobierz sezon 2025/2026
+  try {
+    const { data: seasons, error: seErr } = await supabase
+      .from('seasons')
+      .select('id')
+      .eq('name', '2025/2026')
+      .single();
+
+    if (!seErr && seasons) {
+      const compSeason = await getCompetitionSeason(competitionId, seasons.id);
+      setSelectedCompetitionSeason(compSeason);
+    }
+  } catch (e) {
+    console.warn('[handleCompetitionChange] error', e);
+  }
+};
+
+  // Layer 1.5: Stages and Tournaments
+  const [stages, setStages] = useState<Stage[]>([]);
+  const [tournaments, setTournaments] = useState<Map<string, Tournament[]>>(new Map());
+  const [loadingStages, setLoadingStages] = useState(false);
+  
+  // Form states for adding stage/tournament
+  const [showAddStageForm, setShowAddStageForm] = useState(false);
+  const [stageFormData, setStageFormData] = useState({
+    name: '',
+    type: 'round_robin',
+    startDate: '',
+    endDate: '',
+  });
+  
+  const [showAddTournamentForm, setShowAddTournamentForm] = useState(false);
+  const [selectedStageForTournament, setSelectedStageForTournament] = useState<string | null>(null);
+  const [tournamentFormData, setTournamentFormData] = useState({
+    name: '',
+    type: 'league',
+    startDate: '',
+    endDate: '',
+  });
+
+  // Layer 1.6: Tournament Matches
+  const [showAddMatchForm, setShowAddMatchForm] = useState(false);
+  const [selectedTournamentForMatch, setSelectedTournamentForMatch] = useState<string | null>(null);
+  const [matchFormData, setMatchFormData] = useState({
+    date: '',
+    time: '',
+    location: '',
+    round: '',
+    series_round: '',
+    home: '',
+    away: '',
+    referee1: '',
+    referee2: '',
+    delegate: '',
+  });
+
+  const [tournamentClubs, setTournamentClubs] = useState<Map<string, TournamentClub[]>>(new Map());
+  const [selectedTournamentClub, setSelectedTournamentClub] = useState<string | null>(null);
+  const [showAddTournamentClubForm, setShowAddTournamentClubForm] = useState(false);
+  const [tournamentClubFormData, setTournamentClubFormData] = useState({ clubName: '' });
+
+  const refreshTournamentClubs = React.useCallback(async (tournamentId: string) => {
+    try {
+      const clubs = await listTournamentClubs(tournamentId);
+      setTournamentClubs(prev => new Map(prev).set(tournamentId, clubs));
+    } catch (e) {
+      console.warn('[refreshTournamentClubs] error', e);
+    }
+  }, []);
+
+  const refreshStages = React.useCallback(async () => {
+    if (!selectedCompetitionSeason) return;
+    
+    setLoadingStages(true);
+    try {
+      const stagesList = await listStages(selectedCompetitionSeason.id);
+      setStages(stagesList);
+      
+      // Pobierz turnieje dla każdego etapu
+      const tournamentsMap = new Map<string, Tournament[]>();
+      
+      for (const stage of stagesList) {
+        const tourns = await listTournaments(stage.id);
+        tournamentsMap.set(stage.id, tourns);
+      }
+      setTournaments(tournamentsMap);
+
+      // Pobierz przypisane kluby dla wszystkich turniejów
+      await Promise.all(
+        Array.from(tournamentsMap.values()).flat().map((t) => refreshTournamentClubs(t.id))
+      );
+    } catch (e) {
+      console.warn('[refreshStages] error', e);
+    }
+    setLoadingStages(false);
+  }, [selectedCompetitionSeason, refreshTournamentClubs]);
+
+  useEffect(() => {
+    // Załaduj stages tylko dla kategorii innych niż Ekstraklasa
+    if (selectedCompetitionSeason && selectedCompetitionSeason.competition_id !== competitions.find(c => c.name === 'Ekstraklasa')?.id) {
+      refreshStages();
+    }
+  }, [selectedCompetitionSeason, competitions, refreshStages]);
+
+  useEffect(() => {
+    if (!selectedTournamentForMatch) return;
+    refreshTournamentClubs(selectedTournamentForMatch);
+  }, [selectedTournamentForMatch, refreshTournamentClubs]);
+
+  const handleAddStage = async () => {
+    if (!selectedCompetitionSeason || !stageFormData.name.trim()) return;
+
+    try {
+      await addStage(
+        selectedCompetitionSeason.id,
+        stageFormData.name.trim(),
+        stageFormData.type,
+        stageFormData.startDate,
+        stageFormData.endDate
+      );
+      
+      setStageFormData({ name: '', type: 'round_robin', startDate: '', endDate: '' });
+      setShowAddStageForm(false);
+      await refreshStages();
+    } catch (e) {
+      console.error('[handleAddStage] error', e);
+    }
+  };
+
+  const handleDeleteStage = async (stageId: string) => {
+    if (!confirm('Czy na pewno chcesz usunąć ten etap?')) return;
+
+    try {
+      await deleteStage(stageId);
+      await refreshStages();
+    } catch (e) {
+      console.error('[handleDeleteStage] error', e);
+    }
+  };
+
+  const handleAddTournament = async () => {
+    if (!selectedStageForTournament || !tournamentFormData.name.trim()) return;
+
+    try {
+      await addTournament(
+        selectedStageForTournament,
+        tournamentFormData.name.trim(),
+        tournamentFormData.type,
+        tournamentFormData.startDate,
+        tournamentFormData.endDate
+      );
+      
+      setTournamentFormData({ name: '', type: 'league', startDate: '', endDate: '' });
+      setShowAddTournamentForm(false);
+      setSelectedStageForTournament(null);
+      await refreshStages();
+    } catch (e) {
+      console.error('[handleAddTournament] error', e);
+    }
+  };
+
+  const handleDeleteTournament = async (tournamentId: string) => {
+    if (!confirm('Czy na pewno chcesz usunąć ten turniej?')) return;
+
+    try {
+      await deleteTournament(tournamentId);
+      await refreshStages();
+    } catch (e) {
+      console.error('[handleDeleteTournament] error', e);
+    }
+  };
+
+  const handleAddTournamentClub = async (tournamentId: string) => {
+    if (!tournamentClubFormData.clubName.trim()) return;
+
+    try {
+      await addTournamentClub(tournamentId, tournamentClubFormData.clubName.trim());
+      setTournamentClubFormData({ clubName: '' });
+      await refreshTournamentClubs(tournamentId);
+    } catch (e) {
+      console.error('[handleAddTournamentClub] error', e);
+    }
+  };
+
+  const handleDeleteTournamentClub = async (clubId: string, tournamentId: string) => {
+    if (!confirm('Czy na pewno chcesz usunąć ten klub z turnieju?')) return;
+
+    try {
+      await deleteTournamentClub(clubId);
+      await refreshTournamentClubs(tournamentId);
+    } catch (e) {
+      console.error('[handleDeleteTournamentClub] error', e);
+    }
+  };
+
+  const handleAddMatch = async () => {
+    if (!selectedTournamentForMatch) {
+      alert('Wybierz turniej przed dodaniem meczu.');
+      return;
+    }
+
+    const clubsForCurrentTournament = tournamentClubs.get(selectedTournamentForMatch) ?? [];
+    if (clubsForCurrentTournament.length === 0) {
+      alert('Najpierw dodaj drużyny do turnieju.');
+      return;
+    }
+
+    if (!matchFormData.date.trim() || !matchFormData.location.trim() || !matchFormData.home.trim() || !matchFormData.away.trim()) {
+      alert('Wypełnij wszystkie pola: datę, miejsce, gospodarza i gości');
+      return;
+    }
+
+    if (matchFormData.home === matchFormData.away) {
+      alert('Gospodarz i goście muszą być różnymi klubami');
+      return;
+    }
+
+    if (matchFormData.referee1 && matchFormData.referee1 === matchFormData.referee2) {
+      alert('Sędzia 1 i Sędzia 2 nie mogą być tacy sami');
+      return;
+    }
+
+    try {
+      const stage = stages.find(s => tournaments.get(s.id)?.find(t => t.id === selectedTournamentForMatch));
+      if (!stage || !selectedCompetitionSeason) return;
+
+      await addTournamentMatch(
+        selectedTournamentForMatch,
+        stage.id,
+        selectedCompetitionSeason.id,
+        {
+          date: matchFormData.date,
+          time: matchFormData.time || undefined,
+          location: matchFormData.location,
+          round: matchFormData.round || undefined,
+          series_round: matchFormData.series_round || undefined,
+          home: matchFormData.home,
+          away: matchFormData.away,
+          referee1: matchFormData.referee1 || undefined,
+          referee2: matchFormData.referee2 || undefined,
+          delegate: matchFormData.delegate || undefined,
+        }
+      );
+
+      setMatchFormData({
+        date: '',
+        time: '',
+        location: '',
+        round: '',
+        series_round: '',
+        home: '',
+        away: '',
+        referee1: '',
+        referee2: '',
+        delegate: '',
+      });
+      setShowAddMatchForm(false);
+      setSelectedTournamentForMatch(null);
+      await refreshMatches();
+      await refreshStages();
+    } catch (e) {
+      console.error('[handleAddMatch] error', e);
+    }
+  };
+
+  const handleDeleteMatch = async (matchId: string) => {
+    if (!confirm('Czy na pewno chcesz usunąć ten mecz?')) return;
+
+    try {
+      await deleteTournamentMatch(matchId);
+      await refreshMatches();
+      await refreshStages();
+    } catch (e) {
+      console.error('[handleDeleteMatch] error', e);
+    }
+  };
   
   // Load profiles (for admin select lists)
   const [profiles,setProfiles]=useState<ProfileRow[]>([])
@@ -2180,6 +2669,11 @@ const effectiveUser = useMemo(() => {
   }
   return demoUser;
 }, [supaUser, myProfile?.role, myProfile?.club_name, userDisplay, demoUser]);
+
+const showMyMatches = !!effectiveUser && (isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser));
+const showClubTab = !!effectiveUser && isClub(effectiveUser);
+const showKtpwTab = !!effectiveUser;
+const showAdminTab = !!effectiveUser && isAdmin(effectiveUser);
 
 useEffect(() => {
   // Ładuj profile tylko gdy jestem Adminem
@@ -2271,6 +2765,40 @@ const finishedMatches = useMemo(
   [state.matches]
 );
 
+function getMyMatchRole(user: { name?: string } | null | undefined, match: Match) {
+  const name = user?.name?.trim();
+  if (!name) return null;
+  if (match.delegate?.trim() === name) return "Delegat";
+  if (match.referees[0]?.trim() === name) return "Sędzia 1";
+  if (match.referees[1]?.trim() === name) return "Sędzia 2";
+  return null;
+}
+
+const myMatches = useMemo(() => {
+  const name = effectiveUser?.name?.trim();
+  if (!name) return [];
+
+  return state.matches.filter((match) => {
+    const role = getMyMatchRole(effectiveUser, match);
+    return !!role;
+  });
+}, [effectiveUser, state.matches]);
+
+const myUpcomingMatches = useMemo(
+  () => myMatches.filter((match) => !match.result || match.result.trim() === ""),
+  [myMatches]
+);
+
+const myFinishedMatches = useMemo(
+  () => myMatches.filter((match) => !!match.result && match.result.trim() !== ""),
+  [myMatches]
+);
+
+const formatMatchDate = (iso: string) =>
+  new Date(iso)
+    .toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "2-digit" })
+    .replace(/\./g, "-");
+
   // Load matches from Supabase and merge docs from localStorage
   const [loadingMatches,setLoadingMatches]=useState(false)
   
@@ -2293,6 +2821,9 @@ const matches: Match[] = rows.map((r: any) => ({
   shootout: !!r.shootout,                
   referees: [r.referee1 || "", r.referee2 || ""],
   delegate: r.delegate || "",
+  tournamentId: r.tournament_id || null,
+  stageId: r.stage_id || null,
+  competitionSeasonId: r.competition_season_id || null,
   notes: r.notes || "",
   commsByClub: { home: null, away: null },
   rosterByClub: { home: null, away: null },
@@ -2557,57 +3088,559 @@ const delegateCandidateNames = Array.from(new Set([
   {/* === [3.3] HOME: pasek 3 najnowszych newsów + dotychczasowa strona === */}
   {page === 'home' && (
     <>
-      {/* Pasek newsów nad tabelą wyników */}
-      <NewsStrip
-         onMore={openArticles} 
-          onOpen={openArticle}
-      />
-
-     
-
-      <RankingTable matches={state.matches} clubs={clubs} />
-
-      {effectiveUser && effectiveUser.role !== "Guest" && (
-        <div>
-          <PerMatchActions
-            state={state}
-            setState={setState}
-            user={effectiveUser}
-            onPenaltiesChange={refreshPenalties}
-          />
+      <div className="rounded-2xl border border-white/40 bg-white/80 p-3 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          <button
+            className={clsx(classes.btnSecondary, activePage === 'dashboard' && 'bg-amber-600 text-white hover:bg-amber-700')}
+            onClick={() => setActivePage('dashboard')}
+          >
+            Start
+          </button>
+          <button
+            className={clsx(classes.btnSecondary, activePage === 'matches' && 'bg-amber-600 text-white hover:bg-amber-700')}
+            onClick={() => setActivePage('matches')}
+          >
+            Rozgrywki
+          </button>
+          {showMyMatches && (
+            <button
+              className={clsx(classes.btnSecondary, activePage === 'my-matches' && 'bg-amber-600 text-white hover:bg-amber-700')}
+              onClick={() => setActivePage('my-matches')}
+            >
+              Moje mecze
+            </button>
+          )}
+          {showClubTab && (
+            <button
+              className={clsx(classes.btnSecondary, activePage === 'club' && 'bg-amber-600 text-white hover:bg-amber-700')}
+              onClick={() => setActivePage('club')}
+            >
+              Mój klub
+            </button>
+          )}
+          {showKtpwTab && (
+            <button
+              className={clsx(classes.btnSecondary, activePage === 'ktpw' && 'bg-amber-600 text-white hover:bg-amber-700')}
+              onClick={() => setActivePage('ktpw')}
+            >
+              KTPW
+            </button>
+          )}
+          {showAdminTab && (
+            <button
+              className={clsx(classes.btnSecondary, activePage === 'admin' && 'bg-amber-600 text-white hover:bg-amber-700')}
+              onClick={() => setActivePage('admin')}
+            >
+              Admin
+            </button>
+          )}
         </div>
+      </div>
+
+      {activePage === 'dashboard' && (
+        <>
+          <NewsStrip onMore={openArticles} onOpen={openArticle} />
+        </>
       )}
 
-      <MatchesTable
-        title="Nadchodzące mecze"
-        variant="upcoming"
-        showExport
-        state={{ ...state, matches: upcomingMatches }}
-        setState={setState}
-        user={effectiveUser}
-        onRefresh={refreshMatches}
-        loading={loadingMatches}
-        penaltyMap={penaltiesByMatch}
-        onRemovePenalty={handleRemovePenalty}
-        onQuickEdit={handleQuickEdit}
-      />
+      {activePage === 'matches' && (
+        <>
+          {/* Competition Selector */}
+          <div className="rounded-2xl border border-white/40 bg-white/80 p-3 shadow-sm mb-4">
+            <div className="mb-2 text-sm font-semibold text-gray-700">Kategoria rozgrywek:</div>
+            <div className="flex flex-wrap gap-2">
+              {(competitions.length ? competitions : fallbackCompetitions).map((comp) => (
+                <button
+                  key={comp.id}
+                  onClick={() => handleCompetitionChange(comp.id)}
+                  className={clsx(
+                    "px-3 py-2 rounded-xl border text-sm font-medium transition",
+                    selectedCompetitionId === comp.id
+                      ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  )}
+                >
+                  {comp.short_name || comp.name}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <MatchesTable
-        title="Zakończone mecze"
-        variant="finished"
-        sectionClassName="bg-white/60"
-        state={{ ...state, matches: finishedMatches }}
-        setState={setState}
-        user={effectiveUser}
-        onRefresh={refreshMatches}
-        loading={loadingMatches}
-        penaltyMap={penaltiesByMatch}
-        onRemovePenalty={handleRemovePenalty}
-        onQuickEdit={handleQuickEdit}
-      />
+          {/* Content for Ekstraklasa */}
+          {selectedCompetitionSeason?.competition_id === competitions.find(c => c.name === 'Ekstraklasa')?.id ? (
+            <CompetitionMatchesView
+              mode="competition"
+              competitionSeasonId={selectedCompetitionSeason?.id ?? null}
+              matches={state.matches}
+              penalties={penaltiesByMatch}
+              documents={state.matches}
+              currentUser={effectiveUser}
+              state={state}
+              setState={setState}
+              clubs={clubs}
+              refereeNames={refereeNames}
+              delegateNames={delegateNames}
+              delegateCandidateNames={delegateCandidateNames}
+              onRefreshMatches={() => { refreshMatches(); refreshPenalties(); }}
+              loadingMatches={loadingMatches}
+              onRemovePenalty={handleRemovePenalty}
+              onQuickEdit={handleQuickEdit}
+              onCancelEdit={handleCancelInlineEdit}
+              editingMatchId={editingMatchId}
+            />
+          ) : (
+            // Layer 1.5: Stages and Tournaments UI
+            <div className="space-y-4">
+              <Section title={selectedCompetitionSeason?.name || 'Kategoria'} icon={<Shield className="w-5 h-5" />} className="bg-white/60">
+                {loadingStages ? (
+                  <div className="text-gray-500">Ładowanie etapów...</div>
+                ) : stages.length === 0 ? (
+                  <div className="text-gray-500">
+                    Brak etapów. {effectiveUser && isAdmin(effectiveUser) && 'Dodaj pierwszy etap.'}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {stages.map(stage => (
+                      <div key={stage.id} className="border-l-4 border-amber-600 pl-4 py-3 bg-amber-50 rounded">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="font-semibold text-gray-800">{stage.name}</h3>
+                            <p className="text-sm text-gray-600">
+                              Typ: {stage.stage_type} 
+                              {stage.start_date && ` • ${new Date(stage.start_date).toLocaleDateString('pl-PL')}`}
+                            </p>
+                          </div>
+                          {effectiveUser && isAdmin(effectiveUser) && (
+                            <button
+                              onClick={() => handleDeleteStage(stage.id)}
+                              className="p-2 hover:bg-red-100 rounded transition"
+                              title="Usuń etap"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
+                          )}
+                        </div>
 
-      {effectiveUser && isAdmin(effectiveUser) && (
-        <div ref={adminPanelRef}>
+                        {/* Turnieje w etapie */}
+                        {tournaments.get(stage.id) && tournaments.get(stage.id)!.length > 0 ? (
+                          <div className="mt-3 space-y-3 ml-2 border-t pt-2">
+                            {tournaments.get(stage.id)!.map(tournament => (
+                              <div key={tournament.id} className="bg-white border border-gray-200 rounded">
+                                <div className="flex justify-between items-center p-2 bg-gray-50 border-b">
+                                  <div>
+                                    <p className="font-medium text-gray-800">{tournament.name}</p>
+                                    <p className="text-xs text-gray-500">
+                                      Typ: {tournament.tournament_type}
+                                      {tournament.start_date && ` • ${new Date(tournament.start_date).toLocaleDateString('pl-PL')}`}
+                                    </p>
+                                  </div>
+                                  {effectiveUser && isAdmin(effectiveUser) && (
+                                    <button
+                                      onClick={() => handleDeleteTournament(tournament.id)}
+                                      className="p-1 hover:bg-red-100 rounded transition"
+                                      title="Usuń turniej"
+                                    >
+                                      <Trash2 className="w-3 h-3 text-red-600" />
+                                    </button>
+                                  )}
+                                </div>
+
+                                <CompetitionMatchesView
+                                  mode="tournament"
+                                  competitionSeasonId={selectedCompetitionSeason?.id ?? null}
+                                  stageId={stage.id}
+                                  tournamentId={tournament.id}
+                                  matches={state.matches.filter(m => m.tournamentId === tournament.id)}
+                                  penalties={penaltiesByMatch}
+                                  documents={state.matches.filter(m => m.tournamentId === tournament.id)}
+                                  currentUser={effectiveUser}
+                                  state={state}
+                                  setState={setState}
+                                  clubs={clubs}
+                                  refereeNames={refereeNames}
+                                  delegateNames={delegateNames}
+                                  delegateCandidateNames={delegateCandidateNames}
+                                  onRefreshMatches={refreshMatches}
+                                  loadingMatches={loadingMatches}
+                                  onRemovePenalty={handleRemovePenalty}
+                                  onQuickEdit={handleQuickEdit}
+                                  onCancelEdit={handleCancelInlineEdit}
+                                  editingMatchId={editingMatchId}
+                                  tournamentClubs={tournamentClubs}
+                                  showAddTournamentClubForm={showAddTournamentClubForm}
+                                  setShowAddTournamentClubForm={setShowAddTournamentClubForm}
+                                  tournamentClubFormData={tournamentClubFormData}
+                                  setTournamentClubFormData={setTournamentClubFormData}
+                                  onAddTournamentClub={handleAddTournamentClub}
+                                  onDeleteTournamentClub={handleDeleteTournamentClub}
+                                  onAddMatch={(id) => {
+                                    setSelectedTournamentForMatch(id);
+                                    setShowAddMatchForm(true);
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mt-2 text-sm text-gray-500 ml-2">
+                            Brak turniejów w tym etapie
+                          </div>
+                        )}
+
+                        {/* Przycisk do dodania turnieju */}
+                        {effectiveUser && isAdmin(effectiveUser) && (
+                          <div className="mt-2">
+                            <button
+                              onClick={() => {
+                                setSelectedStageForTournament(stage.id);
+                                setShowAddTournamentForm(true);
+                              }}
+                              className="text-sm px-2 py-1 text-blue-600 hover:bg-blue-100 rounded transition"
+                            >
+                              + Dodaj turniej
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+
+              {/* Przycisk do dodania etapu */}
+              {effectiveUser && isAdmin(effectiveUser) && (
+                <div>
+                  {!showAddStageForm ? (
+                    <button
+                      onClick={() => setShowAddStageForm(true)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    >
+                      + Dodaj etap
+                    </button>
+                  ) : (
+                    <div className="border border-blue-300 rounded-lg p-4 bg-blue-50">
+                      <h3 className="font-semibold mb-3 text-gray-800">Dodaj nowy etap</h3>
+                      <div className="space-y-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa</label>
+                          <input
+                            type="text"
+                            value={stageFormData.name}
+                            onChange={e => setStageFormData(p => ({ ...p, name: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="np. Eliminacje Zachód"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
+                          <select
+                            value={stageFormData.type}
+                            onChange={e => setStageFormData(p => ({ ...p, type: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="round_robin">Round Robin</option>
+                            <option value="group">Group Stage</option>
+                            <option value="knockout">Knockout</option>
+                            <option value="finals">Finals</option>
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Data startu</label>
+                            <input
+                              type="date"
+                              value={stageFormData.startDate}
+                              onChange={e => setStageFormData(p => ({ ...p, startDate: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Data końca</label>
+                            <input
+                              type="date"
+                              value={stageFormData.endDate}
+                              onChange={e => setStageFormData(p => ({ ...p, endDate: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <button
+                            onClick={handleAddStage}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                          >
+                            <Save className="w-4 h-4 inline mr-2" />
+                            Dodaj etap
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowAddStageForm(false);
+                              setStageFormData({ name: '', type: 'round_robin', startDate: '', endDate: '' });
+                            }}
+                            className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition"
+                          >
+                            Anuluj
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Formularz dodania turnieju */}
+              {effectiveUser && isAdmin(effectiveUser) && showAddTournamentForm && selectedStageForTournament && (
+                <div className="border border-green-300 rounded-lg p-4 bg-green-50">
+                  <h3 className="font-semibold mb-3 text-gray-800">Dodaj nowy turniej</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Etap</label>
+                      <select
+                        value={selectedStageForTournament}
+                        onChange={e => setSelectedStageForTournament(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        {stages.map(stage => (
+                          <option key={stage.id} value={stage.id}>{stage.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa</label>
+                      <input
+                        type="text"
+                        value={tournamentFormData.name}
+                        onChange={e => setTournamentFormData(p => ({ ...p, name: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="np. Turniej Poznań"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
+                      <select
+                        value={tournamentFormData.type}
+                        onChange={e => setTournamentFormData(p => ({ ...p, type: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="league">League</option>
+                        <option value="group">Group</option>
+                        <option value="knockout">Knockout</option>
+                        <option value="final">Final</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Data startu</label>
+                        <input
+                          type="date"
+                          value={tournamentFormData.startDate}
+                          onChange={e => setTournamentFormData(p => ({ ...p, startDate: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Data końca</label>
+                        <input
+                          type="date"
+                          value={tournamentFormData.endDate}
+                          onChange={e => setTournamentFormData(p => ({ ...p, endDate: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={handleAddTournament}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                      >
+                        <Save className="w-4 h-4 inline mr-2" />
+                        Dodaj turniej
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAddTournamentForm(false);
+                          setSelectedStageForTournament(null);
+                          setTournamentFormData({ name: '', type: 'league', startDate: '', endDate: '' });
+                        }}
+                        className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition"
+                      >
+                        Anuluj
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Formularz dodania meczu */}
+              {effectiveUser && isAdmin(effectiveUser) && showAddMatchForm && selectedTournamentForMatch && (
+                <div className="border border-purple-300 rounded-lg p-4 bg-purple-50">
+                  <h3 className="font-semibold mb-3 text-gray-800">Dodaj nowy mecz</h3>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Data *</label>
+                        <input
+                          type="date"
+                          value={matchFormData.date}
+                          onChange={e => setMatchFormData(p => ({ ...p, date: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Godzina</label>
+                        <input
+                          type="time"
+                          value={matchFormData.time}
+                          onChange={e => setMatchFormData(p => ({ ...p, time: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Miejsce *</label>
+                      <input
+                        type="text"
+                        value={matchFormData.location}
+                        onChange={e => setMatchFormData(p => ({ ...p, location: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="np. Basen Otwarty Poznań"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nr meczu / Round</label>
+                        <input
+                          type="text"
+                          value={matchFormData.round}
+                          onChange={e => setMatchFormData(p => ({ ...p, round: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          placeholder="np. 1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Runda / Series Round</label>
+                        <input
+                          type="text"
+                          value={matchFormData.series_round}
+                          onChange={e => setMatchFormData(p => ({ ...p, series_round: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          placeholder="np. 1"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Gospodarz *</label>
+                        <select
+                          value={matchFormData.home}
+                          onChange={e => setMatchFormData(p => ({ ...p, home: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="">Wybierz gospodarza</option>
+                          {(tournamentClubs.get(selectedTournamentForMatch || '') || []).map(c => (
+                            <option key={c.id} value={c.club_name}>{c.club_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Goście *</label>
+                        <select
+                          value={matchFormData.away}
+                          onChange={e => setMatchFormData(p => ({ ...p, away: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="">Wybierz gości</option>
+                          {(tournamentClubs.get(selectedTournamentForMatch || '') || []).map(c => (
+                            <option key={c.id} value={c.club_name}>{c.club_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Sędzia 1</label>
+                        <select
+                          value={matchFormData.referee1}
+                          onChange={e => setMatchFormData(p => ({ ...p, referee1: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="">Wybierz sędziego 1</option>
+                          {refereeNames.map(n => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Sędzia 2</label>
+                        <select
+                          value={matchFormData.referee2}
+                          onChange={e => setMatchFormData(p => ({ ...p, referee2: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="">Wybierz sędziego 2</option>
+                          {refereeNames.map(n => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Delegat</label>
+                        <select
+                          value={matchFormData.delegate}
+                          onChange={e => setMatchFormData(p => ({ ...p, delegate: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="">Wybierz delegata</option>
+                          {delegateNames.map(n => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={handleAddMatch}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                      >
+                        <Save className="w-4 h-4 inline mr-2" />
+                        Dodaj mecz
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAddMatchForm(false);
+                          setSelectedTournamentForMatch(null);
+                          setMatchFormData({
+                            date: '',
+                            time: '',
+                            location: '',
+                            round: '',
+                            series_round: '',
+                            home: '',
+                            away: '',
+                            referee1: '',
+                            referee2: '',
+                            delegate: '',
+                          });
+                        }}
+                        className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition"
+                      >
+                        Anuluj
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {activePage === 'ktpw' && (
+        <Ktpw effectiveUser={effectiveUser} isAdmin={effectiveUser ? isAdmin(effectiveUser) : false} />
+      )}
+
+      {activePage === 'admin' && effectiveUser && isAdmin(effectiveUser) && (
+        <>
           <AdminPanel
             state={state}
             setState={setState}
@@ -2619,12 +3652,88 @@ const delegateCandidateNames = Array.from(new Set([
             editingMatchId={editingMatchId}
             clearEditing={() => setEditingMatchId(null)}
           />
-        </div>
+
+          <Section title="Administracja" icon={<Shield className="w-5 h-5" />} className="bg-white/60">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                className={clsx(classes.btnSecondary, "w-full")}
+                onClick={openModeration}
+              >
+                Moderacja artykułów
+              </button>
+              <button
+                className={clsx(classes.btnSecondary, "w-full")}
+                onClick={() => setPage('approvals')}
+              >
+                Lista użytkowników
+              </button>
+            </div>
+          </Section>
+
+          <Diagnostics state={state} />
+        </>
       )}
 
-      {effectiveUser && isAdmin(effectiveUser) && (
-        <Section title="Import użytkowników (CSV)" icon={<Upload className="w-5 h-5" />}>
-          {/* (treść importu pozostawiona jak było) */}
+      {activePage === 'my-matches' && effectiveUser && (isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser)) && (
+        <Section title="Moje mecze" icon={<Users className="w-5 h-5" />} className="bg-white/60">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white/70 p-3">
+              <div className="mb-3 text-sm font-semibold text-slate-700">Najbliższe mecze</div>
+              <div className="space-y-2">
+                {myUpcomingMatches.length === 0 ? (
+                  <div className="text-sm text-gray-500">Brak nadchodzących meczów.</div>
+                ) : (
+                  myUpcomingMatches.map((match) => (
+                    <div key={match.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                      <div className="font-medium">{formatMatchDate(match.date)}{match.time ? ` ${match.time}` : ""}</div>
+                      <div className="text-xs text-gray-600">{match.location}</div>
+                      <div className="mt-1 font-medium">{match.home} vs {match.away}</div>
+                      <div className="mt-1 text-xs text-slate-600">
+                        Rola: <span className="font-medium text-slate-700">{getMyMatchRole(effectiveUser, match)}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white/70 p-3">
+              <div className="mb-3 text-sm font-semibold text-slate-700">Mecze zakończone</div>
+              <div className="space-y-2">
+                {myFinishedMatches.length === 0 ? (
+                  <div className="text-sm text-gray-500">Brak zakończonych meczów.</div>
+                ) : (
+                  myFinishedMatches.map((match) => (
+                    <div key={match.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                      <div className="font-medium">{formatMatchDate(match.date)}{match.time ? ` ${match.time}` : ""}</div>
+                      <div className="text-xs text-gray-600">{match.location}</div>
+                      <div className="mt-1 font-medium">{match.home} vs {match.away}</div>
+                      <div className="mt-1 text-xs text-slate-600">
+                        Rola: <span className="font-medium text-slate-700">{getMyMatchRole(effectiveUser, match)}</span>
+                      </div>
+                      {match.result && (
+                        <div className="mt-1 text-xs text-slate-600">Wynik: {match.result}</div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </Section>
+      )}
+
+      {activePage === 'club' && (
+        <Section title="Mój klub" icon={<Users className="w-5 h-5" />} className="bg-white/60">
+          <div className="text-sm text-gray-700">
+            Tutaj dodamy bazę zawodników klubu oraz cyfrowe zgłoszenia składów.
+          </div>
+        </Section>
+      )}
+
+      {activePage === 'my-matches' && (!effectiveUser || !(isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser))) && (
+        <Section title="Moje mecze" icon={<Users className="w-5 h-5" />} className="bg-white/60">
+          <div className="text-sm text-gray-500">Panel dostępny tylko dla sędziów, delegatów i adminów.</div>
         </Section>
       )}
     </>
