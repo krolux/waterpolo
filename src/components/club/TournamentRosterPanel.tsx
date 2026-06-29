@@ -62,7 +62,7 @@ export const TournamentRosterPanel: React.FC<TournamentRosterPanelProps> = ({
                       {(player.loanClub || player.loanFromClub) ? <div className="text-xs text-gray-500">Wypozyczony z: {player.loanClub || player.loanFromClub}</div> : null}
                     </td>
                     <td className="px-2 py-1.5">{player.defaultCapNumber}</td>
-                    <td className="px-2 py-1.5"><LicenseStatus licenseValidUntil={player.licenseValidUntil} targetDate={targetDate} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} /></td>
+                    <td className="px-2 py-1.5"><LicenseStatus licenseStatus={player.licenseStatus} licenseValidUntil={player.licenseValidUntil} targetDate={targetDate} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} /></td>
                     <td className="px-2 py-1.5 text-right">
                       <button
                         onClick={() => onAddPlayer(player.playerId)}
@@ -113,7 +113,7 @@ export const TournamentRosterPanel: React.FC<TournamentRosterPanelProps> = ({
                     {slot.player ? slot.player.birthYear : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-2 py-1.5">
-                    {slot.player ? <LicenseStatus licenseValidUntil={slot.player.licenseValidUntil} targetDate={targetDate} verifiedAt={slot.player.licenseVerifiedAt} verifiedBy={slot.player.licenseVerifiedBy} /> : <span className="text-gray-300">—</span>}
+                    {slot.player ? <LicenseStatus licenseStatus={slot.player.licenseStatus} licenseValidUntil={slot.player.licenseValidUntil} targetDate={targetDate} verifiedAt={slot.player.licenseVerifiedAt} verifiedBy={slot.player.licenseVerifiedBy} /> : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-2 py-1.5">
                     {slot.player ? (

@@ -9,6 +9,7 @@ import { StageForm } from "../tournaments/StageForm";
 import { TournamentForm } from "../tournaments/TournamentForm";
 import { MatchForm } from "../matches/MatchForm";
 import { LicenseStatus } from "../club/LicenseStatus";
+import { getPlayerLicenseStatuses, verifyPlayerLicense, type PlayerLicenseStatusRow } from "../../lib/rosters";
 import type { Competition, CompetitionSeason, Stage, Tournament, TournamentClub } from "../../lib/competitions";
 import type { AppState, Role } from "../../types/wpolo";
 import type { SaveRosterPayload } from "../../types/rosters";
@@ -159,6 +160,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
 }) => {
   const [openRosterPreview, setOpenRosterPreview] = React.useState<{ tournamentId: string; clubName: string } | null>(null);
   const [approvedPlayers, setApprovedPlayers] = React.useState<Set<string>>(new Set());
+  const [playerLicenseStatuses, setPlayerLicenseStatuses] = React.useState<Map<string, PlayerLicenseStatusRow>>(new Map());
+  const [verifyingLicenseIds, setVerifyingLicenseIds] = React.useState<Set<string>>(new Set());
   const canApprove = !!effectiveUser && ["Referee", "Delegate", "Admin"].includes(effectiveUser.role);
   const tournamentTargetDateById = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -183,6 +186,55 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
       return next;
     });
   }, []);
+
+  const refreshPreviewLicenseStatuses = React.useCallback(async () => {
+    if (!openRosterPreview) {
+      setPlayerLicenseStatuses(new Map());
+      return;
+    }
+
+    const roster = savedRosters.find((item) =>
+      item.mode === "tournament" &&
+      item.tournamentId === openRosterPreview.tournamentId &&
+      item.clubName === openRosterPreview.clubName
+    );
+
+    if (!roster) {
+      setPlayerLicenseStatuses(new Map());
+      return;
+    }
+
+    const statusMap = await getPlayerLicenseStatuses(roster.players.map((player) => player.playerId));
+    setPlayerLicenseStatuses(statusMap);
+  }, [openRosterPreview, savedRosters]);
+
+  React.useEffect(() => {
+    void refreshPreviewLicenseStatuses();
+  }, [refreshPreviewLicenseStatuses]);
+
+  const handleVerifyLicense = React.useCallback(async (playerId: string, tournamentId: string, validUntil?: string) => {
+    if (!effectiveUser) return;
+
+    setVerifyingLicenseIds((current) => new Set(current).add(playerId));
+
+    try {
+      await verifyPlayerLicense({
+        playerId,
+        checkedByName: effectiveUser.name,
+        checkedByRole: effectiveUser.role,
+        validUntil: validUntil || new Date().toISOString().slice(0, 10),
+        verificationType: "tournament",
+        tournamentId,
+      });
+      await refreshPreviewLicenseStatuses();
+    } finally {
+      setVerifyingLicenseIds((current) => {
+        const next = new Set(current);
+        next.delete(playerId);
+        return next;
+      });
+    }
+  }, [effectiveUser, refreshPreviewLicenseStatuses]);
 
   return (
     <>
@@ -389,7 +441,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                               {(roster?.players ?? []).map((player) => {
                                                 const approveKey = `${tournament.id}:${club.club_name}:${player.playerId}`;
                                                 const approved = approvedPlayers.has(approveKey);
-                                                const savedPlayer = roster?.players.find((saved) => saved.playerId === player.playerId);
+                                                const statusRow = playerLicenseStatuses.get(player.playerId);
+                                                const isVerifying = verifyingLicenseIds.has(player.playerId);
                                                 return (
                                                   <tr key={approveKey} className="border-t border-slate-200 align-top">
                                                     <td className="px-2 py-1.5">{player.slot}</td>
@@ -399,20 +452,30 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                                     <td className="px-2 py-1.5">{player.loanClub || "-"}</td>
                                                     <td className="px-2 py-1.5">
                                                       <LicenseStatus
-                                                        licenseValidUntil={savedPlayer?.licenseValidUntil || undefined}
+                                                         licenseStatus={statusRow?.status}
+                                                        licenseValidUntil={statusRow?.valid_until || undefined}
                                                         targetDate={targetDate}
-                                                        verifiedAt={roster?.savedAt}
-                                                        verifiedBy={roster?.clubName}
+                                                        verifiedAt={statusRow?.last_checked_at || undefined}
+                                                        verifiedBy={statusRow?.checked_by_name || undefined}
                                                       />
                                                     </td>
                                                     {canApprove ? (
                                                       <td className="px-2 py-1.5 text-right">
-                                                        <button
-                                                          onClick={() => toggleApproved(approveKey)}
-                                                          className={approved ? "rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-xs text-green-700" : "rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"}
-                                                        >
-                                                          Zatwierdź zawodnika
-                                                        </button>
+                                                        <div className="flex flex-wrap justify-end gap-1">
+                                                          <button
+                                                            onClick={() => handleVerifyLicense(player.playerId, tournament.id, targetDate)}
+                                                            disabled={isVerifying}
+                                                            className={isVerifying ? "rounded-lg border border-gray-300 bg-gray-100 px-2 py-1 text-xs text-gray-400 cursor-not-allowed" : "rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"}
+                                                          >
+                                                            Zweryfikuj licencję
+                                                          </button>
+                                                          <button
+                                                            onClick={() => toggleApproved(approveKey)}
+                                                            className={approved ? "rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-xs text-green-700" : "rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"}
+                                                          >
+                                                            Zatwierdź zawodnika
+                                                          </button>
+                                                        </div>
                                                       </td>
                                                     ) : null}
                                                   </tr>

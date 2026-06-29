@@ -12,9 +12,25 @@ export type PlayerRow = {
   loan_club_name: string | null;
   active: boolean;
   license_verified_until: string | null;
+  license_verified_at?: string | null;
+  license_verified_by?: string | null;
+  license_status?: 'valid' | 'expired';
   notes: string | null;
   created_at: string | null;
   updated_at: string | null;
+};
+
+export type PlayerLicenseStatusRow = {
+  player_id: string;
+  last_checked_at: string | null;
+  valid_until: string | null;
+  checked_by_profile_id: string | null;
+  checked_by_name: string | null;
+  checked_by_role: string | null;
+  verification_type: 'match' | 'tournament' | 'manual' | null;
+  match_id: string | null;
+  tournament_id: string | null;
+  status: 'valid' | 'expired';
 };
 
 export type TournamentRosterRow = {
@@ -168,7 +184,34 @@ async function getPlayersByIds(playerIds: string[]): Promise<Map<string, PlayerR
   if (error) throw error;
 
   const players = (data || []) as PlayerRow[];
-  return new Map(players.map((player) => [player.id, player]));
+  const statusMap = await getPlayerLicenseStatuses(playerIds);
+  return new Map(players.map((player) => [player.id, hydratePlayerLicenseStatus(player, statusMap.get(player.id))]));
+}
+
+function hydratePlayerLicenseStatus(player: PlayerRow, status: PlayerLicenseStatusRow | undefined): PlayerRow {
+  return {
+    ...player,
+    license_verified_until: status?.valid_until ?? player.license_verified_until,
+    license_verified_at: status?.last_checked_at ?? player.license_verified_at ?? null,
+    license_verified_by: status?.checked_by_name ?? player.license_verified_by ?? null,
+    license_status: status?.status ?? player.license_status ?? 'expired',
+  };
+}
+
+export async function getPlayerLicenseStatuses(playerIds: string[]): Promise<Map<string, PlayerLicenseStatusRow>> {
+  if (playerIds.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabase
+    .from('player_license_status')
+    .select('*')
+    .in('player_id', playerIds);
+
+  if (error) throw error;
+
+  const rows = (data || []) as PlayerLicenseStatusRow[];
+  return new Map(rows.map((row) => [row.player_id, row]));
 }
 
 async function loadTournamentRosterPlayers(rosterIds: string[]): Promise<Map<string, TournamentRosterPlayerRow[]>> {
@@ -308,7 +351,10 @@ export async function listPlayers(clubId: string): Promise<PlayerRow[]> {
     .order('first_name', { ascending: true });
 
   if (error) throw error;
-  return (data || []) as PlayerRow[];
+
+  const players = (data || []) as PlayerRow[];
+  const statusMap = await getPlayerLicenseStatuses(players.map((player) => player.id));
+  return players.map((player) => hydratePlayerLicenseStatus(player, statusMap.get(player.id)));
 }
 
 export async function createPlayer(payload: PlayerCreateInput): Promise<PlayerRow> {

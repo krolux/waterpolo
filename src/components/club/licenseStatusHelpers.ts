@@ -1,4 +1,12 @@
-export function getLicenseStatusMeta(licenseValidUntil?: string, targetDate?: string) {
+export function getLicenseStatusMeta(licenseStatus?: "valid" | "expired", licenseValidUntil?: string, targetDate?: string) {
+  if (licenseStatus === "valid") {
+    return { icon: "🟢", label: "Zweryfikowana", className: "text-green-600" };
+  }
+
+  if (licenseStatus === "expired") {
+    return { icon: "🔴", label: "Wymaga zatwierdzenia", className: "text-red-600" };
+  }
+
   if (!licenseValidUntil) {
     return { icon: "🔴", label: "Wymaga zatwierdzenia", className: "text-red-600" };
   }
@@ -10,7 +18,7 @@ export function getLicenseStatusMeta(licenseValidUntil?: string, targetDate?: st
   }
 
   if (expirationDate.getTime() >= checkDate.getTime()) {
-    return { icon: "🟢", label: "Zatwierdzony", className: "text-green-600" };
+    return { icon: "🟢", label: "Zweryfikowana", className: "text-green-600" };
   }
 
   return { icon: "🔴", label: "Wymaga zatwierdzenia", className: "text-red-600" };

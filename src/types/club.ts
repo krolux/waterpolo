@@ -9,6 +9,7 @@ export type Player = {
   loanFromClub?: string;
   loanClub?: string;
   licenseVerified: boolean;
+  licenseStatus?: "valid" | "expired";
   licenseVerifiedAt?: string;
   licenseVerifiedBy?: string;
   licenseValidUntil?: string;
@@ -27,6 +28,7 @@ export type RosterPlayer = {
   loanFromClub?: string;
   loanClub?: string;
   licenseVerified: boolean;
+  licenseStatus?: "valid" | "expired";
   licenseVerifiedAt?: string;
   licenseVerifiedBy?: string;
   licenseValidUntil?: string;

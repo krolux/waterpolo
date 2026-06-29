@@ -42,7 +42,7 @@ export const RosterSourcePanel: React.FC<RosterSourcePanelProps> = ({
                     {(player.loanClub || player.loanFromClub) ? <div className="text-xs text-gray-500">Wypozyczony z: {player.loanClub || player.loanFromClub}</div> : null}
                   </td>
                   <td className="px-2 py-1.5">{player.defaultCapNumber}</td>
-                  <td className="px-2 py-1.5"><LicenseStatus licenseValidUntil={player.licenseValidUntil} targetDate={targetDate} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} /></td>
+                  <td className="px-2 py-1.5"><LicenseStatus licenseStatus={player.licenseStatus} licenseValidUntil={player.licenseValidUntil} targetDate={targetDate} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} /></td>
                   <td className="px-2 py-1.5 text-right">
                     <button
                       onClick={() => onAdd(player.playerId)}

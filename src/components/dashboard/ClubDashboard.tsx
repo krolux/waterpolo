@@ -52,9 +52,10 @@ const mapPlayerRowToPlayer = (player: PlayerRow): Player => ({
   licenseNumber: player.license_number,
   loanFromClub: player.loan_club_name || undefined,
   loanClub: player.loan_club_name || undefined,
-  licenseVerified: !!player.license_verified_until,
-  licenseVerifiedAt: player.license_verified_until || undefined,
-  licenseVerifiedBy: undefined,
+  licenseVerified: player.license_status === "valid",
+  licenseStatus: player.license_status,
+  licenseVerifiedAt: player.license_verified_at || undefined,
+  licenseVerifiedBy: player.license_verified_by || undefined,
   licenseValidUntil: player.license_verified_until || undefined,
 });
 

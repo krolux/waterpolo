@@ -4,15 +4,16 @@ import { LicenseStatusPopover } from "./LicenseStatusPopover";
 import { getLicenseStatusMeta } from "./licenseStatusHelpers";
 
 type LicenseStatusProps = {
+  licenseStatus?: "valid" | "expired";
   licenseValidUntil?: string;
   targetDate?: string;
   verifiedAt?: string;
   verifiedBy?: string;
 };
 
-export const LicenseStatus: React.FC<LicenseStatusProps> = ({ licenseValidUntil, targetDate, verifiedAt, verifiedBy }) => {
+export const LicenseStatus: React.FC<LicenseStatusProps> = ({ licenseStatus, licenseValidUntil, targetDate, verifiedAt, verifiedBy }) => {
   const [open, setOpen] = React.useState(false);
-  const tone = React.useMemo(() => getLicenseStatusMeta(licenseValidUntil, targetDate), [licenseValidUntil, targetDate]);
+  const tone = React.useMemo(() => getLicenseStatusMeta(licenseStatus, licenseValidUntil, targetDate), [licenseStatus, licenseValidUntil, targetDate]);
 
   return (
     <div className="relative inline-block">

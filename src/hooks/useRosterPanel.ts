@@ -98,7 +98,7 @@ function swapSlots(
 }
 
 function licenseStatusRank(player: RosterPanelPlayer) {
-  if (!player.licenseVerified) return 2;
+  if (player.licenseStatus !== "valid" && !player.licenseVerified) return 2;
   if (player.licenseValidUntil) {
     const diff = new Date(player.licenseValidUntil).getTime() - Date.now();
     const days = diff / (1000 * 60 * 60 * 24);
@@ -130,6 +130,7 @@ export function useRosterPanel(players: Player[], options: UseRosterPanelOptions
     loanFromClub: player.loanFromClub,
     loanClub: player.loanClub,
     licenseVerified: player.licenseVerified,
+    licenseStatus: player.licenseStatus,
     licenseVerifiedAt: player.licenseVerifiedAt,
     licenseVerifiedBy: player.licenseVerifiedBy,
     licenseValidUntil: player.licenseValidUntil,
