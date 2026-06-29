@@ -3,10 +3,10 @@ import { LicenseStatus } from "./LicenseStatus";
 import { RosterCounters } from "./RosterCounters";
 import { RosterPlayerRow } from "./RosterPlayerRow";
 import { RosterToolbar } from "./RosterToolbar";
-import type { RosterPanelPlayer } from "../../hooks/useRosterPanel";
+import type { RosterSlot } from "../../hooks/useRosterPanel";
 
 type MatchRosterPanelProps = {
-  players: RosterPanelPlayer[];
+  slots: RosterSlot[];
   count: number;
   limitReached: boolean;
   onCopyPreviousMatch: () => void;
@@ -15,13 +15,12 @@ type MatchRosterPanelProps = {
   onClear: () => void;
   onRemoveFromMatch: (playerId: string) => void;
   onMoveMatchPlayer: (playerId: string, direction: "up" | "down") => void;
-  onUpdateMatchCapNumber: (playerId: string, value: string) => void;
   onToggleGoalkeeper: (playerId: string, checked: boolean) => void;
   onToggleCaptain: (playerId: string, checked: boolean) => void;
 };
 
 export const MatchRosterPanel: React.FC<MatchRosterPanelProps> = ({
-  players,
+  slots,
   count,
   limitReached,
   onCopyPreviousMatch,
@@ -30,12 +29,11 @@ export const MatchRosterPanel: React.FC<MatchRosterPanelProps> = ({
   onClear,
   onRemoveFromMatch,
   onMoveMatchPlayer,
-  onUpdateMatchCapNumber,
   onToggleGoalkeeper,
   onToggleCaptain,
 }) => {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 max-w-[620px]">
       <RosterCounters title="Lista meczowa" count={count} limit={15} limitReached={limitReached} />
       <RosterToolbar
         actions={[
@@ -45,48 +43,55 @@ export const MatchRosterPanel: React.FC<MatchRosterPanelProps> = ({
           { label: "Wyczyść listę meczową", onClick: onClear },
         ]}
       />
-      {players.length === 0 ? (
-        <div className="text-sm text-gray-500">Dodaj zawodnikow z listy turniejowej, aby utworzyc liste meczowa.</div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white/70">
-          <table className="min-w-full text-sm text-left text-gray-700">
-            <thead className="text-xs uppercase text-gray-500">
-              <tr>
-                <th className="px-3 py-2"></th>
-                <th className="px-3 py-2"></th>
-                <th className="px-3 py-2">Imię</th>
-                <th className="px-3 py-2">Nazwisko</th>
-                <th className="px-3 py-2">GK</th>
-                <th className="px-3 py-2">C</th>
-                <th className="px-3 py-2">Meczowy nr</th>
-                <th className="px-3 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {players.map((player, index) => (
-                <RosterPlayerRow key={player.playerId}>
-                  <td className="px-3 py-2"><button onClick={() => onRemoveFromMatch(player.playerId)} className="rounded-lg border bg-white px-2 py-1 hover:bg-gray-50">←</button></td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-col gap-1">
-                      <button onClick={() => onMoveMatchPlayer(player.playerId, "up")} disabled={index === 0} className={index === 0 ? "rounded-lg border border-gray-300 bg-gray-100 px-2 py-1 text-gray-400 cursor-not-allowed" : "rounded-lg border bg-white px-2 py-1 hover:bg-gray-50"}>▲</button>
-                      <button onClick={() => onMoveMatchPlayer(player.playerId, "down")} disabled={index === players.length - 1} className={index === players.length - 1 ? "rounded-lg border border-gray-300 bg-gray-100 px-2 py-1 text-gray-400 cursor-not-allowed" : "rounded-lg border bg-white px-2 py-1 hover:bg-gray-50"}>▼</button>
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white/70">
+        <table className="min-w-full text-sm text-left text-gray-700">
+          <thead className="text-xs uppercase text-gray-500">
+            <tr>
+              <th className="px-2 py-1.5">Slot</th>
+              <th className="px-2 py-1.5">Zawodnik</th>
+              <th className="px-2 py-1.5">GK</th>
+              <th className="px-2 py-1.5">C</th>
+              <th className="px-2 py-1.5">Status</th>
+              <th className="px-2 py-1.5 text-right">Akcje</th>
+            </tr>
+          </thead>
+          <tbody>
+            {slots.map((slot, index) => (
+              <RosterPlayerRow key={slot.slotNumber}>
+                <td className="px-2 py-1.5 font-semibold text-slate-600">{slot.slotNumber}</td>
+                <td className="px-2 py-1.5">
+                  {slot.player ? (
+                    <>
+                      <div className="font-medium">{slot.player.firstName} {slot.player.lastName} {slot.player.isCaptain ? "(C)" : ""}</div>
+                      {(slot.player.loanClub || slot.player.loanFromClub) ? <div className="text-xs text-gray-500">Wypozyczony z: {slot.player.loanClub || slot.player.loanFromClub}</div> : null}
+                    </>
+                  ) : (
+                    <span className="text-gray-400">— puste —</span>
+                  )}
+                </td>
+                <td className="px-2 py-1.5">
+                  {slot.player ? <input type="checkbox" checked={!!slot.player.isGoalkeeper} onChange={(e) => onToggleGoalkeeper(slot.player!.playerId, e.target.checked)} className="h-4 w-4 rounded border-slate-300" /> : null}
+                </td>
+                <td className="px-2 py-1.5">
+                  {slot.player ? <input type="checkbox" checked={!!slot.player.isCaptain} onChange={(e) => onToggleCaptain(slot.player!.playerId, e.target.checked)} className="h-4 w-4 rounded border-slate-300" /> : null}
+                </td>
+                <td className="px-2 py-1.5">
+                  {slot.player ? <LicenseStatus verified={slot.player.licenseVerified} verifiedAt={slot.player.licenseVerifiedAt} verifiedBy={slot.player.licenseVerifiedBy} validUntil={slot.player.licenseValidUntil} /> : null}
+                </td>
+                <td className="px-2 py-1.5">
+                  {slot.player ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => onMoveMatchPlayer(slot.player!.playerId, "up")} disabled={index === 0} className={index === 0 ? "rounded border border-gray-300 bg-gray-100 px-1.5 py-1 text-gray-400 cursor-not-allowed" : "rounded border bg-white px-1.5 py-1 hover:bg-gray-50"}>▲</button>
+                      <button onClick={() => onMoveMatchPlayer(slot.player!.playerId, "down")} disabled={index === slots.length - 1} className={index === slots.length - 1 ? "rounded border border-gray-300 bg-gray-100 px-1.5 py-1 text-gray-400 cursor-not-allowed" : "rounded border bg-white px-1.5 py-1 hover:bg-gray-50"}>▼</button>
+                      <button onClick={() => onRemoveFromMatch(slot.player!.playerId)} className="rounded border bg-white px-2 py-1 hover:bg-gray-50">←</button>
                     </div>
-                  </td>
-                  <td className="px-3 py-2">{player.firstName}</td>
-                  <td className="px-3 py-2">
-                    <div>{player.lastName} {player.isCaptain ? "(C)" : ""}</div>
-                    {(player.loanClub || player.loanFromClub) ? <div className="text-xs text-gray-500">Wypozyczony z: {player.loanClub || player.loanFromClub}</div> : null}
-                  </td>
-                  <td className="px-3 py-2"><input type="checkbox" checked={!!player.isGoalkeeper} onChange={(e) => onToggleGoalkeeper(player.playerId, e.target.checked)} className="h-4 w-4 rounded border-slate-300" /></td>
-                  <td className="px-3 py-2"><input type="checkbox" checked={!!player.isCaptain} onChange={(e) => onToggleCaptain(player.playerId, e.target.checked)} className="h-4 w-4 rounded border-slate-300" /></td>
-                  <td className="px-3 py-2"><input type="number" value={player.matchCapNumber} onChange={(e) => onUpdateMatchCapNumber(player.playerId, e.target.value)} className="w-20 rounded-lg border border-slate-300 bg-white px-2 py-1" /></td>
-                  <td className="px-3 py-2"><LicenseStatus verified={player.licenseVerified} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} validUntil={player.licenseValidUntil} /></td>
-                </RosterPlayerRow>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                  ) : null}
+                </td>
+              </RosterPlayerRow>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

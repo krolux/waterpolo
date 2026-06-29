@@ -3,9 +3,11 @@ import type { MatchRoster, Player, RosterPlayer, TournamentRoster } from "../typ
 
 export type SortMode = "number" | "lastName" | "birthYear" | "licenseStatus";
 
-export type RosterPanelPlayer = RosterPlayer & {
-  selectedForMatch: boolean;
-  matchOrder: number | null;
+export type RosterPanelPlayer = RosterPlayer;
+
+export type RosterSlot = {
+  slotNumber: number;
+  player: RosterPanelPlayer | null;
 };
 
 const TOURNAMENT_LIMIT = 17;
@@ -13,6 +15,80 @@ const MATCH_LIMIT = 15;
 
 function normalize(value: string) {
   return value.toLocaleLowerCase("pl-PL");
+}
+
+function clampIndex(index: number, max: number) {
+  return Math.max(0, Math.min(index, max - 1));
+}
+
+function createEmptySlots(limit: number): RosterSlot[] {
+  return Array.from({ length: limit }, (_, index) => ({
+    slotNumber: index + 1,
+    player: null,
+  }));
+}
+
+function findFirstFreeSlotIndex(slots: RosterSlot[]) {
+  return slots.findIndex((slot) => !slot.player);
+}
+
+function placePlayersIntoSlots(
+  currentSlots: RosterSlot[],
+  sourcePlayers: RosterPanelPlayer[],
+  getPreferredIndex: (player: RosterPanelPlayer) => number,
+  limit: number,
+  capField: "tournamentCapNumber" | "matchCapNumber"
+) {
+  const nextSlots = currentSlots.map((slot) => ({
+    ...slot,
+    player: slot.player ? { ...slot.player } : null,
+  }));
+
+  for (const sourcePlayer of sourcePlayers) {
+    const alreadyPlacedIndex = nextSlots.findIndex((slot) => slot.player?.playerId === sourcePlayer.playerId);
+    if (alreadyPlacedIndex >= 0) continue;
+
+    const preferredIndex = clampIndex(getPreferredIndex(sourcePlayer), limit);
+    const targetIndex = !nextSlots[preferredIndex].player
+      ? preferredIndex
+      : findFirstFreeSlotIndex(nextSlots);
+    if (targetIndex < 0) break;
+
+    nextSlots[targetIndex] = {
+      ...nextSlots[targetIndex],
+      player: {
+        ...sourcePlayer,
+        [capField]: targetIndex + 1,
+      },
+    };
+  }
+
+  return nextSlots;
+}
+
+function swapSlots(
+  slots: RosterSlot[],
+  fromIndex: number,
+  toIndex: number,
+  capField: "tournamentCapNumber" | "matchCapNumber"
+) {
+  const next = slots.map((slot) => ({
+    ...slot,
+    player: slot.player ? { ...slot.player } : null,
+  }));
+
+  const temp = next[fromIndex].player;
+  next[fromIndex].player = next[toIndex].player;
+  next[toIndex].player = temp;
+
+  if (next[fromIndex].player) {
+    next[fromIndex].player = { ...next[fromIndex].player, [capField]: fromIndex + 1 };
+  }
+  if (next[toIndex].player) {
+    next[toIndex].player = { ...next[toIndex].player, [capField]: toIndex + 1 };
+  }
+
+  return next;
 }
 
 function licenseStatusRank(player: RosterPanelPlayer) {
@@ -48,35 +124,41 @@ export function useRosterPanel(players: Player[]) {
     matchCapNumber: player.capNumber,
     isGoalkeeper: false,
     isCaptain: false,
-    selectedForMatch: false,
-    matchOrder: null,
   }), []);
 
-  const [tournamentRoster, setTournamentRoster] = React.useState<RosterPanelPlayer[]>(() =>
-    players.slice(0, Math.min(4, TOURNAMENT_LIMIT)).map((player) => toRosterRow(player))
-  );
+  const [tournamentSlots, setTournamentSlots] = React.useState<RosterSlot[]>(() => {
+    const slots = createEmptySlots(TOURNAMENT_LIMIT);
+    players.slice(0, Math.min(4, TOURNAMENT_LIMIT)).forEach((player, index) => {
+      slots[index] = {
+        ...slots[index],
+        player: {
+          ...toRosterRow(player),
+          tournamentCapNumber: index + 1,
+        },
+      };
+    });
+    return slots;
+  });
+
+  const [matchSlots, setMatchSlots] = React.useState<RosterSlot[]>(() => createEmptySlots(MATCH_LIMIT));
 
   const mockSources = React.useMemo(
     () => ({
       previousMatch: players.slice(0, 5).map((player, index) => ({
         ...toRosterRow(player),
-        selectedForMatch: true,
-        matchCapNumber: player.capNumber + 1,
+        matchCapNumber: index + 1,
         isGoalkeeper: index === 0,
         isCaptain: index === 1,
-        matchOrder: index + 1,
       })),
       previousTournament: players.slice(0, 8).map((player, index) => ({
         ...toRosterRow(player),
-        tournamentCapNumber: player.capNumber + index,
+        tournamentCapNumber: index + 1,
       })),
       lastRoster: players.slice(1, 7).map((player, index) => ({
         ...toRosterRow(player),
-        selectedForMatch: true,
-        matchCapNumber: player.capNumber + 2,
+        matchCapNumber: index + 1,
         isGoalkeeper: index < 2,
         isCaptain: index === 0,
-        matchOrder: index + 1,
       })),
     }),
     [players, toRosterRow]
@@ -88,19 +170,24 @@ export function useRosterPanel(players: Player[]) {
       if (sortMode === "lastName") return a.lastName.localeCompare(b.lastName, "pl");
       if (sortMode === "birthYear") return a.birthYear - b.birthYear;
       if (sortMode === "licenseStatus") return licenseStatusRank(a) - licenseStatusRank(b);
-      return a.tournamentCapNumber - b.tournamentCapNumber;
+      return a.defaultCapNumber - b.defaultCapNumber;
     });
     return next;
   }, [sortMode]);
 
-  const tournamentRosterModel: TournamentRoster = React.useMemo(
-    () => ({ tournamentId: "mock-tournament", clubName: "mock-club", players: tournamentRoster }),
-    [tournamentRoster]
+  const tournamentRosterPlayers = React.useMemo(
+    () => tournamentSlots.map((slot) => slot.player).filter((player): player is RosterPanelPlayer => !!player),
+    [tournamentSlots]
   );
 
   const matchRosterPlayers = React.useMemo(
-    () => tournamentRoster.filter((player) => player.selectedForMatch),
-    [tournamentRoster]
+    () => matchSlots.map((slot) => slot.player).filter((player): player is RosterPanelPlayer => !!player),
+    [matchSlots]
+  );
+
+  const tournamentRosterModel: TournamentRoster = React.useMemo(
+    () => ({ tournamentId: "mock-tournament", clubName: "mock-club", players: tournamentRosterPlayers }),
+    [tournamentRosterPlayers]
   );
 
   const matchRosterModel: MatchRoster = React.useMemo(
@@ -108,137 +195,313 @@ export function useRosterPanel(players: Player[]) {
     [matchRosterPlayers, tournamentRosterModel.clubName]
   );
 
-  const availableTournamentRoster = React.useMemo(
-    () => tournamentRoster.filter((player) => !player.selectedForMatch),
-    [tournamentRoster]
+  const availableTournamentPlayers = React.useMemo(
+    () => {
+      const selectedIds = new Set(tournamentRosterPlayers.map((player) => player.playerId));
+      return players
+        .filter((player) => !selectedIds.has(player.id))
+        .map((player) => toRosterRow(player));
+    },
+    [players, toRosterRow, tournamentRosterPlayers]
   );
 
-  const filteredTournamentRoster = React.useMemo(() => {
+  const filteredAvailableTournamentPlayers = React.useMemo(() => {
     const q = normalize(query.trim());
     const rows = !q
-      ? availableTournamentRoster
-      : availableTournamentRoster.filter((player) => normalize(`${player.firstName} ${player.lastName} ${player.licenseNumber}`).includes(q));
+      ? availableTournamentPlayers
+      : availableTournamentPlayers.filter((player) => normalize(`${player.firstName} ${player.lastName} ${player.licenseNumber}`).includes(q));
     return sortPlayers(rows);
-  }, [availableTournamentRoster, query, sortPlayers]);
-
-  const filteredMatchRoster = React.useMemo(() => {
-    const q = normalize(query.trim());
-    const rows = !q
-      ? matchRosterPlayers
-      : matchRosterPlayers.filter((player) => normalize(`${player.firstName} ${player.lastName} ${player.licenseNumber}`).includes(q));
-    return [...rows].sort((a, b) => (a.matchOrder ?? 999) - (b.matchOrder ?? 999));
-  }, [matchRosterPlayers, query]);
+  }, [availableTournamentPlayers, query, sortPlayers]);
 
   const tournamentLimitReached = tournamentRosterModel.players.length >= TOURNAMENT_LIMIT;
   const matchLimitReached = matchRosterModel.players.length >= MATCH_LIMIT;
 
   const addPlayersToTournamentRoster = React.useCallback(() => {
-    setTournamentRoster((current) => {
-      if (current.length >= TOURNAMENT_LIMIT) {
+    setTournamentSlots((currentSlots) => {
+      const currentCount = currentSlots.filter((slot) => !!slot.player).length;
+      if (currentCount >= TOURNAMENT_LIMIT) {
         setWarning("Osiągnięto maksymalny limit zawodników.");
-        return current;
+        return currentSlots;
       }
-      const currentIds = new Set(current.map((player) => player.playerId));
-      const remaining = players.filter((player) => !currentIds.has(player.id));
-      if (remaining.length === 0) return current;
-      const freeSlots = TOURNAMENT_LIMIT - current.length;
-      const nextPlayers = remaining.slice(0, freeSlots).map((player) => toRosterRow(player));
+
+      const currentIds = new Set(
+        currentSlots
+          .map((slot) => slot.player?.playerId)
+          .filter((value): value is string => !!value)
+      );
+
+      const remaining = filteredAvailableTournamentPlayers.filter((player) => !currentIds.has(player.playerId));
+      if (remaining.length === 0) return currentSlots;
+
+      const next = currentSlots.map((slot) => ({ ...slot, player: slot.player ? { ...slot.player } : null }));
+      const freeSlots = TOURNAMENT_LIMIT - currentCount;
+
+      for (const player of remaining.slice(0, freeSlots)) {
+        const freeIndex = findFirstFreeSlotIndex(next);
+        if (freeIndex < 0) break;
+        next[freeIndex] = {
+          ...next[freeIndex],
+          player: {
+            ...player,
+            tournamentCapNumber: freeIndex + 1,
+          },
+        };
+      }
+
       setWarning(null);
-      return [...current, ...nextPlayers];
+      return next;
     });
-  }, [players, toRosterRow]);
+  }, [filteredAvailableTournamentPlayers]);
 
-  const updateTournamentCapNumber = React.useCallback((playerId: string, value: string) => {
-    const nextNumber = Number(value);
-    setTournamentRoster((current) => current.map((player) => player.playerId !== playerId || Number.isNaN(nextNumber) ? player : { ...player, tournamentCapNumber: nextNumber }));
+  const addPlayerToTournamentRoster = React.useCallback((playerId: string) => {
+    const player = filteredAvailableTournamentPlayers.find((item) => item.playerId === playerId);
+    if (!player) return;
+
+    setTournamentSlots((currentSlots) => {
+      if (currentSlots.some((slot) => slot.player?.playerId === playerId)) return currentSlots;
+
+      const freeIndex = findFirstFreeSlotIndex(currentSlots);
+      if (freeIndex < 0) {
+        setWarning("Osiągnięto maksymalny limit zawodników.");
+        return currentSlots;
+      }
+
+      const next = currentSlots.map((slot) => ({ ...slot, player: slot.player ? { ...slot.player } : null }));
+      next[freeIndex] = {
+        ...next[freeIndex],
+        player: {
+          ...player,
+          tournamentCapNumber: freeIndex + 1,
+        },
+      };
+
+      setWarning(null);
+      return next;
+    });
+  }, [filteredAvailableTournamentPlayers]);
+
+  const toggleTournamentGoalkeeper = React.useCallback((playerId: string, checked: boolean) => {
+    setTournamentSlots((currentSlots) =>
+      currentSlots.map((slot) =>
+        slot.player?.playerId === playerId
+          ? { ...slot, player: { ...slot.player, isGoalkeeper: checked } }
+          : slot
+      )
+    );
   }, []);
 
-  const updateMatchCapNumber = React.useCallback((playerId: string, value: string) => {
-    const nextNumber = Number(value);
-    setTournamentRoster((current) => current.map((player) => player.playerId !== playerId || Number.isNaN(nextNumber) ? player : { ...player, matchCapNumber: nextNumber }));
+  const toggleMatchGoalkeeper = React.useCallback((playerId: string, checked: boolean) => {
+    setMatchSlots((currentSlots) =>
+      currentSlots.map((slot) =>
+        slot.player?.playerId === playerId
+          ? { ...slot, player: { ...slot.player, isGoalkeeper: checked } }
+          : slot
+      )
+    );
   }, []);
 
-  const toggleGoalkeeper = React.useCallback((playerId: string, checked: boolean) => {
-    setTournamentRoster((current) => current.map((player) => player.playerId === playerId ? { ...player, isGoalkeeper: checked } : player));
+  const toggleTournamentCaptain = React.useCallback((playerId: string, checked: boolean) => {
+    setTournamentSlots((currentSlots) =>
+      currentSlots.map((slot) => {
+        if (!slot.player) return slot;
+        if (slot.player.playerId === playerId) {
+          return { ...slot, player: { ...slot.player, isCaptain: checked } };
+        }
+        if (checked) {
+          return { ...slot, player: { ...slot.player, isCaptain: false } };
+        }
+        return slot;
+      })
+    );
   }, []);
 
-  const toggleCaptain = React.useCallback((playerId: string, checked: boolean) => {
-    setTournamentRoster((current) => current.map((player) => {
-      if (player.playerId === playerId) return { ...player, isCaptain: checked };
-      if (checked && player.selectedForMatch) return { ...player, isCaptain: false };
-      return player;
-    }));
+  const toggleMatchCaptain = React.useCallback((playerId: string, checked: boolean) => {
+    setMatchSlots((currentSlots) =>
+      currentSlots.map((slot) => {
+        if (!slot.player) return slot;
+        if (slot.player.playerId === playerId) {
+          return { ...slot, player: { ...slot.player, isCaptain: checked } };
+        }
+        if (checked) {
+          return { ...slot, player: { ...slot.player, isCaptain: false } };
+        }
+        return slot;
+      })
+    );
   }, []);
 
   const addToMatchRoster = React.useCallback((playerId: string) => {
-    setTournamentRoster((current) => {
-      const currentSelected = current.filter((player) => player.selectedForMatch).length;
+    const tournamentIndex = tournamentSlots.findIndex((slot) => slot.player?.playerId === playerId);
+    const tournamentPlayer = tournamentIndex >= 0 ? tournamentSlots[tournamentIndex].player : null;
+    if (!tournamentPlayer) return;
+
+    setMatchSlots((currentSlots) => {
+      if (currentSlots.some((slot) => slot.player?.playerId === playerId)) return currentSlots;
+
+      const currentSelected = currentSlots.filter((slot) => !!slot.player).length;
       if (currentSelected >= MATCH_LIMIT) {
         setWarning("Osiągnięto maksymalny limit zawodników.");
-        return current;
+        return currentSlots;
       }
+
+      const preferredIndex = tournamentIndex < MATCH_LIMIT ? tournamentIndex : -1;
+      const targetIndex = preferredIndex >= 0 && !currentSlots[preferredIndex].player
+        ? preferredIndex
+        : findFirstFreeSlotIndex(currentSlots);
+      if (targetIndex < 0) return currentSlots;
+
       setWarning(null);
-      return current.map((player) => player.playerId !== playerId ? player : { ...player, selectedForMatch: true, matchCapNumber: player.tournamentCapNumber, matchOrder: currentSelected + 1 });
+      return currentSlots.map((slot, index) => {
+        if (index !== targetIndex) return slot;
+        return {
+          ...slot,
+          player: {
+            ...tournamentPlayer,
+            matchCapNumber: targetIndex + 1,
+            isGoalkeeper: false,
+            isCaptain: false,
+          },
+        };
+      });
     });
-  }, []);
+  }, [tournamentSlots]);
 
   const removeFromMatchRoster = React.useCallback((playerId: string) => {
-    setTournamentRoster((current) => {
-      const next = current.map((player) => player.playerId === playerId ? { ...player, selectedForMatch: false, matchOrder: null, isGoalkeeper: false, isCaptain: false } : player);
-      const selected = next.filter((player) => player.selectedForMatch);
-      const orderMap = new Map(selected.map((player, index) => [player.playerId, index + 1]));
-      return next.map((player) => player.selectedForMatch ? { ...player, matchOrder: orderMap.get(player.playerId) ?? player.matchOrder } : player);
-    });
+    setMatchSlots((currentSlots) =>
+      currentSlots.map((slot) =>
+        slot.player?.playerId === playerId
+          ? { ...slot, player: null }
+          : slot
+      )
+    );
     setWarning(null);
   }, []);
 
-  const moveMatchPlayer = React.useCallback((playerId: string, direction: "up" | "down") => {
-    setTournamentRoster((current) => {
-      const selected = current.filter((player) => player.selectedForMatch).sort((a, b) => (a.matchOrder ?? 999) - (b.matchOrder ?? 999));
-      const index = selected.findIndex((player) => player.playerId === playerId);
-      if (index < 0) return current;
+  const removeFromTournamentRoster = React.useCallback((playerId: string) => {
+    setTournamentSlots((currentSlots) =>
+      currentSlots.map((slot) =>
+        slot.player?.playerId === playerId
+          ? { ...slot, player: null }
+          : slot
+      )
+    );
+    setMatchSlots((currentSlots) =>
+      currentSlots.map((slot) =>
+        slot.player?.playerId === playerId
+          ? { ...slot, player: null }
+          : slot
+      )
+    );
+    setWarning(null);
+  }, []);
+
+  const moveTournamentPlayer = React.useCallback((playerId: string, direction: "up" | "down") => {
+    setTournamentSlots((currentSlots) => {
+      const index = currentSlots.findIndex((slot) => slot.player?.playerId === playerId);
+      if (index < 0) return currentSlots;
+
       const targetIndex = direction === "up" ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= selected.length) return current;
-      const reordered = [...selected];
-      const [moved] = reordered.splice(index, 1);
-      reordered.splice(targetIndex, 0, moved);
-      const orderMap = new Map(reordered.map((player, idx) => [player.playerId, idx + 1]));
-      return current.map((player) => player.selectedForMatch ? { ...player, matchOrder: orderMap.get(player.playerId) ?? player.matchOrder } : player);
+      if (targetIndex < 0 || targetIndex >= TOURNAMENT_LIMIT) return currentSlots;
+
+      return swapSlots(currentSlots, index, targetIndex, "tournamentCapNumber");
     });
   }, []);
 
-  const applyCopiedRoster = React.useCallback((source: RosterPanelPlayer[]) => {
-    setTournamentRoster(source.slice(0, TOURNAMENT_LIMIT));
+  const moveMatchPlayer = React.useCallback((playerId: string, direction: "up" | "down") => {
+    setMatchSlots((currentSlots) => {
+      const index = currentSlots.findIndex((slot) => slot.player?.playerId === playerId);
+      if (index < 0) return currentSlots;
+
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= MATCH_LIMIT) return currentSlots;
+
+      return swapSlots(currentSlots, index, targetIndex, "matchCapNumber");
+    });
+  }, []);
+
+  const applyCopiedTournamentRoster = React.useCallback((source: RosterPanelPlayer[]) => {
+    setTournamentSlots((currentSlots) => placePlayersIntoSlots(
+      currentSlots,
+      source,
+      (player) => Math.max(0, player.tournamentCapNumber - 1),
+      TOURNAMENT_LIMIT,
+      "tournamentCapNumber"
+    ));
+    setWarning(null);
+  }, []);
+
+  const applyCopiedMatchRoster = React.useCallback((source: RosterPanelPlayer[]) => {
+    setMatchSlots((currentSlots) => placePlayersIntoSlots(
+      currentSlots,
+      source,
+      (player) => Math.max(0, player.matchCapNumber - 1),
+      MATCH_LIMIT,
+      "matchCapNumber"
+    ));
     setWarning(null);
   }, []);
 
   const copyPreviousMatchRoster = React.useCallback(() => {
     if (!window.confirm("Czy skopiować skład?")) return;
-    applyCopiedRoster(mockSources.previousMatch);
-  }, [applyCopiedRoster, mockSources.previousMatch]);
+    applyCopiedTournamentRoster(mockSources.previousMatch);
+    applyCopiedMatchRoster(mockSources.previousMatch);
+  }, [applyCopiedMatchRoster, applyCopiedTournamentRoster, mockSources.previousMatch]);
 
   const copyPreviousTournamentRoster = React.useCallback(() => {
     if (!window.confirm("Czy skopiować skład?")) return;
-    const next = mockSources.previousTournament.map((player) => ({ ...player, selectedForMatch: false, matchCapNumber: player.tournamentCapNumber, isGoalkeeper: false, isCaptain: false, matchOrder: null }));
-    applyCopiedRoster(next);
-  }, [applyCopiedRoster, mockSources.previousTournament]);
+    applyCopiedTournamentRoster(mockSources.previousTournament);
+  }, [applyCopiedTournamentRoster, mockSources.previousTournament]);
+
+  const copyPreviousTournamentToMatchRoster = React.useCallback(() => {
+    if (!window.confirm("Czy skopiować skład?")) return;
+    const next = mockSources.previousTournament.map((player) => ({
+      ...player,
+      matchCapNumber: player.tournamentCapNumber,
+      isGoalkeeper: false,
+      isCaptain: false,
+    }));
+    applyCopiedTournamentRoster(next);
+    applyCopiedMatchRoster(next);
+  }, [applyCopiedMatchRoster, applyCopiedTournamentRoster, mockSources.previousTournament]);
 
   const copyLastRoster = React.useCallback(() => {
     if (!window.confirm("Czy skopiować skład?")) return;
-    applyCopiedRoster(mockSources.lastRoster);
-  }, [applyCopiedRoster, mockSources.lastRoster]);
+    applyCopiedTournamentRoster(mockSources.lastRoster);
+    applyCopiedMatchRoster(mockSources.lastRoster);
+  }, [applyCopiedMatchRoster, applyCopiedTournamentRoster, mockSources.lastRoster]);
 
   const clearTournamentRoster = React.useCallback(() => {
     if (!window.confirm("Czy wyczyścić skład?")) return;
-    setTournamentRoster([]);
+    setTournamentSlots(createEmptySlots(TOURNAMENT_LIMIT));
+    setMatchSlots(createEmptySlots(MATCH_LIMIT));
     setWarning(null);
   }, []);
 
   const clearMatchRoster = React.useCallback(() => {
     if (!window.confirm("Czy wyczyścić skład?")) return;
-    setTournamentRoster((current) => current.map((player) => ({ ...player, selectedForMatch: false, matchCapNumber: player.tournamentCapNumber, isGoalkeeper: false, isCaptain: false, matchOrder: null })));
+    setMatchSlots(createEmptySlots(MATCH_LIMIT));
     setWarning(null);
   }, []);
+
+  const filteredTournamentSlots = React.useMemo(() => {
+    const q = normalize(query.trim());
+    if (!q) return tournamentSlots;
+    return tournamentSlots.map((slot) => {
+      if (!slot.player) return slot;
+      const haystack = normalize(`${slot.player.firstName} ${slot.player.lastName} ${slot.player.licenseNumber}`);
+      return haystack.includes(q) ? slot : { ...slot, player: null };
+    });
+  }, [query, tournamentSlots]);
+
+  const filteredMatchSlots = React.useMemo(() => {
+    const q = normalize(query.trim());
+    if (!q) return matchSlots;
+    return matchSlots.map((slot) => {
+      if (!slot.player) return slot;
+      const haystack = normalize(`${slot.player.firstName} ${slot.player.lastName} ${slot.player.licenseNumber}`);
+      return haystack.includes(q) ? slot : { ...slot, player: null };
+    });
+  }, [query, matchSlots]);
 
   return {
     query,
@@ -250,18 +513,23 @@ export function useRosterPanel(players: Player[]) {
     matchLimitReached,
     tournamentCount: tournamentRosterModel.players.length,
     matchCount: matchRosterModel.players.length,
-    filteredTournamentRoster,
-    filteredMatchRoster,
+    availablePlayers: filteredAvailableTournamentPlayers,
+    tournamentSlots: filteredTournamentSlots,
+    matchSlots: filteredMatchSlots,
     addPlayersToTournamentRoster,
-    updateTournamentCapNumber,
-    updateMatchCapNumber,
-    toggleGoalkeeper,
-    toggleCaptain,
+    addPlayerToTournamentRoster,
+    removeFromTournamentRoster,
+    toggleTournamentGoalkeeper,
+    toggleMatchGoalkeeper,
+    toggleTournamentCaptain,
+    toggleMatchCaptain,
     addToMatchRoster,
     removeFromMatchRoster,
+    moveTournamentPlayer,
     moveMatchPlayer,
     copyPreviousMatchRoster,
     copyPreviousTournamentRoster,
+    copyPreviousTournamentToMatchRoster,
     copyLastRoster,
     clearTournamentRoster,
     clearMatchRoster,

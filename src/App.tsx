@@ -1210,6 +1210,7 @@ const delegateCandidateNames = Array.from(new Set([
         <ClubDashboard
           effectiveUser={effectiveUser}
           matches={state.matches}
+          tournamentNamesById={Object.fromEntries(Array.from(tournaments.values()).flat().map((t) => [t.id, t.name]))}
           penaltiesByMatch={penaltiesByMatch}
         />
       )}
