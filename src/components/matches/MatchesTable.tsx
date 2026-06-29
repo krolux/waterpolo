@@ -38,6 +38,8 @@ type MatchesTableProps = {
     setState: React.Dispatch<React.SetStateAction<AppState>>;
   }) => React.ReactNode;
   renderAdminPanel?: (match: Match) => React.ReactNode;
+  renderMatchActionExtras?: (match: Match) => React.ReactNode;
+  renderMatchExpandedExtras?: (match: Match) => React.ReactNode;
 };
 
 function clsx(...xs: (string | false | null | undefined)[]) {
@@ -119,6 +121,8 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
   removeWholeSlot,
   renderExportImport,
   renderAdminPanel,
+  renderMatchActionExtras,
+  renderMatchExpandedExtras,
 }) => {
   const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<"date" | "seriesRound">("date");
@@ -568,6 +572,8 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                       {openActionsMatchId === m.id ? "Ukryj akcje" : "Akcje"}
                     </button>
 
+                    {renderMatchActionExtras ? renderMatchActionExtras(m) : null}
+
                     {openActionsMatchId === m.id && (
                       <div className="mt-2">
                         <PerMatchActions
@@ -579,6 +585,8 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                         />
                       </div>
                     )}
+
+                    {renderMatchExpandedExtras ? <div className="mt-3">{renderMatchExpandedExtras(m)}</div> : null}
                   </div>
                 );
               })}
@@ -828,6 +836,8 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                               >
                                 {openActionsMatchId === m.id ? "Ukryj akcje" : "Akcje"}
                               </button>
+
+                              {renderMatchActionExtras ? renderMatchActionExtras(m) : null}
                             </div>
                           </td>
 
@@ -924,6 +934,17 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                             </td>
                           </tr>
                         )}
+
+                        {renderMatchExpandedExtras && renderMatchExpandedExtras(m) ? (
+                          <tr className={clsx(sideBorders, bottomBorder)}>
+                            <td
+                              colSpan={11 + (variant === "upcoming" && isUserReferee ? 1 : 0) + (isUserAdmin ? 1 : 0)}
+                              className="px-2 py-2 bg-slate-50"
+                            >
+                              {renderMatchExpandedExtras(m)}
+                            </td>
+                          </tr>
+                        ) : null}
 
                         {user && isAdmin(user) && isEditingThisMatch && renderAdminPanel && (
                           <tr className={clsx(sideBorders, bottomBorder)}>

@@ -698,6 +698,31 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
   () => buildPenaltyMap(penalties, state.matches),
   [penalties, state.matches]
 );
+
+const competitionNameById = useMemo(
+  () => Object.fromEntries((competitions || []).map((competition) => [competition.id, competition.name])),
+  [competitions]
+);
+
+const competitionSeasonNameById = useMemo(() => {
+  if (!selectedCompetitionSeason?.id || !selectedCompetitionSeason?.name) {
+    return {} as Record<string, string>;
+  }
+
+  return {
+    [selectedCompetitionSeason.id]: selectedCompetitionSeason.name,
+  };
+}, [selectedCompetitionSeason?.id, selectedCompetitionSeason?.name]);
+
+const stageNameById = useMemo(
+  () => Object.fromEntries((stages || []).map((stage) => [stage.id, stage.name])),
+  [stages]
+);
+
+const tournamentNameById = useMemo(
+  () => Object.fromEntries(Array.from(tournaments.values()).flat().map((tournament) => [tournament.id, tournament.name])),
+  [tournaments]
+);
   
 // Podział na nadchodzące i zakończone (prosto: po obecności wyniku)
 const upcomingMatches = useMemo(
@@ -1142,7 +1167,6 @@ const delegateCandidateNames = Array.from(new Set([
           matchFormData={matchFormData}
           setMatchFormData={setMatchFormData}
           handleAddMatch={handleAddMatch}
-          savedRosters={savedRosters}
         />
       )}
 
@@ -1239,7 +1263,10 @@ const delegateCandidateNames = Array.from(new Set([
           effectiveUser={effectiveUser}
           clubId={myProfile?.club_id ?? null}
           matches={state.matches}
-          tournamentNamesById={Object.fromEntries(Array.from(tournaments.values()).flat().map((t) => [t.id, t.name]))}
+          competitionNameById={competitionNameById}
+          competitionSeasonNameById={competitionSeasonNameById}
+          stageNameById={stageNameById}
+          tournamentNameById={tournamentNameById}
           penaltiesByMatch={penaltiesByMatch}
           onSaveRoster={handleSaveRoster}
         />

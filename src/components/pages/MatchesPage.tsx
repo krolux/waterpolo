@@ -9,10 +9,19 @@ import { StageForm } from "../tournaments/StageForm";
 import { TournamentForm } from "../tournaments/TournamentForm";
 import { MatchForm } from "../matches/MatchForm";
 import { LicenseStatus } from "../club/LicenseStatus";
-import { getPlayerLicenseStatuses, verifyPlayerLicense, type PlayerLicenseStatusRow } from "../../lib/rosters";
+import {
+  getClubIdsByNames,
+  getLatestMatchRosterSubmission,
+  getLatestTournamentRosterSubmission,
+  getMatchRoster,
+  getTournamentRoster,
+  verifyPlayerLicense,
+  type MatchRosterSubmissionRow,
+  type MatchRosterWithPlayers,
+  type TournamentRosterWithPlayers,
+} from "../../lib/rosters";
 import type { Competition, CompetitionSeason, Stage, Tournament, TournamentClub } from "../../lib/competitions";
-import type { AppState, Role } from "../../types/wpolo";
-import type { SaveRosterPayload } from "../../types/rosters";
+import type { AppState, Match, Role } from "../../types/wpolo";
 
 type MatchesPageProps = {
   competitions: Competition[];
@@ -98,7 +107,23 @@ type MatchesPageProps = {
     }>
   >;
   handleAddMatch: () => Promise<void>;
-  savedRosters: SaveRosterPayload[];
+};
+
+type MatchRosterPreviewState = {
+  match: Match;
+  clubName: string;
+  clubId: string;
+  clubSide: "home" | "away";
+  roster: MatchRosterWithPlayers | null;
+  submission: MatchRosterSubmissionRow | null;
+};
+
+type TournamentRosterPreviewState = {
+  tournamentId: string;
+  clubName: string;
+  clubId: string;
+  roster: TournamentRosterWithPlayers | null;
+  submission: MatchRosterSubmissionRow | null;
 };
 
 export const MatchesPage: React.FC<MatchesPageProps> = ({
@@ -156,13 +181,19 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
   matchFormData,
   setMatchFormData,
   handleAddMatch,
-  savedRosters,
 }) => {
   const [openRosterPreview, setOpenRosterPreview] = React.useState<{ tournamentId: string; clubName: string } | null>(null);
-  const [approvedPlayers, setApprovedPlayers] = React.useState<Set<string>>(new Set());
-  const [playerLicenseStatuses, setPlayerLicenseStatuses] = React.useState<Map<string, PlayerLicenseStatusRow>>(new Map());
-  const [verifyingLicenseIds, setVerifyingLicenseIds] = React.useState<Set<string>>(new Set());
+  const [tournamentRosterPreview, setTournamentRosterPreview] = React.useState<TournamentRosterPreviewState | null>(null);
+  const [loadingTournamentRosterPreview, setLoadingTournamentRosterPreview] = React.useState(false);
+  const [tournamentRosterPreviewError, setTournamentRosterPreviewError] = React.useState<string | null>(null);
+  const [verifyingTournamentLicenseIds, setVerifyingTournamentLicenseIds] = React.useState<Set<string>>(new Set());
+  const [openMatchRosterPreview, setOpenMatchRosterPreview] = React.useState<{ matchId: string; clubSide: "home" | "away" } | null>(null);
+  const [loadingMatchRosterPreview, setLoadingMatchRosterPreview] = React.useState(false);
+  const [matchRosterPreviewError, setMatchRosterPreviewError] = React.useState<string | null>(null);
+  const [matchRosterPreview, setMatchRosterPreview] = React.useState<MatchRosterPreviewState | null>(null);
+  const [verifyingMatchLicenseIds, setVerifyingMatchLicenseIds] = React.useState<Set<string>>(new Set());
   const canApprove = !!effectiveUser && ["Referee", "Delegate", "Admin"].includes(effectiveUser.role);
+  const canVerifyMatchLicenses = !!effectiveUser && ["Referee", "Delegate", "Admin"].includes(effectiveUser.role);
   const tournamentTargetDateById = React.useMemo(() => {
     const map = new Map<string, string>();
     state.matches.forEach((match) => {
@@ -175,66 +206,310 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
     return map;
   }, [state.matches]);
 
-  const toggleApproved = React.useCallback((key: string) => {
-    setApprovedPlayers((current) => {
-      const next = new Set(current);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
+  const computeValidUntilByMonths = React.useCallback((fromDate: string | null | undefined, months: number) => {
+    const base = fromDate ? new Date(`${fromDate}T00:00:00`) : new Date();
+    if (Number.isNaN(base.getTime())) {
+      const fallback = new Date();
+      fallback.setMonth(fallback.getMonth() + months);
+      return fallback.toISOString().slice(0, 10);
+    }
+
+    base.setMonth(base.getMonth() + months);
+    return base.toISOString().slice(0, 10);
   }, []);
 
-  const refreshPreviewLicenseStatuses = React.useCallback(async () => {
-    if (!openRosterPreview) {
-      setPlayerLicenseStatuses(new Map());
-      return;
+  const getLastTournamentMatchDate = React.useCallback((tournamentId: string) => {
+    const dates = state.matches
+      .filter((match) => match.tournamentId === tournamentId)
+      .map((match) => match.date)
+      .filter(Boolean)
+      .sort((a, b) => b.localeCompare(a));
+
+    return dates[0] || null;
+  }, [state.matches]);
+
+  const loadTournamentRosterPreview = React.useCallback(async (tournamentId: string, clubName: string) => {
+    setLoadingTournamentRosterPreview(true);
+    setTournamentRosterPreviewError(null);
+
+    try {
+      const clubIds = await getClubIdsByNames([clubName]);
+      const clubId = clubIds.get(clubName);
+
+      if (!clubId) {
+        setTournamentRosterPreview({
+          tournamentId,
+          clubName,
+          clubId: "",
+          roster: null,
+          submission: null,
+        });
+        return;
+      }
+
+      const roster = await getTournamentRoster(tournamentId, clubId);
+      const submission = roster ? await getLatestTournamentRosterSubmission(roster.id) : null;
+
+      setTournamentRosterPreview({
+        tournamentId,
+        clubName,
+        clubId,
+        roster,
+        submission,
+      });
+    } catch {
+      setTournamentRosterPreview(null);
+      setTournamentRosterPreviewError("Nie udało się pobrać składu turniejowego.");
+    } finally {
+      setLoadingTournamentRosterPreview(false);
     }
-
-    const roster = savedRosters.find((item) =>
-      item.mode === "tournament" &&
-      item.tournamentId === openRosterPreview.tournamentId &&
-      item.clubName === openRosterPreview.clubName
-    );
-
-    if (!roster) {
-      setPlayerLicenseStatuses(new Map());
-      return;
-    }
-
-    const statusMap = await getPlayerLicenseStatuses(roster.players.map((player) => player.playerId));
-    setPlayerLicenseStatuses(statusMap);
-  }, [openRosterPreview, savedRosters]);
+  }, []);
 
   React.useEffect(() => {
-    void refreshPreviewLicenseStatuses();
-  }, [refreshPreviewLicenseStatuses]);
+    if (!openRosterPreview) {
+      setTournamentRosterPreview(null);
+      setTournamentRosterPreviewError(null);
+      setLoadingTournamentRosterPreview(false);
+      return;
+    }
 
-  const handleVerifyLicense = React.useCallback(async (playerId: string, tournamentId: string, validUntil?: string) => {
+    void loadTournamentRosterPreview(openRosterPreview.tournamentId, openRosterPreview.clubName);
+  }, [loadTournamentRosterPreview, openRosterPreview]);
+
+  const handleApproveTournamentPlayer = React.useCallback(async (playerId: string, tournamentId: string, clubName: string) => {
     if (!effectiveUser) return;
 
-    setVerifyingLicenseIds((current) => new Set(current).add(playerId));
+    setVerifyingTournamentLicenseIds((current) => new Set(current).add(playerId));
+
+    try {
+      const lastMatchDate = getLastTournamentMatchDate(tournamentId);
+      await verifyPlayerLicense({
+        playerId,
+        checkedByName: effectiveUser.name,
+        checkedByRole: effectiveUser.role,
+        validUntil: computeValidUntilByMonths(lastMatchDate, 3),
+        verificationType: "tournament",
+        tournamentId,
+      });
+
+      await loadTournamentRosterPreview(tournamentId, clubName);
+    } finally {
+      setVerifyingTournamentLicenseIds((current) => {
+        const next = new Set(current);
+        next.delete(playerId);
+        return next;
+      });
+    }
+  }, [computeValidUntilByMonths, effectiveUser, getLastTournamentMatchDate, loadTournamentRosterPreview]);
+
+  const computeValidUntilFromMatchDate = React.useCallback((matchDate: string) => computeValidUntilByMonths(matchDate, 3), [computeValidUntilByMonths]);
+
+  const loadMatchRosterPreview = React.useCallback(async (match: Match, clubSide: "home" | "away") => {
+    const clubName = clubSide === "home" ? match.home : match.away;
+
+    setOpenMatchRosterPreview({ matchId: match.id, clubSide });
+    setLoadingMatchRosterPreview(true);
+    setMatchRosterPreviewError(null);
+
+    try {
+      const clubIds = await getClubIdsByNames([clubName]);
+      const clubId = clubIds.get(clubName);
+
+      if (!clubId) {
+        setMatchRosterPreview({
+          match,
+          clubName,
+          clubId: "",
+          clubSide,
+          roster: null,
+          submission: null,
+        });
+        return;
+      }
+
+      const roster = await getMatchRoster(match.id, clubId);
+      const submission = roster ? await getLatestMatchRosterSubmission(roster.id) : null;
+
+      setMatchRosterPreview({
+        match,
+        clubName,
+        clubId,
+        clubSide,
+        roster,
+        submission,
+      });
+    } catch {
+      setMatchRosterPreview(null);
+      setMatchRosterPreviewError("Nie udało się pobrać listy meczowej.");
+    } finally {
+      setLoadingMatchRosterPreview(false);
+    }
+  }, []);
+
+  const handleVerifyMatchLicense = React.useCallback(async (playerId: string) => {
+    if (!effectiveUser || !matchRosterPreview) return;
+
+    setVerifyingMatchLicenseIds((current) => new Set(current).add(playerId));
 
     try {
       await verifyPlayerLicense({
         playerId,
         checkedByName: effectiveUser.name,
         checkedByRole: effectiveUser.role,
-        validUntil: validUntil || new Date().toISOString().slice(0, 10),
-        verificationType: "tournament",
-        tournamentId,
+        verificationType: "match",
+        matchId: matchRosterPreview.match.id,
+        validUntil: computeValidUntilFromMatchDate(matchRosterPreview.match.date),
       });
-      await refreshPreviewLicenseStatuses();
+
+      await loadMatchRosterPreview(matchRosterPreview.match, matchRosterPreview.clubSide);
     } finally {
-      setVerifyingLicenseIds((current) => {
+      setVerifyingMatchLicenseIds((current) => {
         const next = new Set(current);
         next.delete(playerId);
         return next;
       });
     }
-  }, [effectiveUser, refreshPreviewLicenseStatuses]);
+  }, [computeValidUntilFromMatchDate, effectiveUser, loadMatchRosterPreview, matchRosterPreview]);
+
+  const formatDateTime = React.useCallback((value?: string | null) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString("pl-PL");
+  }, []);
+
+  const renderMatchRosterActionExtras = React.useCallback((match: Match) => {
+    const activeHome = openMatchRosterPreview?.matchId === match.id && openMatchRosterPreview?.clubSide === "home";
+    const activeAway = openMatchRosterPreview?.matchId === match.id && openMatchRosterPreview?.clubSide === "away";
+
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            if (activeHome) {
+              setOpenMatchRosterPreview(null);
+              setMatchRosterPreview(null);
+              setMatchRosterPreviewError(null);
+              return;
+            }
+            void loadMatchRosterPreview(match, "home");
+          }}
+          className={activeHome ? "rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700" : "rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"}
+        >
+          Skład gospodarzy
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (activeAway) {
+              setOpenMatchRosterPreview(null);
+              setMatchRosterPreview(null);
+              setMatchRosterPreviewError(null);
+              return;
+            }
+            void loadMatchRosterPreview(match, "away");
+          }}
+          className={activeAway ? "rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700" : "rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"}
+        >
+          Skład gości
+        </button>
+      </>
+    );
+  }, [loadMatchRosterPreview, openMatchRosterPreview]);
+
+  const renderMatchRosterExpandedExtras = React.useCallback((match: Match) => {
+    if (!openMatchRosterPreview || openMatchRosterPreview.matchId !== match.id) {
+      return null;
+    }
+
+    const isActivePreviewMatch = matchRosterPreview?.match.id === match.id && matchRosterPreview.clubSide === openMatchRosterPreview.clubSide;
+    const previewClubName = openMatchRosterPreview.clubSide === "home" ? match.home : match.away;
+
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-3 py-2 text-xs text-slate-600">
+          <div className="text-sm font-semibold text-slate-800">Lista meczowa: {previewClubName}</div>
+          <div>Mecz: {match.home} vs {match.away}</div>
+          <div>Data: {new Date(match.date).toLocaleDateString("pl-PL")}</div>
+        </div>
+
+        {loadingMatchRosterPreview ? <div className="px-3 py-2 text-xs text-slate-500">Ładowanie listy meczowej...</div> : null}
+        {matchRosterPreviewError ? <div className="px-3 py-2 text-xs text-red-600">{matchRosterPreviewError}</div> : null}
+
+        {!loadingMatchRosterPreview && !matchRosterPreviewError && isActivePreviewMatch ? (
+          matchRosterPreview.roster ? (
+            <div>
+              {(matchRosterPreview.submission?.submitted_at || matchRosterPreview.roster.updated_at || typeof matchRosterPreview.submission?.version === "number" || matchRosterPreview.submission?.submitted_by_name) ? (
+                <div className="flex flex-wrap gap-3 border-b border-slate-200 px-3 py-2 text-xs text-slate-600">
+                  {matchRosterPreview.submission?.submitted_at ? <span>Skład wysłano: {new Date(matchRosterPreview.submission.submitted_at).toLocaleString("pl-PL")}</span> : null}
+                  {formatDateTime(matchRosterPreview.roster.updated_at) ? <span>Ostatnia zmiana: {formatDateTime(matchRosterPreview.roster.updated_at)}</span> : null}
+                  {typeof matchRosterPreview.submission?.version === "number" ? <span>Wersja: {matchRosterPreview.submission.version}</span> : null}
+                  {matchRosterPreview.submission?.submitted_by_name ? <span>Autor zgłoszenia: {matchRosterPreview.submission.submitted_by_name}</span> : null}
+                </div>
+              ) : null}
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs text-left text-gray-700">
+                  <thead className="text-xs uppercase text-gray-500">
+                    <tr>
+                      <th className="px-2 py-1.5">Slot</th>
+                      <th className="px-2 py-1.5">Zawodnik</th>
+                      <th className="px-2 py-1.5">Rocznik</th>
+                      <th className="px-2 py-1.5">Nr licencji</th>
+                      <th className="px-2 py-1.5">Wypożyczony z</th>
+                      <th className="px-2 py-1.5">GK</th>
+                      <th className="px-2 py-1.5">C</th>
+                      <th className="px-2 py-1.5">Status licencji</th>
+                      <th className="px-2 py-1.5 text-right">Akcja</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matchRosterPreview.roster.players.map((entry) => {
+                      const isVerifying = verifyingMatchLicenseIds.has(entry.player.id);
+                      return (
+                        <tr key={entry.id} className="border-t border-slate-200 align-top">
+                          <td className="px-2 py-1.5">{entry.slot}</td>
+                          <td className="px-2 py-1.5">{entry.player.first_name} {entry.player.last_name}</td>
+                          <td className="px-2 py-1.5">{entry.player.birth_year}</td>
+                          <td className="px-2 py-1.5">{entry.player.license_number}</td>
+                          <td className="px-2 py-1.5">{entry.player.loan_club_name || "-"}</td>
+                          <td className="px-2 py-1.5">{entry.is_goalkeeper ? "Tak" : "-"}</td>
+                          <td className="px-2 py-1.5">{entry.is_captain ? "Tak" : "-"}</td>
+                          <td className="px-2 py-1.5">
+                            <LicenseStatus
+                              licenseStatus={entry.player.license_status}
+                              licenseValidUntil={entry.player.license_verified_until || undefined}
+                              targetDate={match.date}
+                              verifiedAt={entry.player.license_verified_at || undefined}
+                              verifiedBy={entry.player.license_verified_by || undefined}
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-right">
+                            {canVerifyMatchLicenses ? (
+                              <button
+                                onClick={() => void handleVerifyMatchLicense(entry.player.id)}
+                                disabled={isVerifying}
+                                className={isVerifying ? "rounded-lg border border-gray-300 bg-gray-100 px-2 py-1 text-xs text-gray-400 cursor-not-allowed" : "rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"}
+                              >
+                                Zweryfikuj licencję
+                              </button>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="px-3 py-2 text-xs text-gray-500">Brak zapisanej listy meczowej dla tej drużyny.</div>
+          )
+        ) : null}
+      </div>
+    );
+  }, [canVerifyMatchLicenses, formatDateTime, handleVerifyMatchLicense, loadingMatchRosterPreview, matchRosterPreview, matchRosterPreviewError, openMatchRosterPreview, verifyingMatchLicenseIds]);
 
   return (
     <>
@@ -303,6 +578,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
               onCancelEdit={handleCancelInlineEdit}
               removeWholeSlot={removeWholeSlot}
               renderExportImport={({ state, setState }) => <ExportImport state={state} setState={setState} />}
+              renderMatchActionExtras={variant === "upcoming" ? renderMatchRosterActionExtras : undefined}
+              renderMatchExpandedExtras={variant === "upcoming" ? renderMatchRosterExpandedExtras : undefined}
               renderAdminPanel={m => (
                 <AdminPanel
                   state={state}
@@ -397,13 +674,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                               <div className="space-y-2">
                                 {(tournamentClubs.get(tournament.id) ?? []).map((club) => {
                                   const previewOpen = openRosterPreview?.tournamentId === tournament.id && openRosterPreview?.clubName === club.club_name;
-                                  const roster = savedRosters.find((item) =>
-                                    item.mode === "tournament" &&
-                                    item.tournamentId === tournament.id &&
-                                    item.clubName === club.club_name
-                                  );
-                                  const targetDate = tournamentTargetDateById.get(tournament.id);
-                                  const updatedAt = roster?.updatedAt || roster?.savedAt;
+                                  const isActivePreview = previewOpen && tournamentRosterPreview?.tournamentId === tournament.id && tournamentRosterPreview?.clubName === club.club_name;
+                                  const targetDate = tournamentTargetDateById.get(tournament.id) || undefined;
 
                                   return (
                                     <div key={club.id} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
@@ -419,72 +691,72 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
 
                                       {previewOpen ? (
                                         <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-                                          {roster ? (
-                                            <div className="flex flex-wrap gap-3 border-b border-slate-200 px-2 py-1.5 text-xs text-slate-600">
-                                              <span>Skład wysłano: {new Date(roster.savedAt).toLocaleString("pl-PL")}</span>
-                                              <span>Ostatnia zmiana: {updatedAt ? new Date(updatedAt).toLocaleString("pl-PL") : "-"}</span>
-                                            </div>
-                                          ) : null}
-                                          <table className="min-w-full text-xs text-left text-gray-700">
-                                            <thead className="text-xs uppercase text-gray-500">
-                                              <tr>
-                                                <th className="px-2 py-1.5">Slot</th>
-                                                <th className="px-2 py-1.5">Zawodnik</th>
-                                                <th className="px-2 py-1.5">Rocznik</th>
-                                                <th className="px-2 py-1.5">Nr licencji</th>
-                                                <th className="px-2 py-1.5">Wypożyczony z</th>
-                                                <th className="px-2 py-1.5">Status licencji</th>
-                                                {canApprove ? <th className="px-2 py-1.5 text-right">Akcja</th> : null}
-                                              </tr>
-                                            </thead>
-                                            <tbody>
-                                              {(roster?.players ?? []).map((player) => {
-                                                const approveKey = `${tournament.id}:${club.club_name}:${player.playerId}`;
-                                                const approved = approvedPlayers.has(approveKey);
-                                                const statusRow = playerLicenseStatuses.get(player.playerId);
-                                                const isVerifying = verifyingLicenseIds.has(player.playerId);
-                                                return (
-                                                  <tr key={approveKey} className="border-t border-slate-200 align-top">
-                                                    <td className="px-2 py-1.5">{player.slot}</td>
-                                                    <td className="px-2 py-1.5">{player.fullName}</td>
-                                                    <td className="px-2 py-1.5">{player.birthYear}</td>
-                                                    <td className="px-2 py-1.5">{player.licenseNumber}</td>
-                                                    <td className="px-2 py-1.5">{player.loanClub || "-"}</td>
-                                                    <td className="px-2 py-1.5">
-                                                      <LicenseStatus
-                                                         licenseStatus={statusRow?.status}
-                                                        licenseValidUntil={statusRow?.valid_until || undefined}
-                                                        targetDate={targetDate}
-                                                        verifiedAt={statusRow?.last_checked_at || undefined}
-                                                        verifiedBy={statusRow?.checked_by_name || undefined}
-                                                      />
-                                                    </td>
-                                                    {canApprove ? (
-                                                      <td className="px-2 py-1.5 text-right">
-                                                        <div className="flex flex-wrap justify-end gap-1">
-                                                          <button
-                                                            onClick={() => handleVerifyLicense(player.playerId, tournament.id, targetDate)}
-                                                            disabled={isVerifying}
-                                                            className={isVerifying ? "rounded-lg border border-gray-300 bg-gray-100 px-2 py-1 text-xs text-gray-400 cursor-not-allowed" : "rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"}
-                                                          >
-                                                            Zweryfikuj licencję
-                                                          </button>
-                                                          <button
-                                                            onClick={() => toggleApproved(approveKey)}
-                                                            className={approved ? "rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-xs text-green-700" : "rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"}
-                                                          >
-                                                            Zatwierdź zawodnika
-                                                          </button>
-                                                        </div>
-                                                      </td>
-                                                    ) : null}
+                                          {loadingTournamentRosterPreview ? <div className="p-2 text-xs text-slate-500">Ładowanie składu...</div> : null}
+                                          {tournamentRosterPreviewError && isActivePreview ? <div className="p-2 text-xs text-red-600">{tournamentRosterPreviewError}</div> : null}
+
+                                          {!loadingTournamentRosterPreview && isActivePreview && tournamentRosterPreview?.roster ? (
+                                            <>
+                                              {(tournamentRosterPreview.submission?.submitted_at || tournamentRosterPreview.roster.updated_at || typeof tournamentRosterPreview.submission?.version === "number" || tournamentRosterPreview.submission?.submitted_by_name) ? (
+                                                <div className="flex flex-wrap gap-3 border-b border-slate-200 px-2 py-1.5 text-xs text-slate-600">
+                                                  {tournamentRosterPreview.submission?.submitted_at ? <span>Skład wysłano: {new Date(tournamentRosterPreview.submission.submitted_at).toLocaleString("pl-PL")}</span> : null}
+                                                  {formatDateTime(tournamentRosterPreview.roster.updated_at) ? <span>Ostatnia zmiana: {formatDateTime(tournamentRosterPreview.roster.updated_at)}</span> : null}
+                                                  {typeof tournamentRosterPreview.submission?.version === "number" ? <span>Wersja: {tournamentRosterPreview.submission.version}</span> : null}
+                                                  {tournamentRosterPreview.submission?.submitted_by_name ? <span>Autor zgłoszenia: {tournamentRosterPreview.submission.submitted_by_name}</span> : null}
+                                                </div>
+                                              ) : null}
+
+                                              <table className="min-w-full text-xs text-left text-gray-700">
+                                                <thead className="text-xs uppercase text-gray-500">
+                                                  <tr>
+                                                    <th className="px-2 py-1.5">Slot</th>
+                                                    <th className="px-2 py-1.5">Zawodnik</th>
+                                                    <th className="px-2 py-1.5">Rocznik</th>
+                                                    <th className="px-2 py-1.5">Nr licencji</th>
+                                                    <th className="px-2 py-1.5">Wypożyczony z</th>
+                                                    <th className="px-2 py-1.5">Status licencji</th>
+                                                    {canApprove ? <th className="px-2 py-1.5 text-right">Akcja</th> : null}
                                                   </tr>
-                                                );
-                                              })}
-                                            </tbody>
-                                          </table>
-                                          {!roster || roster.players.length === 0 ? (
-                                            <div className="p-2 text-xs text-gray-500">Brak zapisanej listy dla tej drużyny.</div>
+                                                </thead>
+                                                <tbody>
+                                                  {tournamentRosterPreview.roster.players.map((entry) => {
+                                                    const isVerifying = verifyingTournamentLicenseIds.has(entry.player.id);
+                                                    return (
+                                                      <tr key={entry.id} className="border-t border-slate-200 align-top">
+                                                        <td className="px-2 py-1.5">{entry.slot}</td>
+                                                        <td className="px-2 py-1.5">{entry.player.first_name} {entry.player.last_name}</td>
+                                                        <td className="px-2 py-1.5">{entry.player.birth_year}</td>
+                                                        <td className="px-2 py-1.5">{entry.player.license_number}</td>
+                                                        <td className="px-2 py-1.5">{entry.player.loan_club_name || "-"}</td>
+                                                        <td className="px-2 py-1.5">
+                                                          <LicenseStatus
+                                                            licenseStatus={entry.player.license_status}
+                                                            licenseValidUntil={entry.player.license_verified_until || undefined}
+                                                            targetDate={targetDate}
+                                                            verifiedAt={entry.player.license_verified_at || undefined}
+                                                            verifiedBy={entry.player.license_verified_by || undefined}
+                                                          />
+                                                        </td>
+                                                        {canApprove ? (
+                                                          <td className="px-2 py-1.5 text-right">
+                                                            <button
+                                                              onClick={() => void handleApproveTournamentPlayer(entry.player.id, tournament.id, club.club_name)}
+                                                              disabled={isVerifying}
+                                                              className={isVerifying ? "rounded-lg border border-gray-300 bg-gray-100 px-2 py-1 text-xs text-gray-400 cursor-not-allowed" : "rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"}
+                                                            >
+                                                              Zatwierdź zawodnika
+                                                            </button>
+                                                          </td>
+                                                        ) : null}
+                                                      </tr>
+                                                    );
+                                                  })}
+                                                </tbody>
+                                              </table>
+                                            </>
+                                          ) : null}
+
+                                          {!loadingTournamentRosterPreview && isActivePreview && !tournamentRosterPreview?.roster ? (
+                                            <div className="p-2 text-xs text-gray-500">Brak zapisanej listy meczowej dla tej drużyny.</div>
                                           ) : null}
                                         </div>
                                       ) : null}
@@ -551,6 +823,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                   onCancelEdit={handleCancelInlineEdit}
                                   removeWholeSlot={removeWholeSlot}
                                   renderExportImport={({ state, setState }) => <ExportImport state={state} setState={setState} />}
+                                  renderMatchActionExtras={variant === "upcoming" ? renderMatchRosterActionExtras : undefined}
+                                  renderMatchExpandedExtras={variant === "upcoming" ? renderMatchRosterExpandedExtras : undefined}
                                   renderAdminPanel={m => (
                                     <AdminPanel
                                       state={state}

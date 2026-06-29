@@ -33,6 +33,13 @@ export type PlayerLicenseStatusRow = {
   status: 'valid' | 'expired';
 };
 
+export type MatchRosterSubmissionRow = {
+  id: string;
+  submitted_by_name: string | null;
+  submitted_at: string;
+  version: number;
+};
+
 export type TournamentRosterRow = {
   id: string;
   tournament_id: string;
@@ -125,6 +132,11 @@ export type MatchRosterWithPlayers = MatchRosterRow & {
   players: MatchRosterPlayerWithPlayer[];
 };
 
+export type ClubLookupRow = {
+  id: string;
+  name: string;
+};
+
 export type SaveTournamentRosterPlayerInput = {
   playerId: string;
   slot: number;
@@ -212,6 +224,49 @@ export async function getPlayerLicenseStatuses(playerIds: string[]): Promise<Map
 
   const rows = (data || []) as PlayerLicenseStatusRow[];
   return new Map(rows.map((row) => [row.player_id, row]));
+}
+
+export async function getClubIdsByNames(clubNames: string[]): Promise<Map<string, string>> {
+  const normalized = Array.from(new Set(clubNames.map((name) => name.trim()).filter(Boolean)));
+  if (normalized.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabase
+    .from('clubs')
+    .select('id,name')
+    .in('name', normalized);
+
+  if (error) throw error;
+
+  const rows = (data || []) as ClubLookupRow[];
+  return new Map(rows.map((row) => [row.name, row.id]));
+}
+
+export async function getLatestMatchRosterSubmission(matchRosterId: string): Promise<MatchRosterSubmissionRow | null> {
+  const { data, error } = await supabase
+    .from('roster_submissions')
+    .select('id,submitted_by_name,submitted_at,version')
+    .eq('match_roster_id', matchRosterId)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data || null) as MatchRosterSubmissionRow | null;
+}
+
+export async function getLatestTournamentRosterSubmission(tournamentRosterId: string): Promise<MatchRosterSubmissionRow | null> {
+  const { data, error } = await supabase
+    .from('roster_submissions')
+    .select('id,submitted_by_name,submitted_at,version')
+    .eq('tournament_roster_id', tournamentRosterId)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data || null) as MatchRosterSubmissionRow | null;
 }
 
 async function loadTournamentRosterPlayers(rosterIds: string[]): Promise<Map<string, TournamentRosterPlayerRow[]>> {

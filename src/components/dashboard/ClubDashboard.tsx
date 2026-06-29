@@ -25,7 +25,10 @@ type ClubDashboardProps = {
   effectiveUser: { name: string; role: Role; club?: string } | null;
   clubId?: string | null;
   matches: Match[];
-  tournamentNamesById?: Record<string, string>;
+  competitionNameById?: Record<string, string>;
+  competitionSeasonNameById?: Record<string, string>;
+  stageNameById?: Record<string, string>;
+  tournamentNameById?: Record<string, string>;
   penaltiesByMatch: Map<string, { home: { id: string; name: string }[]; away: { id: string; name: string }[] }>;
   onSaveRoster?: (payload: SaveRosterPayload) => void;
 };
@@ -63,7 +66,10 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   effectiveUser,
   clubId = null,
   matches,
-  tournamentNamesById = {},
+  competitionNameById = {},
+  competitionSeasonNameById = {},
+  stageNameById = {},
+  tournamentNameById = {},
   penaltiesByMatch: _penaltiesByMatch,
   onSaveRoster,
 }) => {
@@ -220,6 +226,34 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
       .slice(0, 6);
   }, [matches, myClub, parseMatchDateTime]);
 
+  const getCategoryLabel = React.useCallback((match: Match) => {
+    if (match.competitionSeasonId && competitionSeasonNameById[match.competitionSeasonId]) {
+      return competitionSeasonNameById[match.competitionSeasonId];
+    }
+
+    if (match.competitionSeasonId && competitionNameById[match.competitionSeasonId]) {
+      return competitionNameById[match.competitionSeasonId];
+    }
+
+    return "Rozgrywki";
+  }, [competitionNameById, competitionSeasonNameById]);
+
+  const groupedUpcomingMatches = React.useMemo(() => {
+    const groups = new Map<string, Match[]>();
+
+    upcomingClubMatches.forEach((match) => {
+      const categoryLabel = getCategoryLabel(match);
+      const list = groups.get(categoryLabel) || [];
+      list.push(match);
+      groups.set(categoryLabel, list);
+    });
+
+    return Array.from(groups.entries()).map(([categoryLabel, groupedMatches]) => ({
+      categoryLabel,
+      matches: groupedMatches,
+    }));
+  }, [getCategoryLabel, upcomingClubMatches]);
+
   const getTournamentTargetDate = React.useCallback((match: Match) => match.date, []);
 
   const formatDate = React.useCallback((date: string) => new Date(date).toLocaleDateString("pl-PL"), []);
@@ -240,64 +274,77 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
               Brak nadchodzących meczów dla Twojego klubu.
             </div>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {upcomingClubMatches.map((match) => {
-                const tournamentName = match.tournamentId ? (tournamentNamesById[match.tournamentId] || `Turniej ${match.tournamentId}`) : null;
-                const badgeText = tournamentName || "Mecz ligowy";
-                return (
-                  <div key={match.id} className="rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm text-sm">
-                    <div className="mb-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-blue-700">
-                      {badgeText}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-600">
-                      <span>{formatDate(match.date)}</span>
-                      <span>{match.time || "-"}</span>
-                      <span>{match.location}</span>
-                    </div>
-                    <div className="mt-2 text-base font-semibold text-slate-800">{match.home} <span className="text-slate-400">vs</span> {match.away}</div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => setRosterContext({
-                          mode: "match",
-                          matchId: match.id,
-                          home: match.home,
-                          away: match.away,
-                          date: match.date,
-                          time: match.time,
-                          location: match.location,
-                          targetDate: match.date,
-                          tournamentId: match.tournamentId || undefined,
-                          tournamentName: tournamentName || undefined,
-                          maxBirthYear: match.tournamentId ? maxBirthYearByTournamentId[match.tournamentId] : undefined,
-                        })}
-                        className="rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"
-                      >
-                        {match.tournamentId ? "Skład meczowy" : "Dodaj skład"}
-                      </button>
-                      {match.tournamentId ? (
-                        <button
-                          onClick={() => setRosterContext({
-                            mode: "tournament",
-                            matchId: match.id,
-                            home: match.home,
-                            away: match.away,
-                            date: match.date,
-                            time: match.time,
-                            location: match.location,
-                            targetDate: getTournamentTargetDate(match),
-                            tournamentId: match.tournamentId || undefined,
-                            tournamentName: tournamentName || undefined,
-                            maxBirthYear: maxBirthYearByTournamentId[match.tournamentId],
-                          })}
-                          className="rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"
-                        >
-                          Lista turniejowa
-                        </button>
-                      ) : null}
-                    </div>
+            <div className="space-y-4">
+              {groupedUpcomingMatches.map((group) => (
+                <div key={group.categoryLabel} className="space-y-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-600">{group.categoryLabel}</div>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {group.matches.map((match) => {
+                      const categoryLabel = getCategoryLabel(match);
+                      const stageName = match.stageId ? stageNameById[match.stageId] : undefined;
+                      const tournamentName = match.tournamentId ? tournamentNameById[match.tournamentId] : undefined;
+
+                      return (
+                        <div key={match.id} className="rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm text-sm">
+                          <div className="mb-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                            {categoryLabel}
+                          </div>
+                          <div className="space-y-0.5 text-xs text-slate-600">
+                            {stageName ? <div>Etap: {stageName}</div> : null}
+                            {tournamentName ? <div>Turniej: {tournamentName}</div> : null}
+                          </div>
+                          <div className="mt-2 flex items-center gap-3 text-xs text-slate-600">
+                            <span>{formatDate(match.date)}</span>
+                            <span>{match.time || "-"}</span>
+                            <span>{match.location}</span>
+                          </div>
+                          <div className="mt-2 text-base font-semibold text-slate-800">{match.home} <span className="text-slate-400">vs</span> {match.away}</div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              onClick={() => setRosterContext({
+                                mode: "match",
+                                matchId: match.id,
+                                home: match.home,
+                                away: match.away,
+                                date: match.date,
+                                time: match.time,
+                                location: match.location,
+                                targetDate: match.date,
+                                tournamentId: match.tournamentId || undefined,
+                                tournamentName: tournamentName || undefined,
+                                maxBirthYear: match.tournamentId ? maxBirthYearByTournamentId[match.tournamentId] : undefined,
+                              })}
+                              className="rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                            >
+                              {match.tournamentId ? "Skład meczowy" : "Dodaj skład"}
+                            </button>
+                            {match.tournamentId ? (
+                              <button
+                                onClick={() => setRosterContext({
+                                  mode: "tournament",
+                                  matchId: match.id,
+                                  home: match.home,
+                                  away: match.away,
+                                  date: match.date,
+                                  time: match.time,
+                                  location: match.location,
+                                  targetDate: getTournamentTargetDate(match),
+                                  tournamentId: match.tournamentId || undefined,
+                                  tournamentName: tournamentName || undefined,
+                                  maxBirthYear: maxBirthYearByTournamentId[match.tournamentId],
+                                })}
+                                className="rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                              >
+                                Lista turniejowa
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
 
