@@ -1,33 +1,215 @@
 import React from "react";
+import { CalendarClock, Users } from "lucide-react";
 import { ClubOverview } from "../club/ClubOverview";
-import { mockPlayers } from "../club/mockPlayers";
 import { PlayerTable } from "../club/PlayerTable";
 import { RosterPanel } from "../club/RosterPanel";
 import { Section } from "../shared/Section";
-import { CalendarClock, Users } from "lucide-react";
+import { createPlayer, deactivatePlayer, listPlayers, updatePlayer, type PlayerRow } from "../../lib/rosters";
 import type { Match, Role } from "../../types/wpolo";
+import type { Player } from "../../types/club";
 import type { SaveRosterPayload } from "../../types/rosters";
+
+type PlayerFormState = {
+  firstName: string;
+  lastName: string;
+  gender: "M" | "F";
+  birthYear: string;
+  defaultCapNumber: string;
+  licenseNumber: string;
+  loanClubName: string;
+  notes: string;
+  active: boolean;
+};
 
 type ClubDashboardProps = {
   effectiveUser: { name: string; role: Role; club?: string } | null;
+  clubId?: string | null;
   matches: Match[];
   tournamentNamesById?: Record<string, string>;
   penaltiesByMatch: Map<string, { home: { id: string; name: string }[]; away: { id: string; name: string }[] }>;
   onSaveRoster?: (payload: SaveRosterPayload) => void;
 };
 
+const emptyPlayerFormState = (): PlayerFormState => ({
+  firstName: "",
+  lastName: "",
+  gender: "M",
+  birthYear: "",
+  defaultCapNumber: "",
+  licenseNumber: "",
+  loanClubName: "",
+  notes: "",
+  active: true,
+});
+
+const mapPlayerRowToPlayer = (player: PlayerRow): Player => ({
+  id: player.id,
+  firstName: player.first_name,
+  lastName: player.last_name,
+  gender: player.gender,
+  birthYear: player.birth_year,
+  capNumber: player.default_cap_number ?? 0,
+  licenseNumber: player.license_number,
+  loanFromClub: player.loan_club_name || undefined,
+  loanClub: player.loan_club_name || undefined,
+  licenseVerified: !!player.license_verified_until,
+  licenseVerifiedAt: player.license_verified_until || undefined,
+  licenseVerifiedBy: undefined,
+  licenseValidUntil: player.license_verified_until || undefined,
+});
+
 export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   effectiveUser,
+  clubId = null,
   matches,
   tournamentNamesById = {},
   penaltiesByMatch: _penaltiesByMatch,
   onSaveRoster,
 }) => {
   const myClub = effectiveUser?.club?.trim() || "";
+  const [playerRows, setPlayerRows] = React.useState<PlayerRow[]>([]);
+  const [loadingPlayers, setLoadingPlayers] = React.useState(false);
+  const [playerError, setPlayerError] = React.useState<string | null>(null);
+  const [savingPlayer, setSavingPlayer] = React.useState(false);
+  const [editingPlayerId, setEditingPlayerId] = React.useState<string>("");
+  const [playerForm, setPlayerForm] = React.useState<PlayerFormState>(emptyPlayerFormState);
   const [rosterContext, setRosterContext] = React.useState<React.ComponentProps<typeof RosterPanel>["context"]>(null);
   const maxBirthYearByTournamentId: Record<string, number> = {};
 
   const parseMatchDateTime = React.useCallback((match: Match) => new Date(`${match.date}T${match.time || "00:00"}`), []);
+
+  const loadPlayers = React.useCallback(async () => {
+    if (!clubId) {
+      setPlayerRows([]);
+      return;
+    }
+
+    setLoadingPlayers(true);
+    setPlayerError(null);
+
+    try {
+      const rows = await listPlayers(clubId);
+      setPlayerRows(rows);
+    } catch {
+      setPlayerRows([]);
+      setPlayerError("Nie udało się pobrać zawodników.");
+    } finally {
+      setLoadingPlayers(false);
+    }
+  }, [clubId]);
+
+  React.useEffect(() => {
+    void loadPlayers();
+  }, [loadPlayers]);
+
+  const clubPlayers = React.useMemo(() => playerRows.map(mapPlayerRowToPlayer), [playerRows]);
+
+  const selectedPlayer = React.useMemo(
+    () => playerRows.find((player) => player.id === editingPlayerId) || null,
+    [editingPlayerId, playerRows]
+  );
+
+  const beginCreatePlayer = React.useCallback(() => {
+    setEditingPlayerId("");
+    setPlayerForm(emptyPlayerFormState());
+  }, []);
+
+  const beginEditPlayer = React.useCallback((player: PlayerRow) => {
+    setEditingPlayerId(player.id);
+    setPlayerForm({
+      firstName: player.first_name,
+      lastName: player.last_name,
+      gender: player.gender,
+      birthYear: String(player.birth_year),
+      defaultCapNumber: player.default_cap_number === null ? "" : String(player.default_cap_number),
+      licenseNumber: player.license_number,
+      loanClubName: player.loan_club_name || "",
+      notes: player.notes || "",
+      active: player.active,
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (!selectedPlayer) {
+      if (editingPlayerId) {
+        beginCreatePlayer();
+      }
+      return;
+    }
+
+    setPlayerForm({
+      firstName: selectedPlayer.first_name,
+      lastName: selectedPlayer.last_name,
+      gender: selectedPlayer.gender,
+      birthYear: String(selectedPlayer.birth_year),
+      defaultCapNumber: selectedPlayer.default_cap_number === null ? "" : String(selectedPlayer.default_cap_number),
+      licenseNumber: selectedPlayer.license_number,
+      loanClubName: selectedPlayer.loan_club_name || "",
+      notes: selectedPlayer.notes || "",
+      active: selectedPlayer.active,
+    });
+  }, [beginCreatePlayer, editingPlayerId, selectedPlayer]);
+
+  const handlePlayerSubmit = React.useCallback(async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!clubId) {
+      setPlayerError("Nie udało się zapisać zawodnika.");
+      return;
+    }
+
+    const parsedBirthYear = Number(playerForm.birthYear);
+    const parsedDefaultCapNumber = playerForm.defaultCapNumber.trim() === "" ? null : Number(playerForm.defaultCapNumber);
+
+    setSavingPlayer(true);
+    setPlayerError(null);
+
+    try {
+      const payload = {
+        clubId,
+        firstName: playerForm.firstName.trim(),
+        lastName: playerForm.lastName.trim(),
+        gender: playerForm.gender,
+        birthYear: parsedBirthYear,
+        defaultCapNumber: parsedDefaultCapNumber,
+        licenseNumber: playerForm.licenseNumber.trim(),
+        loanClubName: playerForm.loanClubName.trim() || null,
+        notes: playerForm.notes.trim() || null,
+        active: playerForm.active,
+      };
+
+      if (editingPlayerId) {
+        await updatePlayer(editingPlayerId, payload);
+      } else {
+        await createPlayer(payload);
+      }
+
+      await loadPlayers();
+      beginCreatePlayer();
+    } catch {
+      setPlayerError("Nie udało się zapisać zawodnika.");
+    } finally {
+      setSavingPlayer(false);
+    }
+  }, [beginCreatePlayer, clubId, editingPlayerId, loadPlayers, playerForm]);
+
+  const handleDeactivatePlayer = React.useCallback(async () => {
+    if (!editingPlayerId) {
+      return;
+    }
+
+    setSavingPlayer(true);
+    setPlayerError(null);
+
+    try {
+      await deactivatePlayer(editingPlayerId);
+      await loadPlayers();
+      beginCreatePlayer();
+    } catch {
+      setPlayerError("Nie udało się zapisać zawodnika.");
+    } finally {
+      setSavingPlayer(false);
+    }
+  }, [beginCreatePlayer, editingPlayerId, loadPlayers]);
 
   const upcomingClubMatches = React.useMemo(() => {
     if (!myClub) return [] as Match[];
@@ -119,7 +301,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
           )}
 
           <RosterPanel
-            players={mockPlayers}
+            players={clubPlayers}
             context={rosterContext}
             onBack={() => setRosterContext(null)}
             clubName={myClub}
@@ -130,7 +312,156 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
       </Section>
 
       <Section title="Zawodnicy" icon={<Users className="w-5 h-5" />} className="bg-white/60">
-        <PlayerTable players={mockPlayers} />
+        <div className="space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold text-slate-800">Dodaj zawodnika</div>
+                <div className="text-xs text-slate-500">Zapis trafia bezpośrednio do tabeli players.</div>
+              </div>
+              <button
+                type="button"
+                onClick={beginCreatePlayer}
+                className="rounded-lg border bg-white px-3 py-1.5 text-xs hover:bg-gray-50"
+              >
+                Nowy zawodnik
+              </button>
+            </div>
+
+            <div className="mb-4 grid gap-3 md:grid-cols-2">
+              <label className="text-xs text-slate-600">
+                Edytuj istniejącego zawodnika
+                <select
+                  value={editingPlayerId}
+                  onChange={(event) => {
+                    const nextPlayer = playerRows.find((player) => player.id === event.target.value);
+                    if (!nextPlayer) {
+                      beginCreatePlayer();
+                      return;
+                    }
+                    beginEditPlayer(nextPlayer);
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">Nowy zawodnik</option>
+                  {playerRows.map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.last_name} {player.first_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {loadingPlayers ? <div className="mb-3 text-sm text-slate-500">Ładowanie zawodników...</div> : null}
+            {playerError ? <div className="mb-3 text-sm text-red-600">{playerError}</div> : null}
+
+            <form onSubmit={handlePlayerSubmit} className="grid gap-3 md:grid-cols-2">
+              <label className="text-xs text-slate-600">
+                Imię
+                <input
+                  value={playerForm.firstName}
+                  onChange={(event) => setPlayerForm((current) => ({ ...current, firstName: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  required
+                />
+              </label>
+              <label className="text-xs text-slate-600">
+                Nazwisko
+                <input
+                  value={playerForm.lastName}
+                  onChange={(event) => setPlayerForm((current) => ({ ...current, lastName: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  required
+                />
+              </label>
+              <label className="text-xs text-slate-600">
+                Płeć
+                <select
+                  value={playerForm.gender}
+                  onChange={(event) => setPlayerForm((current) => ({ ...current, gender: event.target.value as "M" | "F" }))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="M">M</option>
+                  <option value="F">F</option>
+                </select>
+              </label>
+              <label className="text-xs text-slate-600">
+                Rocznik
+                <input
+                  type="number"
+                  value={playerForm.birthYear}
+                  onChange={(event) => setPlayerForm((current) => ({ ...current, birthYear: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  required
+                />
+              </label>
+              <label className="text-xs text-slate-600">
+                Domyślny numer czepka
+                <input
+                  type="number"
+                  value={playerForm.defaultCapNumber}
+                  onChange={(event) => setPlayerForm((current) => ({ ...current, defaultCapNumber: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="text-xs text-slate-600">
+                Numer licencji
+                <input
+                  value={playerForm.licenseNumber}
+                  onChange={(event) => setPlayerForm((current) => ({ ...current, licenseNumber: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  required
+                />
+              </label>
+              <label className="text-xs text-slate-600">
+                Klub wypożyczający (opcjonalnie)
+                <input
+                  value={playerForm.loanClubName}
+                  onChange={(event) => setPlayerForm((current) => ({ ...current, loanClubName: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="text-xs text-slate-600 md:col-span-2">
+                Uwagi
+                <textarea
+                  value={playerForm.notes}
+                  onChange={(event) => setPlayerForm((current) => ({ ...current, notes: event.target.value }))}
+                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700 md:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={playerForm.active}
+                  onChange={(event) => setPlayerForm((current) => ({ ...current, active: event.target.checked }))}
+                  className="h-4 w-4"
+                />
+                Aktywny
+              </label>
+              <div className="flex flex-wrap gap-2 md:col-span-2">
+                <button
+                  type="submit"
+                  disabled={savingPlayer}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                >
+                  {editingPlayerId ? "Zapisz zmiany" : "Dodaj zawodnika"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeactivatePlayer}
+                  disabled={!editingPlayerId || savingPlayer}
+                  className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm text-red-700 disabled:opacity-50"
+                >
+                  Dezaktywuj
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {loadingPlayers ? <div className="text-sm text-slate-500">Ładowanie zawodników...</div> : null}
+          {!loadingPlayers ? <PlayerTable players={clubPlayers} /> : null}
+        </div>
       </Section>
     </div>
   );

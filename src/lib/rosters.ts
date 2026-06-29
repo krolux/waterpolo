@@ -74,6 +74,21 @@ export type PlayerLicenseCheckRow = {
   notes: string | null;
 };
 
+export type PlayerCreateInput = {
+  clubId: string;
+  firstName: string;
+  lastName: string;
+  gender: 'M' | 'F';
+  birthYear: number;
+  defaultCapNumber: number | null;
+  licenseNumber: string;
+  loanClubName: string | null;
+  notes: string | null;
+  active: boolean;
+};
+
+export type PlayerUpdateInput = PlayerCreateInput;
+
 export type PlayerWithClubName = PlayerRow & {
   club_name?: string | null;
 };
@@ -290,6 +305,63 @@ export async function listPlayers(clubId: string): Promise<PlayerRow[]> {
 
   if (error) throw error;
   return (data || []) as PlayerRow[];
+}
+
+export async function createPlayer(payload: PlayerCreateInput): Promise<PlayerRow> {
+  const { data, error } = await supabase
+    .from('players')
+    .insert({
+      club_id: payload.clubId,
+      first_name: payload.firstName,
+      last_name: payload.lastName,
+      gender: payload.gender,
+      birth_year: payload.birthYear,
+      default_cap_number: payload.defaultCapNumber,
+      license_number: payload.licenseNumber,
+      loan_club_name: payload.loanClubName,
+      notes: payload.notes,
+      active: payload.active,
+    })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data as PlayerRow;
+}
+
+export async function updatePlayer(playerId: string, payload: PlayerUpdateInput): Promise<PlayerRow> {
+  const { data, error } = await supabase
+    .from('players')
+    .update({
+      club_id: payload.clubId,
+      first_name: payload.firstName,
+      last_name: payload.lastName,
+      gender: payload.gender,
+      birth_year: payload.birthYear,
+      default_cap_number: payload.defaultCapNumber,
+      license_number: payload.licenseNumber,
+      loan_club_name: payload.loanClubName,
+      notes: payload.notes,
+      active: payload.active,
+    })
+    .eq('id', playerId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data as PlayerRow;
+}
+
+export async function deactivatePlayer(playerId: string): Promise<PlayerRow> {
+  const { data, error } = await supabase
+    .from('players')
+    .update({ active: false })
+    .eq('id', playerId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data as PlayerRow;
 }
 
 export async function saveTournamentRoster(payload: SaveTournamentRosterPayload): Promise<TournamentRosterWithPlayers> {
