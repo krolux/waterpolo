@@ -10,8 +10,11 @@ import { uploadDoc } from "./lib/storage";
 import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 import { setMyAvailability, getMyAvailabilityForMatches, listAvailableReferees } from "./lib/availability";
 import { namesOfAvailableReferees } from "./lib/availability";
-import { listCompetitions, getCompetitionSeason, listStages, listTournaments, addStage, addTournament, deleteStage, deleteTournament, listTournamentMatches, addTournamentMatch, deleteTournamentMatch, listTournamentClubs, addTournamentClub, deleteTournamentClub, type Competition, type CompetitionSeason, type Stage, type Tournament, type TournamentClub } from "./lib/competitions";
-import { NewsStrip } from "./components/NewsStrip";
+import { listCompetitions, getCompetitionSeason, listTournamentMatches, type Competition, type CompetitionSeason } from "./lib/competitions";
+import { useTournamentManagement } from "./hooks/useTournamentManagement";
+import { DashboardPage } from "./components/dashboard/DashboardPage";
+import { ClubDashboard } from "./components/dashboard/ClubDashboard";
+import { MatchesPage } from "./components/pages/MatchesPage";
 import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
 import { ArticleEditor } from "./components/ArticleEditor";
@@ -486,265 +489,44 @@ const handleCompetitionChange = async (competitionId: string) => {
   }
 };
 
-  // Layer 1.5: Stages and Tournaments
-  const [stages, setStages] = useState<Stage[]>([]);
-  const [tournaments, setTournaments] = useState<Map<string, Tournament[]>>(new Map());
-  const [loadingStages, setLoadingStages] = useState(false);
-  
-  // Form states for adding stage/tournament
-  const [showAddStageForm, setShowAddStageForm] = useState(false);
-  const [stageFormData, setStageFormData] = useState({
-    name: '',
-    type: 'round_robin',
-    startDate: '',
-    endDate: '',
+  const {
+    stages,
+    tournaments,
+    loadingStages,
+    tournamentClubs,
+    showAddStageForm,
+    setShowAddStageForm,
+    stageFormData,
+    setStageFormData,
+    showAddTournamentForm,
+    setShowAddTournamentForm,
+    selectedStageForTournament,
+    setSelectedStageForTournament,
+    tournamentFormData,
+    setTournamentFormData,
+    showAddMatchForm,
+    setShowAddMatchForm,
+    selectedTournamentForMatch,
+    setSelectedTournamentForMatch,
+    matchFormData,
+    setMatchFormData,
+    showAddTournamentClubForm,
+    setShowAddTournamentClubForm,
+    tournamentClubFormData,
+    setTournamentClubFormData,
+    handleAddStage,
+    handleDeleteStage,
+    handleAddTournament,
+    handleDeleteTournament,
+    handleAddTournamentClub,
+    handleDeleteTournamentClub,
+    handleAddMatch,
+    handleDeleteMatch,
+  } = useTournamentManagement({
+    selectedCompetitionSeason,
+    competitions,
+    refreshMatches,
   });
-  
-  const [showAddTournamentForm, setShowAddTournamentForm] = useState(false);
-  const [selectedStageForTournament, setSelectedStageForTournament] = useState<string | null>(null);
-  const [tournamentFormData, setTournamentFormData] = useState({
-    name: '',
-    type: 'league',
-    startDate: '',
-    endDate: '',
-  });
-
-  // Layer 1.6: Tournament Matches
-  const [showAddMatchForm, setShowAddMatchForm] = useState(false);
-  const [selectedTournamentForMatch, setSelectedTournamentForMatch] = useState<string | null>(null);
-  const [matchFormData, setMatchFormData] = useState({
-    date: '',
-    time: '',
-    location: '',
-    round: '',
-    series_round: '',
-    home: '',
-    away: '',
-    referee1: '',
-    referee2: '',
-    delegate: '',
-  });
-
-  const [tournamentClubs, setTournamentClubs] = useState<Map<string, TournamentClub[]>>(new Map());
-  const [selectedTournamentClub, setSelectedTournamentClub] = useState<string | null>(null);
-  const [showAddTournamentClubForm, setShowAddTournamentClubForm] = useState(false);
-  const [tournamentClubFormData, setTournamentClubFormData] = useState({ clubName: '' });
-
-  const refreshTournamentClubs = React.useCallback(async (tournamentId: string) => {
-    try {
-      const clubs = await listTournamentClubs(tournamentId);
-      setTournamentClubs(prev => new Map(prev).set(tournamentId, clubs));
-    } catch (e) {
-      console.warn('[refreshTournamentClubs] error', e);
-    }
-  }, []);
-
-  const refreshStages = React.useCallback(async () => {
-    if (!selectedCompetitionSeason) return;
-    
-    setLoadingStages(true);
-    try {
-      const stagesList = await listStages(selectedCompetitionSeason.id);
-      setStages(stagesList);
-      
-      // Pobierz turnieje dla każdego etapu
-      const tournamentsMap = new Map<string, Tournament[]>();
-      
-      for (const stage of stagesList) {
-        const tourns = await listTournaments(stage.id);
-        tournamentsMap.set(stage.id, tourns);
-      }
-      setTournaments(tournamentsMap);
-
-      // Pobierz przypisane kluby dla wszystkich turniejów
-      await Promise.all(
-        Array.from(tournamentsMap.values()).flat().map((t) => refreshTournamentClubs(t.id))
-      );
-    } catch (e) {
-      console.warn('[refreshStages] error', e);
-    }
-    setLoadingStages(false);
-  }, [selectedCompetitionSeason, refreshTournamentClubs]);
-
-  useEffect(() => {
-    // Załaduj stages tylko dla kategorii innych niż Ekstraklasa
-    if (selectedCompetitionSeason && selectedCompetitionSeason.competition_id !== competitions.find(c => c.name === 'Ekstraklasa')?.id) {
-      refreshStages();
-    }
-  }, [selectedCompetitionSeason, competitions, refreshStages]);
-
-  useEffect(() => {
-    if (!selectedTournamentForMatch) return;
-    refreshTournamentClubs(selectedTournamentForMatch);
-  }, [selectedTournamentForMatch, refreshTournamentClubs]);
-
-  const handleAddStage = async () => {
-    if (!selectedCompetitionSeason || !stageFormData.name.trim()) return;
-
-    try {
-      await addStage(
-        selectedCompetitionSeason.id,
-        stageFormData.name.trim(),
-        stageFormData.type,
-        stageFormData.startDate,
-        stageFormData.endDate
-      );
-      
-      setStageFormData({ name: '', type: 'round_robin', startDate: '', endDate: '' });
-      setShowAddStageForm(false);
-      await refreshStages();
-    } catch (e) {
-      console.error('[handleAddStage] error', e);
-    }
-  };
-
-  const handleDeleteStage = async (stageId: string) => {
-    if (!confirm('Czy na pewno chcesz usunąć ten etap?')) return;
-
-    try {
-      await deleteStage(stageId);
-      await refreshStages();
-    } catch (e) {
-      console.error('[handleDeleteStage] error', e);
-    }
-  };
-
-  const handleAddTournament = async () => {
-    if (!selectedStageForTournament || !tournamentFormData.name.trim()) return;
-
-    try {
-      await addTournament(
-        selectedStageForTournament,
-        tournamentFormData.name.trim(),
-        tournamentFormData.type,
-        tournamentFormData.startDate,
-        tournamentFormData.endDate
-      );
-      
-      setTournamentFormData({ name: '', type: 'league', startDate: '', endDate: '' });
-      setShowAddTournamentForm(false);
-      setSelectedStageForTournament(null);
-      await refreshStages();
-    } catch (e) {
-      console.error('[handleAddTournament] error', e);
-    }
-  };
-
-  const handleDeleteTournament = async (tournamentId: string) => {
-    if (!confirm('Czy na pewno chcesz usunąć ten turniej?')) return;
-
-    try {
-      await deleteTournament(tournamentId);
-      await refreshStages();
-    } catch (e) {
-      console.error('[handleDeleteTournament] error', e);
-    }
-  };
-
-  const handleAddTournamentClub = async (tournamentId: string) => {
-    if (!tournamentClubFormData.clubName.trim()) return;
-
-    try {
-      await addTournamentClub(tournamentId, tournamentClubFormData.clubName.trim());
-      setTournamentClubFormData({ clubName: '' });
-      await refreshTournamentClubs(tournamentId);
-    } catch (e) {
-      console.error('[handleAddTournamentClub] error', e);
-    }
-  };
-
-  const handleDeleteTournamentClub = async (clubId: string, tournamentId: string) => {
-    if (!confirm('Czy na pewno chcesz usunąć ten klub z turnieju?')) return;
-
-    try {
-      await deleteTournamentClub(clubId);
-      await refreshTournamentClubs(tournamentId);
-    } catch (e) {
-      console.error('[handleDeleteTournamentClub] error', e);
-    }
-  };
-
-  const handleAddMatch = async () => {
-    if (!selectedTournamentForMatch) {
-      alert('Wybierz turniej przed dodaniem meczu.');
-      return;
-    }
-
-    const clubsForCurrentTournament = tournamentClubs.get(selectedTournamentForMatch) ?? [];
-    if (clubsForCurrentTournament.length === 0) {
-      alert('Najpierw dodaj drużyny do turnieju.');
-      return;
-    }
-
-    if (!matchFormData.date.trim() || !matchFormData.location.trim() || !matchFormData.home.trim() || !matchFormData.away.trim()) {
-      alert('Wypełnij wszystkie pola: datę, miejsce, gospodarza i gości');
-      return;
-    }
-
-    if (matchFormData.home === matchFormData.away) {
-      alert('Gospodarz i goście muszą być różnymi klubami');
-      return;
-    }
-
-    if (matchFormData.referee1 && matchFormData.referee1 === matchFormData.referee2) {
-      alert('Sędzia 1 i Sędzia 2 nie mogą być tacy sami');
-      return;
-    }
-
-    try {
-      const stage = stages.find(s => tournaments.get(s.id)?.find(t => t.id === selectedTournamentForMatch));
-      if (!stage || !selectedCompetitionSeason) return;
-
-      await addTournamentMatch(
-        selectedTournamentForMatch,
-        stage.id,
-        selectedCompetitionSeason.id,
-        {
-          date: matchFormData.date,
-          time: matchFormData.time || undefined,
-          location: matchFormData.location,
-          round: matchFormData.round || undefined,
-          series_round: matchFormData.series_round || undefined,
-          home: matchFormData.home,
-          away: matchFormData.away,
-          referee1: matchFormData.referee1 || undefined,
-          referee2: matchFormData.referee2 || undefined,
-          delegate: matchFormData.delegate || undefined,
-        }
-      );
-
-      setMatchFormData({
-        date: '',
-        time: '',
-        location: '',
-        round: '',
-        series_round: '',
-        home: '',
-        away: '',
-        referee1: '',
-        referee2: '',
-        delegate: '',
-      });
-      setShowAddMatchForm(false);
-      setSelectedTournamentForMatch(null);
-      await refreshMatches();
-      await refreshStages();
-    } catch (e) {
-      console.error('[handleAddMatch] error', e);
-    }
-  };
-
-  const handleDeleteMatch = async (matchId: string) => {
-    if (!confirm('Czy na pewno chcesz usunąć ten mecz?')) return;
-
-    try {
-      await deleteTournamentMatch(matchId);
-      await refreshMatches();
-      await refreshStages();
-    } catch (e) {
-      console.error('[handleDeleteMatch] error', e);
-    }
-  };
   
   // Load profiles (for admin select lists)
   const [profiles,setProfiles]=useState<ProfileRow[]>([])
@@ -1274,361 +1056,66 @@ const delegateCandidateNames = Array.from(new Set([
       </div>
 
       {activePage === 'dashboard' && (
-        <>
-          <NewsStrip onMore={openArticles} onOpen={openArticle} />
-        </>
+        <DashboardPage openArticles={openArticles} openArticle={openArticle} />
       )}
 
       {activePage === 'matches' && (
-        <>
-          {/* Competition Selector */}
-          <div className="rounded-2xl border border-white/40 bg-white/80 p-3 shadow-sm mb-4">
-            <div className="mb-2 text-sm font-semibold text-gray-700">Kategoria rozgrywek:</div>
-            <div className="flex flex-wrap gap-2">
-              {(competitions.length ? competitions : fallbackCompetitions).map((comp) => (
-                <button
-                  key={comp.id}
-                  onClick={() => handleCompetitionChange(comp.id)}
-                  className={clsx(
-                    "px-3 py-2 rounded-xl border text-sm font-medium transition",
-                    selectedCompetitionId === comp.id
-                      ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                  )}
-                >
-                  {comp.short_name || comp.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Content for Ekstraklasa */}
-          {selectedCompetitionSeason?.competition_id === competitions.find(c => c.name === 'Ekstraklasa')?.id ? (
-            <CompetitionMatchesView
-              mode="competition"
-              competitionSeasonId={selectedCompetitionSeason?.id ?? null}
-              matches={state.matches}
-              penalties={penaltiesByMatch}
-              documents={state.matches}
-              currentUser={effectiveUser}
-              state={state}
-              setState={setState}
-              clubs={clubs}
-              refereeNames={refereeNames}
-              delegateNames={delegateNames}
-              delegateCandidateNames={delegateCandidateNames}
-              onRefreshMatches={() => { refreshMatches(); refreshPenalties(); }}
-              loadingMatches={loadingMatches}
-              onRemovePenalty={handleRemovePenalty}
-              onQuickEdit={handleQuickEdit}
-              onCancelEdit={handleCancelInlineEdit}
-              editingMatchId={editingMatchId}
-              isAdmin={isAdmin}
-              renderMatchesTable={({ title, variant, sectionClassName, showExport, tableState, currentUser }) => (
-                <MatchesTable
-                  title={title}
-                  variant={variant}
-                  sectionClassName={sectionClassName}
-                  showExport={showExport}
-                  state={tableState}
-                  setState={setState}
-                  user={currentUser ?? undefined}
-                  onRefresh={refreshMatches}
-                  loading={loadingMatches}
-                  penaltyMap={penaltiesByMatch}
-                  onRemovePenalty={handleRemovePenalty}
-                  onQuickEdit={handleQuickEdit}
-                  clubs={clubs}
-                  refereeNames={refereeNames}
-                  delegateNames={delegateCandidateNames}
-                  editingMatchId={editingMatchId}
-                  onCancelEdit={handleCancelInlineEdit}
-                  removeWholeSlot={removeWholeSlot}
-                  renderExportImport={({ state, setState }) => <ExportImport state={state} setState={setState} />}
-                  renderAdminPanel={(m) => (
-                    <AdminPanel
-                      state={state}
-                      setState={setState}
-                      clubs={clubs}
-                      refereeNames={refereeNames}
-                      delegateNames={delegateCandidateNames}
-                      onAfterChange={() => {
-                        refreshMatches();
-                        handleCancelInlineEdit();
-                      }}
-                      canWrite={true}
-                      editingMatchId={m.id}
-                      clearEditing={handleCancelInlineEdit}
-                      compact
-                    />
-                  )}
-                />
-              )}
-              renderRankingTable={({ matches, clubs }) => <RankingTable matches={matches} clubs={clubs as string[]} />}
-              renderCompetitionAdminPanel={() => (
-                <AdminPanel
-                  state={state}
-                  setState={setState}
-                  clubs={clubs}
-                  refereeNames={refereeNames}
-                  delegateNames={delegateCandidateNames}
-                  onAfterChange={() => {
-                    refreshMatches();
-                  }}
-                  canWrite={true}
-                  editingMatchId={editingMatchId}
-                  clearEditing={handleCancelInlineEdit}
-                />
-              )}
-            />
-          ) : (
-            // Layer 1.5: Stages and Tournaments UI
-            <div className="space-y-4">
-              <Section title={selectedCompetitionSeason?.name || 'Kategoria'} icon={<Shield className="w-5 h-5" />} className="bg-white/60">
-                {loadingStages ? (
-                  <div className="text-gray-500">Ładowanie etapów...</div>
-                ) : stages.length === 0 ? (
-                  <div className="text-gray-500">
-                    Brak etapów. {effectiveUser && isAdmin(effectiveUser) && 'Dodaj pierwszy etap.'}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {stages.map(stage => (
-                      <div key={stage.id} className="border-l-4 border-amber-600 pl-4 py-3 bg-amber-50 rounded">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h3 className="font-semibold text-gray-800">{stage.name}</h3>
-                            <p className="text-sm text-gray-600">
-                              Typ: {stage.stage_type} 
-                              {stage.start_date && ` • ${new Date(stage.start_date).toLocaleDateString('pl-PL')}`}
-                            </p>
-                          </div>
-                          {effectiveUser && isAdmin(effectiveUser) && (
-                            <button
-                              onClick={() => handleDeleteStage(stage.id)}
-                              className="p-2 hover:bg-red-100 rounded transition"
-                              title="Usuń etap"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Turnieje w etapie */}
-                        {tournaments.get(stage.id) && tournaments.get(stage.id)!.length > 0 ? (
-                          <div className="mt-3 space-y-3 ml-2 border-t pt-2">
-                            {tournaments.get(stage.id)!.map(tournament => (
-                              <div key={tournament.id} className="bg-white border border-gray-200 rounded">
-                                <div className="flex justify-between items-center p-2 bg-gray-50 border-b">
-                                  <div>
-                                    <p className="font-medium text-gray-800">{tournament.name}</p>
-                                    <p className="text-xs text-gray-500">
-                                      Typ: {tournament.tournament_type}
-                                      {tournament.start_date && ` • ${new Date(tournament.start_date).toLocaleDateString('pl-PL')}`}
-                                    </p>
-                                  </div>
-                                  {effectiveUser && isAdmin(effectiveUser) && (
-                                    <button
-                                      onClick={() => handleDeleteTournament(tournament.id)}
-                                      className="p-1 hover:bg-red-100 rounded transition"
-                                      title="Usuń turniej"
-                                    >
-                                      <Trash2 className="w-3 h-3 text-red-600" />
-                                    </button>
-                                  )}
-                                </div>
-
-                                <CompetitionMatchesView
-                                  mode="tournament"
-                                  competitionSeasonId={selectedCompetitionSeason?.id ?? null}
-                                  stageId={stage.id}
-                                  tournamentId={tournament.id}
-                                  matches={state.matches.filter(m => m.tournamentId === tournament.id)}
-                                  penalties={penaltiesByMatch}
-                                  documents={state.matches.filter(m => m.tournamentId === tournament.id)}
-                                  currentUser={effectiveUser}
-                                  state={state}
-                                  setState={setState}
-                                  clubs={clubs}
-                                  refereeNames={refereeNames}
-                                  delegateNames={delegateNames}
-                                  delegateCandidateNames={delegateCandidateNames}
-                                  onRefreshMatches={refreshMatches}
-                                  loadingMatches={loadingMatches}
-                                  onRemovePenalty={handleRemovePenalty}
-                                  onQuickEdit={handleQuickEdit}
-                                  onCancelEdit={handleCancelInlineEdit}
-                                  editingMatchId={editingMatchId}
-                                  tournamentClubs={tournamentClubs}
-                                  showAddTournamentClubForm={showAddTournamentClubForm}
-                                  setShowAddTournamentClubForm={setShowAddTournamentClubForm}
-                                  tournamentClubFormData={tournamentClubFormData}
-                                  setTournamentClubFormData={setTournamentClubFormData}
-                                  onAddTournamentClub={handleAddTournamentClub}
-                                  onDeleteTournamentClub={handleDeleteTournamentClub}
-                                  onAddMatch={(id) => {
-                                    setSelectedTournamentForMatch(id);
-                                    setShowAddMatchForm(true);
-                                  }}
-                                  isAdmin={isAdmin}
-                                  renderMatchesTable={({ title, variant, sectionClassName, showExport, tableState, currentUser }) => (
-                                    <MatchesTable
-                                      title={title}
-                                      variant={variant}
-                                      sectionClassName={sectionClassName}
-                                      showExport={showExport}
-                                      state={tableState}
-                                      setState={setState}
-                                      user={currentUser ?? undefined}
-                                      onRefresh={refreshMatches}
-                                      loading={loadingMatches}
-                                      penaltyMap={penaltiesByMatch}
-                                      onRemovePenalty={handleRemovePenalty}
-                                      onQuickEdit={handleQuickEdit}
-                                      clubs={clubs}
-                                      refereeNames={refereeNames}
-                                      delegateNames={delegateCandidateNames}
-                                      editingMatchId={editingMatchId}
-                                      onCancelEdit={handleCancelInlineEdit}
-                                      removeWholeSlot={removeWholeSlot}
-                                      renderExportImport={({ state, setState }) => <ExportImport state={state} setState={setState} />}
-                                      renderAdminPanel={(m) => (
-                                        <AdminPanel
-                                          state={state}
-                                          setState={setState}
-                                          clubs={clubs}
-                                          refereeNames={refereeNames}
-                                          delegateNames={delegateCandidateNames}
-                                          onAfterChange={() => {
-                                            refreshMatches();
-                                            handleCancelInlineEdit();
-                                          }}
-                                          canWrite={true}
-                                          editingMatchId={m.id}
-                                          clearEditing={handleCancelInlineEdit}
-                                          compact
-                                        />
-                                      )}
-                                    />
-                                  )}
-                                  renderRankingTable={({ matches, clubs }) => <RankingTable matches={matches} clubs={clubs as string[]} />}
-                                  renderCompetitionAdminPanel={() => (
-                                    <AdminPanel
-                                      state={state}
-                                      setState={setState}
-                                      clubs={clubs}
-                                      refereeNames={refereeNames}
-                                      delegateNames={delegateCandidateNames}
-                                      onAfterChange={() => {
-                                        refreshMatches();
-                                      }}
-                                      canWrite={true}
-                                      editingMatchId={editingMatchId}
-                                      clearEditing={handleCancelInlineEdit}
-                                    />
-                                  )}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="mt-2 text-sm text-gray-500 ml-2">
-                            Brak turniejów w tym etapie
-                          </div>
-                        )}
-
-                        {/* Przycisk do dodania turnieju */}
-                        {effectiveUser && isAdmin(effectiveUser) && (
-                          <div className="mt-2">
-                            <button
-                              onClick={() => {
-                                setSelectedStageForTournament(stage.id);
-                                setShowAddTournamentForm(true);
-                              }}
-                              className="text-sm px-2 py-1 text-blue-600 hover:bg-blue-100 rounded transition"
-                            >
-                              + Dodaj turniej
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Section>
-
-              {/* Przycisk do dodania etapu */}
-              {effectiveUser && isAdmin(effectiveUser) && (
-                <div>
-                  {!showAddStageForm ? (
-                    <button
-                      onClick={() => setShowAddStageForm(true)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                    >
-                      + Dodaj etap
-                    </button>
-                  ) : (
-                    <StageForm
-                      stageFormData={stageFormData}
-                      setStageFormData={setStageFormData}
-                      onSubmit={handleAddStage}
-                      onCancel={() => {
-                        setShowAddStageForm(false);
-                        setStageFormData({ name: '', type: 'round_robin', startDate: '', endDate: '' });
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-
-              {/* Formularz dodania turnieju */}
-              {effectiveUser && isAdmin(effectiveUser) && showAddTournamentForm && selectedStageForTournament && (
-                <TournamentForm
-                  stages={stages}
-                  selectedStageForTournament={selectedStageForTournament}
-                  setSelectedStageForTournament={setSelectedStageForTournament}
-                  tournamentFormData={tournamentFormData}
-                  setTournamentFormData={setTournamentFormData}
-                  onSubmit={handleAddTournament}
-                  onCancel={() => {
-                    setShowAddTournamentForm(false);
-                    setSelectedStageForTournament(null);
-                    setTournamentFormData({ name: '', type: 'league', startDate: '', endDate: '' });
-                  }}
-                />
-              )}
-
-              {/* Formularz dodania meczu */}
-              {effectiveUser && isAdmin(effectiveUser) && showAddMatchForm && selectedTournamentForMatch && (
-                <MatchForm
-                  matchFormData={matchFormData}
-                  setMatchFormData={setMatchFormData}
-                  tournamentClubs={tournamentClubs}
-                  selectedTournamentForMatch={selectedTournamentForMatch}
-                  refereeNames={refereeNames}
-                  delegateNames={delegateNames}
-                  onSubmit={handleAddMatch}
-                  onCancel={() => {
-                    setShowAddMatchForm(false);
-                    setSelectedTournamentForMatch(null);
-                    setMatchFormData({
-                      date: '',
-                      time: '',
-                      location: '',
-                      round: '',
-                      series_round: '',
-                      home: '',
-                      away: '',
-                      referee1: '',
-                      referee2: '',
-                      delegate: '',
-                    });
-                  }}
-                />
-              )}
-            </div>
-          )}
-        </>
+        <MatchesPage
+          competitions={competitions}
+          fallbackCompetitions={fallbackCompetitions}
+          handleCompetitionChange={handleCompetitionChange}
+          selectedCompetitionId={selectedCompetitionId}
+          selectedCompetitionSeason={selectedCompetitionSeason}
+          state={state}
+          setState={setState}
+          penaltiesByMatch={penaltiesByMatch}
+          effectiveUser={effectiveUser}
+          clubs={clubs}
+          refereeNames={refereeNames}
+          delegateNames={delegateNames}
+          delegateCandidateNames={delegateCandidateNames}
+          refreshMatches={refreshMatches}
+          refreshPenalties={refreshPenalties}
+          loadingMatches={loadingMatches}
+          handleRemovePenalty={handleRemovePenalty}
+          handleQuickEdit={handleQuickEdit}
+          handleCancelInlineEdit={handleCancelInlineEdit}
+          editingMatchId={editingMatchId}
+          isAdmin={isAdmin}
+          removeWholeSlot={removeWholeSlot}
+          ExportImport={ExportImport}
+          loadingStages={loadingStages}
+          stages={stages}
+          tournaments={tournaments}
+          handleDeleteStage={handleDeleteStage}
+          handleDeleteTournament={handleDeleteTournament}
+          tournamentClubs={tournamentClubs}
+          showAddTournamentClubForm={showAddTournamentClubForm}
+          setShowAddTournamentClubForm={setShowAddTournamentClubForm}
+          tournamentClubFormData={tournamentClubFormData}
+          setTournamentClubFormData={setTournamentClubFormData}
+          handleAddTournamentClub={handleAddTournamentClub}
+          handleDeleteTournamentClub={handleDeleteTournamentClub}
+          setSelectedTournamentForMatch={setSelectedTournamentForMatch}
+          setShowAddMatchForm={setShowAddMatchForm}
+          showAddStageForm={showAddStageForm}
+          setShowAddStageForm={setShowAddStageForm}
+          stageFormData={stageFormData}
+          setStageFormData={setStageFormData}
+          handleAddStage={handleAddStage}
+          showAddTournamentForm={showAddTournamentForm}
+          setShowAddTournamentForm={setShowAddTournamentForm}
+          selectedStageForTournament={selectedStageForTournament}
+          setSelectedStageForTournament={setSelectedStageForTournament}
+          tournamentFormData={tournamentFormData}
+          setTournamentFormData={setTournamentFormData}
+          handleAddTournament={handleAddTournament}
+          showAddMatchForm={showAddMatchForm}
+          selectedTournamentForMatch={selectedTournamentForMatch}
+          matchFormData={matchFormData}
+          setMatchFormData={setMatchFormData}
+          handleAddMatch={handleAddMatch}
+        />
       )}
 
       {activePage === 'ktpw' && (
@@ -1720,11 +1207,11 @@ const delegateCandidateNames = Array.from(new Set([
       )}
 
       {activePage === 'club' && (
-        <Section title="Mój klub" icon={<Users className="w-5 h-5" />} className="bg-white/60">
-          <div className="text-sm text-gray-700">
-            Tutaj dodamy bazę zawodników klubu oraz cyfrowe zgłoszenia składów.
-          </div>
-        </Section>
+        <ClubDashboard
+          effectiveUser={effectiveUser}
+          matches={state.matches}
+          penaltiesByMatch={penaltiesByMatch}
+        />
       )}
 
       {activePage === 'my-matches' && (!effectiveUser || !(isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser))) && (
