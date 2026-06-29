@@ -10,6 +10,10 @@ export type RosterSlot = {
   player: RosterPanelPlayer | null;
 };
 
+type UseRosterPanelOptions = {
+  maxBirthYear?: number;
+};
+
 const TOURNAMENT_LIMIT = 17;
 const MATCH_LIMIT = 15;
 
@@ -101,10 +105,17 @@ function licenseStatusRank(player: RosterPanelPlayer) {
   return 0;
 }
 
-export function useRosterPanel(players: Player[]) {
+export function useRosterPanel(players: Player[], options: UseRosterPanelOptions = {}) {
+  const { maxBirthYear } = options;
+
   const [query, setQuery] = React.useState("");
   const [sortMode, setSortMode] = React.useState<SortMode>("number");
   const [warning, setWarning] = React.useState<string | null>(null);
+
+  const isEligible = React.useCallback(
+    (player: Player | RosterPanelPlayer) => (typeof maxBirthYear === "number" ? player.birthYear >= maxBirthYear : true),
+    [maxBirthYear]
+  );
 
   const toRosterRow = React.useCallback((player: Player): RosterPanelPlayer => ({
     playerId: player.id,
@@ -126,9 +137,20 @@ export function useRosterPanel(players: Player[]) {
     isCaptain: false,
   }), []);
 
+  const eligiblePlayers = React.useMemo(
+    () => players.filter((player) => isEligible(player)),
+    [isEligible, players]
+  );
+
+  const eligiblePlayersById = React.useMemo(() => {
+    const map = new Map<string, Player>();
+    eligiblePlayers.forEach((player) => map.set(player.id, player));
+    return map;
+  }, [eligiblePlayers]);
+
   const [tournamentSlots, setTournamentSlots] = React.useState<RosterSlot[]>(() => {
     const slots = createEmptySlots(TOURNAMENT_LIMIT);
-    players.slice(0, Math.min(4, TOURNAMENT_LIMIT)).forEach((player, index) => {
+    eligiblePlayers.slice(0, Math.min(4, TOURNAMENT_LIMIT)).forEach((player, index) => {
       slots[index] = {
         ...slots[index],
         player: {
@@ -142,26 +164,41 @@ export function useRosterPanel(players: Player[]) {
 
   const [matchSlots, setMatchSlots] = React.useState<RosterSlot[]>(() => createEmptySlots(MATCH_LIMIT));
 
+  React.useEffect(() => {
+    setTournamentSlots((currentSlots) =>
+      currentSlots.map((slot) => {
+        if (!slot.player) return slot;
+        return eligiblePlayersById.has(slot.player.playerId) ? slot : { ...slot, player: null };
+      })
+    );
+    setMatchSlots((currentSlots) =>
+      currentSlots.map((slot) => {
+        if (!slot.player) return slot;
+        return eligiblePlayersById.has(slot.player.playerId) ? slot : { ...slot, player: null };
+      })
+    );
+  }, [eligiblePlayersById]);
+
   const mockSources = React.useMemo(
     () => ({
-      previousMatch: players.slice(0, 5).map((player, index) => ({
+      previousMatch: eligiblePlayers.slice(0, 5).map((player, index) => ({
         ...toRosterRow(player),
         matchCapNumber: index + 1,
         isGoalkeeper: index === 0,
         isCaptain: index === 1,
       })),
-      previousTournament: players.slice(0, 8).map((player, index) => ({
+      previousTournament: eligiblePlayers.slice(0, 8).map((player, index) => ({
         ...toRosterRow(player),
         tournamentCapNumber: index + 1,
       })),
-      lastRoster: players.slice(1, 7).map((player, index) => ({
+      lastRoster: eligiblePlayers.slice(1, 7).map((player, index) => ({
         ...toRosterRow(player),
         matchCapNumber: index + 1,
         isGoalkeeper: index < 2,
         isCaptain: index === 0,
       })),
     }),
-    [players, toRosterRow]
+    [eligiblePlayers, toRosterRow]
   );
 
   const sortPlayers = React.useCallback((rows: RosterPanelPlayer[]) => {
@@ -174,6 +211,14 @@ export function useRosterPanel(players: Player[]) {
     });
     return next;
   }, [sortMode]);
+
+  const filterAndSort = React.useCallback((rows: RosterPanelPlayer[]) => {
+    const q = normalize(query.trim());
+    const filtered = !q
+      ? rows
+      : rows.filter((player) => normalize(`${player.firstName} ${player.lastName} ${player.licenseNumber}`).includes(q));
+    return sortPlayers(filtered);
+  }, [query, sortPlayers]);
 
   const tournamentRosterPlayers = React.useMemo(
     () => tournamentSlots.map((slot) => slot.player).filter((player): player is RosterPanelPlayer => !!player),
@@ -195,23 +240,30 @@ export function useRosterPanel(players: Player[]) {
     [matchRosterPlayers, tournamentRosterModel.clubName]
   );
 
-  const availableTournamentPlayers = React.useMemo(
-    () => {
-      const selectedIds = new Set(tournamentRosterPlayers.map((player) => player.playerId));
-      return players
-        .filter((player) => !selectedIds.has(player.id))
-        .map((player) => toRosterRow(player));
-    },
-    [players, toRosterRow, tournamentRosterPlayers]
+  const tournamentIds = React.useMemo(
+    () => new Set(tournamentRosterPlayers.map((player) => player.playerId)),
+    [tournamentRosterPlayers]
   );
 
-  const filteredAvailableTournamentPlayers = React.useMemo(() => {
-    const q = normalize(query.trim());
-    const rows = !q
-      ? availableTournamentPlayers
-      : availableTournamentPlayers.filter((player) => normalize(`${player.firstName} ${player.lastName} ${player.licenseNumber}`).includes(q));
-    return sortPlayers(rows);
-  }, [availableTournamentPlayers, query, sortPlayers]);
+  const matchIds = React.useMemo(
+    () => new Set(matchRosterPlayers.map((player) => player.playerId)),
+    [matchRosterPlayers]
+  );
+
+  const clubPlayersForTournament = React.useMemo(
+    () => filterAndSort(eligiblePlayers.filter((player) => !tournamentIds.has(player.id)).map((player) => toRosterRow(player))),
+    [eligiblePlayers, filterAndSort, toRosterRow, tournamentIds]
+  );
+
+  const clubPlayersForMatch = React.useMemo(
+    () => filterAndSort(eligiblePlayers.filter((player) => !matchIds.has(player.id)).map((player) => toRosterRow(player))),
+    [eligiblePlayers, filterAndSort, matchIds, toRosterRow]
+  );
+
+  const tournamentPlayersForMatch = React.useMemo(
+    () => filterAndSort(tournamentRosterPlayers.filter((player) => !matchIds.has(player.playerId) && isEligible(player))),
+    [filterAndSort, isEligible, matchIds, tournamentRosterPlayers]
+  );
 
   const tournamentLimitReached = tournamentRosterModel.players.length >= TOURNAMENT_LIMIT;
   const matchLimitReached = matchRosterModel.players.length >= MATCH_LIMIT;
@@ -224,13 +276,7 @@ export function useRosterPanel(players: Player[]) {
         return currentSlots;
       }
 
-      const currentIds = new Set(
-        currentSlots
-          .map((slot) => slot.player?.playerId)
-          .filter((value): value is string => !!value)
-      );
-
-      const remaining = filteredAvailableTournamentPlayers.filter((player) => !currentIds.has(player.playerId));
+      const remaining = clubPlayersForTournament;
       if (remaining.length === 0) return currentSlots;
 
       const next = currentSlots.map((slot) => ({ ...slot, player: slot.player ? { ...slot.player } : null }));
@@ -251,10 +297,10 @@ export function useRosterPanel(players: Player[]) {
       setWarning(null);
       return next;
     });
-  }, [filteredAvailableTournamentPlayers]);
+  }, [clubPlayersForTournament]);
 
   const addPlayerToTournamentRoster = React.useCallback((playerId: string) => {
-    const player = filteredAvailableTournamentPlayers.find((item) => item.playerId === playerId);
+    const player = clubPlayersForTournament.find((item) => item.playerId === playerId);
     if (!player) return;
 
     setTournamentSlots((currentSlots) => {
@@ -278,7 +324,7 @@ export function useRosterPanel(players: Player[]) {
       setWarning(null);
       return next;
     });
-  }, [filteredAvailableTournamentPlayers]);
+  }, [clubPlayersForTournament]);
 
   const toggleTournamentGoalkeeper = React.useCallback((playerId: string, checked: boolean) => {
     setTournamentSlots((currentSlots) =>
@@ -330,13 +376,9 @@ export function useRosterPanel(players: Player[]) {
     );
   }, []);
 
-  const addToMatchRoster = React.useCallback((playerId: string) => {
-    const tournamentIndex = tournamentSlots.findIndex((slot) => slot.player?.playerId === playerId);
-    const tournamentPlayer = tournamentIndex >= 0 ? tournamentSlots[tournamentIndex].player : null;
-    if (!tournamentPlayer) return;
-
+  const addMatchPlayer = React.useCallback((player: RosterPanelPlayer, preferredIndex?: number) => {
     setMatchSlots((currentSlots) => {
-      if (currentSlots.some((slot) => slot.player?.playerId === playerId)) return currentSlots;
+      if (currentSlots.some((slot) => slot.player?.playerId === player.playerId)) return currentSlots;
 
       const currentSelected = currentSlots.filter((slot) => !!slot.player).length;
       if (currentSelected >= MATCH_LIMIT) {
@@ -344,27 +386,41 @@ export function useRosterPanel(players: Player[]) {
         return currentSlots;
       }
 
-      const preferredIndex = tournamentIndex < MATCH_LIMIT ? tournamentIndex : -1;
-      const targetIndex = preferredIndex >= 0 && !currentSlots[preferredIndex].player
+      const preferred = typeof preferredIndex === "number" && preferredIndex >= 0 && preferredIndex < MATCH_LIMIT
         ? preferredIndex
+        : -1;
+      const targetIndex = preferred >= 0 && !currentSlots[preferred].player
+        ? preferred
         : findFirstFreeSlotIndex(currentSlots);
       if (targetIndex < 0) return currentSlots;
 
+      const next = currentSlots.map((slot) => ({ ...slot, player: slot.player ? { ...slot.player } : null }));
+      next[targetIndex] = {
+        ...next[targetIndex],
+        player: {
+          ...player,
+          matchCapNumber: targetIndex + 1,
+          isGoalkeeper: false,
+          isCaptain: false,
+        },
+      };
       setWarning(null);
-      return currentSlots.map((slot, index) => {
-        if (index !== targetIndex) return slot;
-        return {
-          ...slot,
-          player: {
-            ...tournamentPlayer,
-            matchCapNumber: targetIndex + 1,
-            isGoalkeeper: false,
-            isCaptain: false,
-          },
-        };
-      });
+      return next;
     });
-  }, [tournamentSlots]);
+  }, []);
+
+  const addTournamentPlayerToMatchRoster = React.useCallback((playerId: string) => {
+    const tournamentIndex = tournamentSlots.findIndex((slot) => slot.player?.playerId === playerId);
+    const sourcePlayer = tournamentIndex >= 0 ? tournamentSlots[tournamentIndex].player : null;
+    if (!sourcePlayer) return;
+    addMatchPlayer(sourcePlayer);
+  }, [addMatchPlayer, tournamentSlots]);
+
+  const addClubPlayerToMatchRoster = React.useCallback((playerId: string) => {
+    const basePlayer = eligiblePlayersById.get(playerId);
+    if (!basePlayer) return;
+    addMatchPlayer(toRosterRow(basePlayer));
+  }, [addMatchPlayer, eligiblePlayersById, toRosterRow]);
 
   const removeFromMatchRoster = React.useCallback((playerId: string) => {
     setMatchSlots((currentSlots) =>
@@ -443,9 +499,8 @@ export function useRosterPanel(players: Player[]) {
 
   const copyPreviousMatchRoster = React.useCallback(() => {
     if (!window.confirm("Czy skopiować skład?")) return;
-    applyCopiedTournamentRoster(mockSources.previousMatch);
     applyCopiedMatchRoster(mockSources.previousMatch);
-  }, [applyCopiedMatchRoster, applyCopiedTournamentRoster, mockSources.previousMatch]);
+  }, [applyCopiedMatchRoster, mockSources.previousMatch]);
 
   const copyPreviousTournamentRoster = React.useCallback(() => {
     if (!window.confirm("Czy skopiować skład?")) return;
@@ -460,20 +515,17 @@ export function useRosterPanel(players: Player[]) {
       isGoalkeeper: false,
       isCaptain: false,
     }));
-    applyCopiedTournamentRoster(next);
     applyCopiedMatchRoster(next);
-  }, [applyCopiedMatchRoster, applyCopiedTournamentRoster, mockSources.previousTournament]);
+  }, [applyCopiedMatchRoster, mockSources.previousTournament]);
 
   const copyLastRoster = React.useCallback(() => {
     if (!window.confirm("Czy skopiować skład?")) return;
-    applyCopiedTournamentRoster(mockSources.lastRoster);
     applyCopiedMatchRoster(mockSources.lastRoster);
-  }, [applyCopiedMatchRoster, applyCopiedTournamentRoster, mockSources.lastRoster]);
+  }, [applyCopiedMatchRoster, mockSources.lastRoster]);
 
   const clearTournamentRoster = React.useCallback(() => {
     if (!window.confirm("Czy wyczyścić skład?")) return;
     setTournamentSlots(createEmptySlots(TOURNAMENT_LIMIT));
-    setMatchSlots(createEmptySlots(MATCH_LIMIT));
     setWarning(null);
   }, []);
 
@@ -482,26 +534,6 @@ export function useRosterPanel(players: Player[]) {
     setMatchSlots(createEmptySlots(MATCH_LIMIT));
     setWarning(null);
   }, []);
-
-  const filteredTournamentSlots = React.useMemo(() => {
-    const q = normalize(query.trim());
-    if (!q) return tournamentSlots;
-    return tournamentSlots.map((slot) => {
-      if (!slot.player) return slot;
-      const haystack = normalize(`${slot.player.firstName} ${slot.player.lastName} ${slot.player.licenseNumber}`);
-      return haystack.includes(q) ? slot : { ...slot, player: null };
-    });
-  }, [query, tournamentSlots]);
-
-  const filteredMatchSlots = React.useMemo(() => {
-    const q = normalize(query.trim());
-    if (!q) return matchSlots;
-    return matchSlots.map((slot) => {
-      if (!slot.player) return slot;
-      const haystack = normalize(`${slot.player.firstName} ${slot.player.lastName} ${slot.player.licenseNumber}`);
-      return haystack.includes(q) ? slot : { ...slot, player: null };
-    });
-  }, [query, matchSlots]);
 
   return {
     query,
@@ -513,9 +545,11 @@ export function useRosterPanel(players: Player[]) {
     matchLimitReached,
     tournamentCount: tournamentRosterModel.players.length,
     matchCount: matchRosterModel.players.length,
-    availablePlayers: filteredAvailableTournamentPlayers,
-    tournamentSlots: filteredTournamentSlots,
-    matchSlots: filteredMatchSlots,
+    clubPlayersForTournament,
+    clubPlayersForMatch,
+    tournamentPlayersForMatch,
+    tournamentSlots,
+    matchSlots,
     addPlayersToTournamentRoster,
     addPlayerToTournamentRoster,
     removeFromTournamentRoster,
@@ -523,7 +557,8 @@ export function useRosterPanel(players: Player[]) {
     toggleMatchGoalkeeper,
     toggleTournamentCaptain,
     toggleMatchCaptain,
-    addToMatchRoster,
+    addTournamentPlayerToMatchRoster,
+    addClubPlayerToMatchRoster,
     removeFromMatchRoster,
     moveTournamentPlayer,
     moveMatchPlayer,

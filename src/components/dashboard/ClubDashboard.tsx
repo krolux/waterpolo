@@ -6,12 +6,14 @@ import { RosterPanel } from "../club/RosterPanel";
 import { Section } from "../shared/Section";
 import { CalendarClock, Users } from "lucide-react";
 import type { Match, Role } from "../../types/wpolo";
+import type { SaveRosterPayload } from "../../types/rosters";
 
 type ClubDashboardProps = {
   effectiveUser: { name: string; role: Role; club?: string } | null;
   matches: Match[];
   tournamentNamesById?: Record<string, string>;
   penaltiesByMatch: Map<string, { home: { id: string; name: string }[]; away: { id: string; name: string }[] }>;
+  onSaveRoster?: (payload: SaveRosterPayload) => void;
 };
 
 export const ClubDashboard: React.FC<ClubDashboardProps> = ({
@@ -19,9 +21,11 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   matches,
   tournamentNamesById = {},
   penaltiesByMatch: _penaltiesByMatch,
+  onSaveRoster,
 }) => {
   const myClub = effectiveUser?.club?.trim() || "";
   const [rosterContext, setRosterContext] = React.useState<React.ComponentProps<typeof RosterPanel>["context"]>(null);
+  const maxBirthYearByTournamentId: Record<string, number> = {};
 
   const parseMatchDateTime = React.useCallback((match: Match) => new Date(`${match.date}T${match.time || "00:00"}`), []);
 
@@ -51,30 +55,56 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
               Brak nadchodzących meczów dla Twojego klubu.
             </div>
           ) : (
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {upcomingClubMatches.map((match) => {
                 const tournamentName = match.tournamentId ? (tournamentNamesById[match.tournamentId] || `Turniej ${match.tournamentId}`) : null;
+                const badgeText = tournamentName || "Mecz ligowy";
                 return (
-                  <div key={match.id} className="rounded-lg border border-slate-200 bg-white/80 p-3 text-sm">
-                    <div className="font-semibold text-slate-700">{formatDate(match.date)}</div>
-                    <div className="text-xs text-slate-500">{match.time || "-"}</div>
-                    <div className="mt-1 text-xs text-slate-600">Gospodarz: <span className="font-medium">{match.home}</span></div>
-                    <div className="text-xs text-slate-600">Gość: <span className="font-medium">{match.away}</span></div>
-                    <div className="text-xs text-slate-600">Miejsce: {match.location}</div>
-                    {tournamentName ? <div className="text-xs text-slate-600">Turniej: {tournamentName}</div> : null}
-                    <div className="mt-2 flex flex-wrap gap-2">
+                  <div key={match.id} className="rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm text-sm">
+                    <div className="mb-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                      {badgeText}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-600">
+                      <span>{formatDate(match.date)}</span>
+                      <span>{match.time || "-"}</span>
+                      <span>{match.location}</span>
+                    </div>
+                    <div className="mt-2 text-base font-semibold text-slate-800">{match.home} <span className="text-slate-400">vs</span> {match.away}</div>
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <button
-                        onClick={() => setRosterContext({ mode: "match", title: `Skład dla meczu: ${match.home} vs ${match.away}`, subtitle: `${formatDate(match.date)}${match.time ? `, ${match.time}` : ""} • ${match.location}` })}
+                        onClick={() => setRosterContext({
+                          mode: "match",
+                          matchId: match.id,
+                          home: match.home,
+                          away: match.away,
+                          date: match.date,
+                          time: match.time,
+                          location: match.location,
+                          tournamentId: match.tournamentId || undefined,
+                          tournamentName: tournamentName || undefined,
+                          maxBirthYear: match.tournamentId ? maxBirthYearByTournamentId[match.tournamentId] : undefined,
+                        })}
                         className="rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"
                       >
-                        Dodaj skład
+                        {match.tournamentId ? "Skład meczowy" : "Dodaj skład"}
                       </button>
                       {match.tournamentId ? (
                         <button
-                          onClick={() => setRosterContext({ mode: "tournament", title: `Skład turniejowy: ${tournamentName || "Turniej"}`, subtitle: `${formatDate(match.date)}${match.time ? `, ${match.time}` : ""} • ${match.location}` })}
+                          onClick={() => setRosterContext({
+                            mode: "tournament",
+                            matchId: match.id,
+                            home: match.home,
+                            away: match.away,
+                            date: match.date,
+                            time: match.time,
+                            location: match.location,
+                            tournamentId: match.tournamentId || undefined,
+                            tournamentName: tournamentName || undefined,
+                            maxBirthYear: maxBirthYearByTournamentId[match.tournamentId],
+                          })}
                           className="rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"
                         >
-                          Dodaj skład turniejowy
+                          Lista turniejowa
                         </button>
                       ) : null}
                     </div>
@@ -84,13 +114,14 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
             </div>
           )}
 
-          {rosterContext ? (
-            <RosterPanel players={mockPlayers} context={rosterContext} />
-          ) : (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-white/60 p-3 text-sm text-slate-500">
-              Wybierz mecz lub turniej z kart powyżej, aby otworzyć panel tworzenia listy startowej.
-            </div>
-          )}
+          <RosterPanel
+            players={mockPlayers}
+            context={rosterContext}
+            onBack={() => setRosterContext(null)}
+            clubName={myClub}
+            canSaveRoster={effectiveUser?.role === "Club"}
+            onSaveRoster={onSaveRoster}
+          />
         </div>
       </Section>
 

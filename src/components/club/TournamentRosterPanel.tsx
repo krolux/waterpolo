@@ -13,11 +13,8 @@ type TournamentRosterPanelProps = {
   onAddPlayers: () => void;
   onAddPlayer: (playerId: string) => void;
   onCopy: () => void;
-  onClear: () => void;
   onMoveTournamentPlayer: (playerId: string, direction: "up" | "down") => void;
   onRemoveFromTournament: (playerId: string) => void;
-  onToggleGoalkeeper: (playerId: string, checked: boolean) => void;
-  onToggleCaptain: (playerId: string, checked: boolean) => void;
 };
 
 export const TournamentRosterPanel: React.FC<TournamentRosterPanelProps> = ({
@@ -28,32 +25,30 @@ export const TournamentRosterPanel: React.FC<TournamentRosterPanelProps> = ({
   onAddPlayers,
   onAddPlayer,
   onCopy,
-  onClear,
   onMoveTournamentPlayer,
   onRemoveFromTournament,
-  onToggleGoalkeeper,
-  onToggleCaptain,
 }) => {
   return (
-    <div className="space-y-2 max-w-[620px]">
+    <div className="flex h-full flex-col gap-2">
       <RosterCounters title="Lista turniejowa" count={count} limit={17} limitReached={limitReached} badgeText="Mock" />
       <RosterToolbar
         actions={[
           { label: "Dodaj wielu", onClick: onAddPlayers, disabled: limitReached },
           { label: "Kopiuj", onClick: onCopy },
-          { label: "Wyczyść listę turniejową", onClick: onClear },
         ]}
       />
-      <div className="grid gap-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div className="grid flex-1 items-stretch gap-2 lg:grid-cols-2">
         {availablePlayers.length === 0 ? (
-          <div className="rounded-lg border border-slate-200 bg-white/70 p-2 text-sm text-gray-500">Wszyscy zawodnicy są już na liście turniejowej.</div>
+          <div className="rounded-lg border border-slate-200 bg-white/80 p-2 text-sm text-gray-500">Wszyscy zawodnicy są już na liście turniejowej.</div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white/70">
+          <div className="flex h-full flex-col overflow-x-auto rounded-lg border border-slate-200 bg-white/80">
+            <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Zawodnicy klubu</div>
             <table className="min-w-full text-sm text-left text-gray-700">
               <thead className="text-xs uppercase text-gray-500">
                 <tr>
                   <th className="px-2 py-1.5">Zawodnik</th>
                   <th className="px-2 py-1.5">Nr</th>
+                  <th className="px-2 py-1.5">Status</th>
                   <th className="px-2 py-1.5 text-right">Akcja</th>
                 </tr>
               </thead>
@@ -65,6 +60,7 @@ export const TournamentRosterPanel: React.FC<TournamentRosterPanelProps> = ({
                       {(player.loanClub || player.loanFromClub) ? <div className="text-xs text-gray-500">Wypozyczony z: {player.loanClub || player.loanFromClub}</div> : null}
                     </td>
                     <td className="px-2 py-1.5">{player.defaultCapNumber}</td>
+                    <td className="px-2 py-1.5"><LicenseStatus verified={player.licenseVerified} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} validUntil={player.licenseValidUntil} /></td>
                     <td className="px-2 py-1.5 text-right">
                       <button
                         onClick={() => onAddPlayer(player.playerId)}
@@ -81,14 +77,15 @@ export const TournamentRosterPanel: React.FC<TournamentRosterPanelProps> = ({
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white/70">
+        <div className="flex h-full flex-col overflow-x-auto rounded-lg border border-slate-200 bg-white/80">
+          <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Lista turniejowa 1-17</div>
           <table className="min-w-full text-sm text-left text-gray-700">
             <thead className="text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-2 py-1.5">Slot</th>
                 <th className="px-2 py-1.5">Zawodnik</th>
-                <th className="px-2 py-1.5">GK</th>
-                <th className="px-2 py-1.5">C</th>
+                <th className="px-2 py-1.5">Nr</th>
+                <th className="px-2 py-1.5">Rok</th>
                 <th className="px-2 py-1.5">Status</th>
                 <th className="px-2 py-1.5 text-right">Akcje</th>
               </tr>
@@ -108,13 +105,13 @@ export const TournamentRosterPanel: React.FC<TournamentRosterPanelProps> = ({
                     )}
                   </td>
                   <td className="px-2 py-1.5">
-                    {slot.player ? <input type="checkbox" checked={!!slot.player.isGoalkeeper} onChange={(e) => onToggleGoalkeeper(slot.player!.playerId, e.target.checked)} className="h-4 w-4 rounded border-slate-300" /> : null}
+                    {slot.player ? slot.player.defaultCapNumber : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-2 py-1.5">
-                    {slot.player ? <input type="checkbox" checked={!!slot.player.isCaptain} onChange={(e) => onToggleCaptain(slot.player!.playerId, e.target.checked)} className="h-4 w-4 rounded border-slate-300" /> : null}
+                    {slot.player ? slot.player.birthYear : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-2 py-1.5">
-                    {slot.player ? <LicenseStatus verified={slot.player.licenseVerified} verifiedAt={slot.player.licenseVerifiedAt} verifiedBy={slot.player.licenseVerifiedBy} validUntil={slot.player.licenseValidUntil} /> : null}
+                    {slot.player ? <LicenseStatus verified={slot.player.licenseVerified} verifiedAt={slot.player.licenseVerifiedAt} verifiedBy={slot.player.licenseVerifiedBy} validUntil={slot.player.licenseValidUntil} /> : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-2 py-1.5">
                     {slot.player ? (

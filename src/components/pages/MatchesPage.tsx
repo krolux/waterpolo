@@ -10,6 +10,7 @@ import { TournamentForm } from "../tournaments/TournamentForm";
 import { MatchForm } from "../matches/MatchForm";
 import type { Competition, CompetitionSeason, Stage, Tournament, TournamentClub } from "../../lib/competitions";
 import type { AppState, Role } from "../../types/wpolo";
+import type { SaveRosterPayload } from "../../types/rosters";
 
 type MatchesPageProps = {
   competitions: Competition[];
@@ -95,6 +96,7 @@ type MatchesPageProps = {
     }>
   >;
   handleAddMatch: () => Promise<void>;
+  savedRosters: SaveRosterPayload[];
 };
 
 export const MatchesPage: React.FC<MatchesPageProps> = ({
@@ -152,7 +154,24 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
   matchFormData,
   setMatchFormData,
   handleAddMatch,
+  savedRosters,
 }) => {
+  const [openRosterPreview, setOpenRosterPreview] = React.useState<{ tournamentId: string; clubName: string } | null>(null);
+  const [approvedPlayers, setApprovedPlayers] = React.useState<Set<string>>(new Set());
+  const canApprove = !!effectiveUser && ["Referee", "Delegate", "Admin"].includes(effectiveUser.role);
+
+  const toggleApproved = React.useCallback((key: string) => {
+    setApprovedPlayers((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
   return (
     <>
       <div className="rounded-2xl border border-white/40 bg-white/80 p-3 shadow-sm mb-4">
@@ -307,6 +326,84 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                   <Trash2 className="w-3 h-3 text-red-600" />
                                 </button>
                               )}
+                            </div>
+
+                            <div className="p-3 border-b border-gray-200 bg-white">
+                              <div className="mb-2 text-sm font-semibold text-slate-700">Drużyny zgłoszone do turnieju</div>
+                              <div className="space-y-2">
+                                {(tournamentClubs.get(tournament.id) ?? []).map((club) => {
+                                  const previewOpen = openRosterPreview?.tournamentId === tournament.id && openRosterPreview?.clubName === club.club_name;
+                                  const roster = savedRosters.find((item) =>
+                                    item.mode === "tournament" &&
+                                    item.tournamentId === tournament.id &&
+                                    item.clubName === club.club_name
+                                  );
+
+                                  return (
+                                    <div key={club.id} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-sm font-medium text-slate-700">{club.club_name}</span>
+                                        <button
+                                          className="rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                                          onClick={() => setOpenRosterPreview(previewOpen ? null : { tournamentId: tournament.id, clubName: club.club_name })}
+                                        >
+                                          Sprawdź skład
+                                        </button>
+                                      </div>
+
+                                      {previewOpen ? (
+                                        <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                                          <table className="min-w-full text-xs text-left text-gray-700">
+                                            <thead className="text-xs uppercase text-gray-500">
+                                              <tr>
+                                                <th className="px-2 py-1.5">Slot</th>
+                                                <th className="px-2 py-1.5">Zawodnik</th>
+                                                <th className="px-2 py-1.5">Rocznik</th>
+                                                <th className="px-2 py-1.5">Nr licencji</th>
+                                                <th className="px-2 py-1.5">Wypożyczony z</th>
+                                                <th className="px-2 py-1.5">Status licencji</th>
+                                                {canApprove ? <th className="px-2 py-1.5 text-right">Akcja</th> : null}
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {(roster?.players ?? []).map((player) => {
+                                                const approveKey = `${tournament.id}:${club.club_name}:${player.playerId}`;
+                                                const approved = approvedPlayers.has(approveKey);
+                                                return (
+                                                  <tr key={approveKey} className="border-t border-slate-200 align-top">
+                                                    <td className="px-2 py-1.5">{player.slot}</td>
+                                                    <td className="px-2 py-1.5">{player.fullName}</td>
+                                                    <td className="px-2 py-1.5">{player.birthYear}</td>
+                                                    <td className="px-2 py-1.5">{player.licenseNumber}</td>
+                                                    <td className="px-2 py-1.5">{player.loanClub || "-"}</td>
+                                                    <td className="px-2 py-1.5">{player.licenseStatus}</td>
+                                                    {canApprove ? (
+                                                      <td className="px-2 py-1.5 text-right">
+                                                        <button
+                                                          onClick={() => toggleApproved(approveKey)}
+                                                          className={approved ? "rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-xs text-green-700" : "rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"}
+                                                        >
+                                                          Zatwierdź zawodnika
+                                                        </button>
+                                                      </td>
+                                                    ) : null}
+                                                  </tr>
+                                                );
+                                              })}
+                                            </tbody>
+                                          </table>
+                                          {!roster || roster.players.length === 0 ? (
+                                            <div className="p-2 text-xs text-gray-500">Brak zapisanej listy dla tej drużyny.</div>
+                                          ) : null}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  );
+                                })}
+                                {(tournamentClubs.get(tournament.id) ?? []).length === 0 ? (
+                                  <div className="text-xs text-gray-500">Brak zgłoszonych drużyn w tym turnieju.</div>
+                                ) : null}
+                              </div>
                             </div>
 
                             <CompetitionMatchesView

@@ -12,7 +12,6 @@ type MatchRosterPanelProps = {
   onCopyPreviousMatch: () => void;
   onCopyPreviousTournament: () => void;
   onCopyLastRoster: () => void;
-  onClear: () => void;
   onRemoveFromMatch: (playerId: string) => void;
   onMoveMatchPlayer: (playerId: string, direction: "up" | "down") => void;
   onToggleGoalkeeper: (playerId: string, checked: boolean) => void;
@@ -26,24 +25,23 @@ export const MatchRosterPanel: React.FC<MatchRosterPanelProps> = ({
   onCopyPreviousMatch,
   onCopyPreviousTournament,
   onCopyLastRoster,
-  onClear,
   onRemoveFromMatch,
   onMoveMatchPlayer,
   onToggleGoalkeeper,
   onToggleCaptain,
 }) => {
   return (
-    <div className="space-y-2 max-w-[620px]">
+    <div className="flex h-full flex-col gap-2">
       <RosterCounters title="Lista meczowa" count={count} limit={15} limitReached={limitReached} />
       <RosterToolbar
         actions={[
           { label: "Z poprzedniego meczu", onClick: onCopyPreviousMatch },
           { label: "Z poprzedniego turnieju", onClick: onCopyPreviousTournament },
           { label: "Z ostatniej listy", onClick: onCopyLastRoster },
-          { label: "Wyczyść listę meczową", onClick: onClear },
         ]}
       />
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white/70">
+      <div className="flex-1 overflow-x-auto rounded-lg border border-slate-200 bg-white/80">
+        <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Lista meczowa 1-15</div>
         <table className="min-w-full text-sm text-left text-gray-700">
           <thead className="text-xs uppercase text-gray-500">
             <tr>

@@ -35,6 +35,7 @@ import { MatchForm } from "./components/matches/MatchForm";
 import { StageForm } from "./components/tournaments/StageForm";
 import { TournamentForm } from "./components/tournaments/TournamentForm";
 import type { Role, StoredFile, UploadLog, Match, AppState, ProfileRow } from "./types/wpolo";
+import type { SaveRosterPayload } from "./types/rosters";
 
 
 
@@ -375,6 +376,28 @@ function openEditor(newId?: string | null) {
 }
 
 const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'my-matches' | 'club' | 'ktpw' | 'admin'>('dashboard');
+const [savedRosters, setSavedRosters] = useState<SaveRosterPayload[]>([]);
+
+const handleSaveRoster = React.useCallback((payload: SaveRosterPayload) => {
+  setSavedRosters((current) => {
+    const next = [...current];
+    const index = next.findIndex((item) =>
+      item.mode === payload.mode &&
+      item.clubName === payload.clubName &&
+      (payload.mode === "tournament"
+        ? item.tournamentId === payload.tournamentId
+        : item.matchId === payload.matchId)
+    );
+
+    if (index >= 0) {
+      next[index] = payload;
+      return next;
+    }
+
+    next.push(payload);
+    return next;
+  });
+}, []);
 
   const [state,setState]=useState<AppState>({ matches: [], users:[
     {name:"Admin", role:"Admin"}, {name:"AZS Szczecin – Klub", role:"Club", club:"AZS Szczecin"}, {name:"KS Warszawa – Klub", role:"Club", club:"KS Warszawa"}, {name:"Anna Delegat", role:"Delegate"}, {name:"Sędzia – Demo", role:"Referee"}, {name:"Gość", role:"Guest"}
@@ -1115,6 +1138,7 @@ const delegateCandidateNames = Array.from(new Set([
           matchFormData={matchFormData}
           setMatchFormData={setMatchFormData}
           handleAddMatch={handleAddMatch}
+          savedRosters={savedRosters}
         />
       )}
 
@@ -1212,6 +1236,7 @@ const delegateCandidateNames = Array.from(new Set([
           matches={state.matches}
           tournamentNamesById={Object.fromEntries(Array.from(tournaments.values()).flat().map((t) => [t.id, t.name]))}
           penaltiesByMatch={penaltiesByMatch}
+          onSaveRoster={handleSaveRoster}
         />
       )}
 
