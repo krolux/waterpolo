@@ -12,6 +12,7 @@ export type RosterSlot = {
 
 type UseRosterPanelOptions = {
   maxBirthYear?: number;
+  initialTournamentRosterPlayers?: RosterPanelPlayer[] | null;
 };
 
 const TOURNAMENT_LIMIT = 17;
@@ -106,7 +107,7 @@ function licenseStatusRank(player: RosterPanelPlayer) {
 }
 
 export function useRosterPanel(players: Player[], options: UseRosterPanelOptions = {}) {
-  const { maxBirthYear } = options;
+  const { maxBirthYear, initialTournamentRosterPlayers = null } = options;
 
   const [query, setQuery] = React.useState("");
   const [sortMode, setSortMode] = React.useState<SortMode>("number");
@@ -148,19 +149,7 @@ export function useRosterPanel(players: Player[], options: UseRosterPanelOptions
     return map;
   }, [eligiblePlayers]);
 
-  const [tournamentSlots, setTournamentSlots] = React.useState<RosterSlot[]>(() => {
-    const slots = createEmptySlots(TOURNAMENT_LIMIT);
-    eligiblePlayers.slice(0, Math.min(4, TOURNAMENT_LIMIT)).forEach((player, index) => {
-      slots[index] = {
-        ...slots[index],
-        player: {
-          ...toRosterRow(player),
-          tournamentCapNumber: index + 1,
-        },
-      };
-    });
-    return slots;
-  });
+  const [tournamentSlots, setTournamentSlots] = React.useState<RosterSlot[]>(() => createEmptySlots(TOURNAMENT_LIMIT));
 
   const [matchSlots, setMatchSlots] = React.useState<RosterSlot[]>(() => createEmptySlots(MATCH_LIMIT));
 
@@ -178,6 +167,26 @@ export function useRosterPanel(players: Player[], options: UseRosterPanelOptions
       })
     );
   }, [eligiblePlayersById]);
+
+  React.useEffect(() => {
+    if (initialTournamentRosterPlayers === null) {
+      return;
+    }
+
+    const nextSlots = createEmptySlots(TOURNAMENT_LIMIT);
+    initialTournamentRosterPlayers.forEach((player) => {
+      const slotIndex = clampIndex((player.tournamentCapNumber || 1) - 1, TOURNAMENT_LIMIT);
+      nextSlots[slotIndex] = {
+        ...nextSlots[slotIndex],
+        player: {
+          ...player,
+          tournamentCapNumber: slotIndex + 1,
+        },
+      };
+    });
+
+    setTournamentSlots(nextSlots);
+  }, [initialTournamentRosterPlayers]);
 
   const mockSources = React.useMemo(
     () => ({

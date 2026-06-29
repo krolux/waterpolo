@@ -4,6 +4,8 @@ import { RosterSearch } from "./RosterSearch";
 import { RosterSourcePanel } from "./RosterSourcePanel";
 import { TournamentRosterPanel } from "./TournamentRosterPanel";
 import { useRosterPanel } from "../../hooks/useRosterPanel";
+import { getTournamentRoster, saveTournamentRoster, type TournamentRosterWithPlayers } from "../../lib/rosters";
+import { supabase } from "../../lib/supabase";
 import type { Player } from "../../types/club";
 import { resolveRosterLicenseStatus, type SaveRosterPayload } from "../../types/rosters";
 
@@ -41,6 +43,7 @@ type RosterPanelProps = {
   context?: RosterContext | null;
   onBack?: () => void;
   clubName?: string;
+  clubId?: string | null;
   canSaveRoster?: boolean;
   onSaveRoster?: (payload: SaveRosterPayload) => void;
 };
@@ -51,27 +54,23 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
   context = null,
   onBack,
   clubName,
+  clubId = null,
   canSaveRoster = true,
   onSaveRoster,
 }) => {
-  const roster = useRosterPanel(players, { maxBirthYear: context?.maxBirthYear });
+  const [initialTournamentRosterPlayers, setInitialTournamentRosterPlayers] = React.useState<ReturnType<typeof mapTournamentRosterPlayers> | null>(null);
+  const roster = useRosterPanel(players, { maxBirthYear: context?.maxBirthYear, initialTournamentRosterPlayers });
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
 
-  if (!context) {
-    return (
-      <div className="rounded-lg border border-dashed border-slate-300 bg-white/60 p-3 text-sm text-slate-500">
-        Wybierz mecz lub turniej z kart powyżej, aby otworzyć panel tworzenia listy startowej.
-      </div>
-    );
-  }
-
-  const isTournamentMode = context.mode === "tournament";
-  const isTournamentMatch = context.mode === "match" && !!context.tournamentId;
-  const targetDate = context.targetDate || context.date;
-  const headerTitle = isTournamentMode
-    ? `Zgłoszenie do turnieju: ${context.tournamentName || "Turniej"}`
-    : `Lista startowa meczu: ${context.home} vs ${context.away}`;
-  const matchSubtitle = `${new Date(context.date).toLocaleDateString("pl-PL")} • ${context.location}`;
+  const isTournamentMode = context?.mode === "tournament";
+  const isTournamentMatch = context?.mode === "match" && !!context?.tournamentId;
+  const targetDate = context?.targetDate || context?.date;
+  const headerTitle = !context
+    ? ""
+    : isTournamentMode
+      ? `Zgłoszenie do turnieju: ${context.tournamentName || "Turniej"}`
+      : `Lista startowa meczu: ${context.home} vs ${context.away}`;
+  const matchSubtitle = context ? `${new Date(context.date).toLocaleDateString("pl-PL")} • ${context.location}` : "";
 
   const handleClear = () => {
     if (isTournamentMode) {
@@ -81,13 +80,103 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
     roster.clearMatchRoster();
   };
 
-  const handleSave = () => {
+  React.useEffect(() => {
+    let isActive = true;
+
+    if (!isTournamentMode || !context?.tournamentId || !clubId) {
+      setInitialTournamentRosterPlayers(null);
+      return;
+    }
+
+    (async () => {
+      try {
+        const savedRoster = await getTournamentRoster(context.tournamentId, clubId);
+        if (!isActive) return;
+        setInitialTournamentRosterPlayers(savedRoster ? mapTournamentRosterPlayers(savedRoster) : []);
+      } catch {
+        if (!isActive) return;
+        setInitialTournamentRosterPlayers([]);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [clubId, context?.tournamentId, isTournamentMode]);
+
+  const handleSave = async () => {
     if (!canSaveRoster) {
       setSaveMessage("Brak uprawnień do zapisu składu.");
       return;
     }
 
-    const sourceSlots = isTournamentMode ? roster.tournamentSlots : roster.matchSlots;
+    if (isTournamentMode) {
+      const sourceSlots = roster.tournamentSlots;
+      const payloadPlayers = sourceSlots
+        .filter((slot) => !!slot.player)
+        .map((slot) => {
+          const player = slot.player!;
+          return {
+            slot: slot.slotNumber,
+            playerId: player.playerId,
+            displayOrder: slot.slotNumber,
+            fullName: `${player.firstName} ${player.lastName}`,
+            birthYear: player.birthYear,
+            isGoalkeeper: !!player.isGoalkeeper,
+            isCaptain: !!player.isCaptain,
+            licenseNumber: player.licenseNumber,
+            loanClub: player.loanClub || player.loanFromClub || null,
+            licenseValidUntil: player.licenseValidUntil || null,
+            licenseStatus: resolveRosterLicenseStatus(player.licenseValidUntil, targetDate),
+          };
+        });
+
+      const { data: authData } = await supabase.auth.getUser();
+      let submittedByName: string | null = null;
+      if (authData.user?.id) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", authData.user.id)
+          .maybeSingle();
+        submittedByName = profileData?.display_name || authData.user.email || null;
+      }
+
+      const payload: SaveRosterPayload = {
+        mode: context.mode,
+        clubName: clubName || "Nieznany klub",
+        tournamentId: context.tournamentId,
+        submittedByProfileId: authData.user?.id || null,
+        submittedByName,
+        players: payloadPlayers,
+        savedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (!context.tournamentId || !clubId) {
+        setSaveMessage("Brak danych do zapisu listy turniejowej.");
+        return;
+      }
+
+      const savedRoster = await saveTournamentRoster({
+        tournamentId: context.tournamentId,
+        clubId,
+        submittedByProfileId: payload.submittedByProfileId,
+        submittedByName: payload.submittedByName,
+        players: payloadPlayers.map((player) => ({
+          playerId: player.playerId,
+          slot: player.slot,
+          displayOrder: player.displayOrder,
+        })),
+      });
+
+      setInitialTournamentRosterPlayers(mapTournamentRosterPlayers(savedRoster));
+      onSaveRoster?.(payload);
+      setSaveMessage("Lista turniejowa zapisana.");
+      return;
+    }
+
+    const sourceSlots = roster.matchSlots;
     const payloadPlayers = sourceSlots
       .filter((slot) => !!slot.player)
       .map((slot) => {
@@ -101,8 +190,8 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
           isCaptain: !!player.isCaptain,
           licenseNumber: player.licenseNumber,
           loanClub: player.loanClub || player.loanFromClub || null,
-              licenseValidUntil: player.licenseValidUntil || null,
-              licenseStatus: resolveRosterLicenseStatus(player.licenseValidUntil, targetDate),
+          licenseValidUntil: player.licenseValidUntil || null,
+          licenseStatus: resolveRosterLicenseStatus(player.licenseValidUntil, targetDate),
         };
       });
 
@@ -119,6 +208,36 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
     onSaveRoster?.(payload);
     setSaveMessage("Skład zapisany.");
   };
+
+  function mapTournamentRosterPlayers(roster: TournamentRosterWithPlayers) {
+    return roster.players.map((entry) => ({
+      playerId: entry.player.id,
+      firstName: entry.player.first_name,
+      lastName: entry.player.last_name,
+      gender: entry.player.gender,
+      birthYear: entry.player.birth_year,
+      licenseNumber: entry.player.license_number,
+      defaultCapNumber: entry.player.default_cap_number ?? 0,
+      loanFromClub: entry.player.loan_club_name || undefined,
+      loanClub: entry.player.loan_club_name || undefined,
+      licenseVerified: !!entry.player.license_verified_until,
+      licenseVerifiedAt: entry.player.license_verified_until || undefined,
+      licenseVerifiedBy: undefined,
+      licenseValidUntil: entry.player.license_verified_until || undefined,
+      tournamentCapNumber: entry.slot,
+      matchCapNumber: entry.slot,
+      isGoalkeeper: false,
+      isCaptain: false,
+    }));
+  }
+
+  if (!context) {
+    return (
+      <div className="rounded-lg border border-dashed border-slate-300 bg-white/60 p-3 text-sm text-slate-500">
+        Wybierz mecz lub turniej z kart powyżej, aby otworzyć panel tworzenia listy startowej.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 rounded-xl border border-slate-200 bg-white/80 p-3 shadow-sm">

@@ -305,6 +305,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
             context={rosterContext}
             onBack={() => setRosterContext(null)}
             clubName={myClub}
+            clubId={clubId}
             canSaveRoster={effectiveUser?.role === "Club"}
             onSaveRoster={onSaveRoster}
           />

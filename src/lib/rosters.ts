@@ -118,6 +118,8 @@ export type SaveTournamentRosterPlayerInput = {
 export type SaveTournamentRosterPayload = {
   tournamentId: string;
   clubId: string;
+  submittedByProfileId?: string | null;
+  submittedByName?: string | null;
   players: SaveTournamentRosterPlayerInput[];
 };
 
@@ -385,6 +387,36 @@ export async function saveTournamentRoster(payload: SaveTournamentRosterPayload)
 
   const rosterRow = roster as TournamentRosterRow;
   await replaceTournamentRosterPlayers(rosterRow.id, payload.players);
+
+  let submittedByProfileId = payload.submittedByProfileId ?? null;
+  let submittedByName = payload.submittedByName ?? null;
+
+  if (!submittedByProfileId || !submittedByName) {
+    const { data: authData } = await supabase.auth.getUser();
+    submittedByProfileId = submittedByProfileId || authData.user?.id || null;
+
+    if (submittedByProfileId && !submittedByName) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', submittedByProfileId)
+        .maybeSingle();
+
+      submittedByName = profileData?.display_name || null;
+    }
+  }
+
+  const { error: submissionError } = await supabase
+    .from('roster_submissions')
+    .insert({
+      roster_type: 'tournament',
+      tournament_roster_id: rosterRow.id,
+      submitted_by_profile_id: submittedByProfileId,
+      submitted_by_name: submittedByName,
+      submitted_at: submittedAt,
+    });
+
+  if (submissionError) throw submissionError;
 
   const fresh = await getTournamentRoster(payload.tournamentId, payload.clubId);
   if (!fresh) {

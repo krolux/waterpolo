@@ -5,6 +5,7 @@ export type RosterLicenseStatus = "approved" | "requires_approval";
 export type SaveRosterPlayerPayload = {
   slot: number;
   playerId: string;
+  displayOrder?: number;
   fullName: string;
   birthYear: number;
   isGoalkeeper: boolean;
@@ -20,6 +21,8 @@ export type SaveRosterPayload = {
   clubName: string;
   matchId?: string;
   tournamentId?: string;
+  submittedByProfileId?: string | null;
+  submittedByName?: string | null;
   players: SaveRosterPlayerPayload[];
   savedAt: string;
   updatedAt?: string;
