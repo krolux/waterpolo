@@ -4,7 +4,14 @@ import { RosterSearch } from "./RosterSearch";
 import { RosterSourcePanel } from "./RosterSourcePanel";
 import { TournamentRosterPanel } from "./TournamentRosterPanel";
 import { useRosterPanel } from "../../hooks/useRosterPanel";
-import { getTournamentRoster, saveTournamentRoster, type TournamentRosterWithPlayers } from "../../lib/rosters";
+import {
+  getMatchRoster,
+  getTournamentRoster,
+  saveMatchRoster,
+  saveTournamentRoster,
+  type MatchRosterWithPlayers,
+  type TournamentRosterWithPlayers,
+} from "../../lib/rosters";
 import { supabase } from "../../lib/supabase";
 import type { Player } from "../../types/club";
 import { resolveRosterLicenseStatus, type SaveRosterPayload } from "../../types/rosters";
@@ -13,7 +20,7 @@ export type RosterContext =
   | {
       mode: "tournament";
       matchId: string;
-      home: string;
+      home?: string;
       away: string;
       date: string;
       time?: string;
@@ -58,19 +65,37 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
   canSaveRoster = true,
   onSaveRoster,
 }) => {
-  const [initialTournamentRosterPlayers, setInitialTournamentRosterPlayers] = React.useState<ReturnType<typeof mapTournamentRosterPlayers> | null>(null);
-  const roster = useRosterPanel(players, { maxBirthYear: context?.maxBirthYear, initialTournamentRosterPlayers });
+  const [loadedTournamentRoster, setLoadedTournamentRoster] = React.useState<TournamentRosterWithPlayers | null>(null);
+  const [loadedMatchRoster, setLoadedMatchRoster] = React.useState<MatchRosterWithPlayers | null>(null);
+  const [rosterLoading, setRosterLoading] = React.useState(false);
+  const [rosterError, setRosterError] = React.useState<string | null>(null);
+  const initialTournamentRosterPlayers = React.useMemo(
+    () => (loadedTournamentRoster ? mapTournamentRosterPlayers(loadedTournamentRoster) : null),
+    [loadedTournamentRoster?.id, loadedTournamentRoster?.updated_at, loadedTournamentRoster?.players.length]
+  );
+  const initialMatchRosterPlayers = React.useMemo(
+    () => (loadedMatchRoster ? mapMatchRosterPlayers(loadedMatchRoster) : null),
+    [loadedMatchRoster?.id, loadedMatchRoster?.updated_at, loadedMatchRoster?.players.length]
+  );
+  const roster = useRosterPanel(players, {
+    maxBirthYear: context?.maxBirthYear,
+    initialTournamentRosterPlayers: context ? initialTournamentRosterPlayers : null,
+    initialMatchRosterPlayers: context ? initialMatchRosterPlayers : null,
+  });
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
 
   const isTournamentMode = context?.mode === "tournament";
   const isTournamentMatch = context?.mode === "match" && !!context?.tournamentId;
-  const targetDate = context?.targetDate || context?.date;
-  const headerTitle = !context
+  const currentContext = context;
+  const targetDate = currentContext?.targetDate || currentContext?.date;
+  const headerTitle = !currentContext
     ? ""
     : isTournamentMode
-      ? `Zgłoszenie do turnieju: ${context.tournamentName || "Turniej"}`
-      : `Lista startowa meczu: ${context.home} vs ${context.away}`;
-  const matchSubtitle = context ? `${new Date(context.date).toLocaleDateString("pl-PL")} • ${context.location}` : "";
+      ? `Zgłoszenie do turnieju: ${currentContext.tournamentName || "Turniej"}`
+      : `Lista startowa meczu: ${(currentContext.mode === "match" ? currentContext.home : "") } vs ${(currentContext.mode === "match" ? currentContext.away : "")}`;
+  const matchSubtitle = currentContext ? `${new Date(currentContext.date).toLocaleDateString("pl-PL")} • ${currentContext.location}` : "";
+  const tournamentRosterMissing = !!currentContext && isTournamentMatch && !rosterLoading && (!loadedTournamentRoster || loadedTournamentRoster.players.length === 0);
 
   const handleClear = () => {
     if (isTournamentMode) {
@@ -83,35 +108,122 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
   React.useEffect(() => {
     let isActive = true;
 
-    if (!isTournamentMode || !context?.tournamentId || !clubId) {
-      setInitialTournamentRosterPlayers(null);
+    setRosterLoading(true);
+    setRosterError(null);
+    setLoadedTournamentRoster(null);
+    setLoadedMatchRoster(null);
+
+    if (!currentContext || !clubId) {
+      setRosterLoading(false);
       return;
     }
 
     (async () => {
       try {
-        const savedRoster = await getTournamentRoster(context.tournamentId, clubId);
+        const [tournamentRoster, matchRoster] = await Promise.all([
+          currentContext.tournamentId ? getTournamentRoster(currentContext.tournamentId, clubId) : Promise.resolve(null),
+          currentContext.mode === "match" ? getMatchRoster(currentContext.matchId, clubId) : Promise.resolve(null),
+        ]);
+
         if (!isActive) return;
-        setInitialTournamentRosterPlayers(savedRoster ? mapTournamentRosterPlayers(savedRoster) : []);
+
+        setLoadedTournamentRoster(tournamentRoster);
+        setLoadedMatchRoster(matchRoster);
       } catch {
         if (!isActive) return;
-        setInitialTournamentRosterPlayers([]);
+        setRosterError("Nie udało się pobrać listy meczowej.");
+      } finally {
+        if (!isActive) return;
+        setRosterLoading(false);
       }
     })();
 
     return () => {
       isActive = false;
     };
-  }, [clubId, context?.tournamentId, isTournamentMode]);
+  }, [clubId, currentContext?.matchId, currentContext?.mode, currentContext?.tournamentId]);
 
   const handleSave = async () => {
     if (!canSaveRoster) {
-      setSaveMessage("Brak uprawnień do zapisu składu.");
+      setSaveError("Brak uprawnień do zapisu składu.");
       return;
     }
 
-    if (isTournamentMode) {
-      const sourceSlots = roster.tournamentSlots;
+    if (!currentContext) {
+      return;
+    }
+
+    setSaveMessage(null);
+    setSaveError(null);
+
+    try {
+      if (isTournamentMode) {
+        const sourceSlots = roster.tournamentSlots;
+        const payloadPlayers = sourceSlots
+          .filter((slot) => !!slot.player)
+          .map((slot) => {
+            const player = slot.player!;
+            return {
+              slot: slot.slotNumber,
+              playerId: player.playerId,
+              displayOrder: slot.slotNumber,
+              fullName: `${player.firstName} ${player.lastName}`,
+              birthYear: player.birthYear,
+              isGoalkeeper: !!player.isGoalkeeper,
+              isCaptain: !!player.isCaptain,
+              licenseNumber: player.licenseNumber,
+              loanClub: player.loanClub || player.loanFromClub || null,
+              licenseValidUntil: player.licenseValidUntil || null,
+              licenseStatus: resolveRosterLicenseStatus(player.licenseValidUntil, targetDate),
+            };
+          });
+
+        const { data: authData } = await supabase.auth.getUser();
+        let submittedByName: string | null = null;
+        if (authData.user?.id) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("display_name")
+            .eq("id", authData.user.id)
+            .maybeSingle();
+          submittedByName = profileData?.display_name || authData.user.email || null;
+        }
+
+        const payload: SaveRosterPayload = {
+          mode: currentContext.mode,
+          clubName: clubName || "Nieznany klub",
+          tournamentId: currentContext.tournamentId,
+          submittedByProfileId: authData.user?.id || null,
+          submittedByName,
+          players: payloadPlayers,
+          savedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        if (!currentContext.tournamentId || !clubId) {
+          setSaveError("Brak danych do zapisu listy turniejowej.");
+          return;
+        }
+
+        const savedRoster = await saveTournamentRoster({
+          tournamentId: currentContext.tournamentId,
+          clubId,
+          submittedByProfileId: payload.submittedByProfileId,
+          submittedByName: payload.submittedByName,
+          players: payloadPlayers.map((player) => ({
+            playerId: player.playerId,
+            slot: player.slot,
+            displayOrder: player.displayOrder,
+          })),
+        });
+
+        setLoadedTournamentRoster(savedRoster);
+        onSaveRoster?.(payload);
+        setSaveMessage("Lista turniejowa zapisana.");
+        return;
+      }
+
+      const sourceSlots = roster.matchSlots;
       const payloadPlayers = sourceSlots
         .filter((slot) => !!slot.player)
         .map((slot) => {
@@ -119,7 +231,6 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
           return {
             slot: slot.slotNumber,
             playerId: player.playerId,
-            displayOrder: slot.slotNumber,
             fullName: `${player.firstName} ${player.lastName}`,
             birthYear: player.birthYear,
             isGoalkeeper: !!player.isGoalkeeper,
@@ -131,82 +242,88 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
           };
         });
 
-      const { data: authData } = await supabase.auth.getUser();
-      let submittedByName: string | null = null;
-      if (authData.user?.id) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("display_name")
-          .eq("id", authData.user.id)
-          .maybeSingle();
-        submittedByName = profileData?.display_name || authData.user.email || null;
+      if (currentContext.mode === "match") {
+        const matchPlayerCount = payloadPlayers.length;
+        const goalkeeperCount = payloadPlayers.filter((player) => player.isGoalkeeper).length;
+        const captainCount = payloadPlayers.filter((player) => player.isCaptain).length;
+
+        if (matchPlayerCount > 15) {
+          setSaveError("Lista meczowa nie może mieć więcej niż 15 zawodników.");
+          return;
+        }
+        if (goalkeeperCount > 2) {
+          setSaveError("Lista meczowa może mieć maksymalnie 2 bramkarzy.");
+          return;
+        }
+        if (matchPlayerCount > 0 && captainCount !== 1) {
+          setSaveError("Lista meczowa musi mieć dokładnie 1 kapitana.");
+          return;
+        }
+
+        if (currentContext.tournamentId && (!loadedTournamentRoster || loadedTournamentRoster.players.length === 0)) {
+          setSaveError("Najpierw wyślij listę turniejową.");
+          return;
+        }
+
+        const { data: authData } = await supabase.auth.getUser();
+        let submittedByName: string | null = null;
+        if (authData.user?.id) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("display_name")
+            .eq("id", authData.user.id)
+            .maybeSingle();
+          submittedByName = profileData?.display_name || authData.user.email || null;
+        }
+
+        const savedMatchRoster = await saveMatchRoster({
+          matchId: currentContext.matchId,
+          clubId,
+          tournamentRosterId: loadedTournamentRoster?.id || null,
+          submittedByProfileId: authData.user?.id || null,
+          submittedByName,
+          players: payloadPlayers.map((player) => ({
+            playerId: player.playerId,
+            slot: player.slot,
+            isGoalkeeper: player.isGoalkeeper,
+            isCaptain: player.isCaptain,
+          })),
+        });
+
+        setLoadedMatchRoster(savedMatchRoster);
+        const payload: SaveRosterPayload = {
+          mode: currentContext.mode,
+          clubName: clubName || "Nieznany klub",
+          matchId: currentContext.matchId,
+          tournamentId: currentContext.tournamentId,
+          submittedByProfileId: authData.user?.id || null,
+          submittedByName,
+          players: payloadPlayers,
+          savedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        onSaveRoster?.(payload);
+        setSaveMessage("Lista meczowa zapisana.");
+        return;
       }
 
       const payload: SaveRosterPayload = {
-        mode: context.mode,
+        mode: currentContext.mode,
         clubName: clubName || "Nieznany klub",
-        tournamentId: context.tournamentId,
-        submittedByProfileId: authData.user?.id || null,
-        submittedByName,
+        tournamentId: currentContext.tournamentId,
+        submittedByProfileId: undefined,
+        submittedByName: undefined,
         players: payloadPlayers,
         savedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      if (!context.tournamentId || !clubId) {
-        setSaveMessage("Brak danych do zapisu listy turniejowej.");
-        return;
-      }
-
-      const savedRoster = await saveTournamentRoster({
-        tournamentId: context.tournamentId,
-        clubId,
-        submittedByProfileId: payload.submittedByProfileId,
-        submittedByName: payload.submittedByName,
-        players: payloadPlayers.map((player) => ({
-          playerId: player.playerId,
-          slot: player.slot,
-          displayOrder: player.displayOrder,
-        })),
-      });
-
-      setInitialTournamentRosterPlayers(mapTournamentRosterPlayers(savedRoster));
       onSaveRoster?.(payload);
-      setSaveMessage("Lista turniejowa zapisana.");
-      return;
+      setSaveMessage("Skład zapisany.");
+    } catch {
+      setSaveError(currentContext.mode === "match" ? "Nie udało się zapisać listy meczowej." : "Nie udało się zapisać listy turniejowej.");
     }
-
-    const sourceSlots = roster.matchSlots;
-    const payloadPlayers = sourceSlots
-      .filter((slot) => !!slot.player)
-      .map((slot) => {
-        const player = slot.player!;
-        return {
-          slot: slot.slotNumber,
-          playerId: player.playerId,
-          fullName: `${player.firstName} ${player.lastName}`,
-          birthYear: player.birthYear,
-          isGoalkeeper: !!player.isGoalkeeper,
-          isCaptain: !!player.isCaptain,
-          licenseNumber: player.licenseNumber,
-          loanClub: player.loanClub || player.loanFromClub || null,
-          licenseValidUntil: player.licenseValidUntil || null,
-          licenseStatus: resolveRosterLicenseStatus(player.licenseValidUntil, targetDate),
-        };
-      });
-
-    const payload: SaveRosterPayload = {
-      mode: context.mode,
-      clubName: clubName || "Nieznany klub",
-      matchId: context.mode === "match" ? context.matchId : undefined,
-      tournamentId: context.tournamentId,
-      players: payloadPlayers,
-      savedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    onSaveRoster?.(payload);
-    setSaveMessage("Skład zapisany.");
   };
 
   function mapTournamentRosterPlayers(roster: TournamentRosterWithPlayers) {
@@ -228,6 +345,28 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
       matchCapNumber: entry.slot,
       isGoalkeeper: false,
       isCaptain: false,
+    }));
+  }
+
+  function mapMatchRosterPlayers(roster: MatchRosterWithPlayers) {
+    return roster.players.map((entry) => ({
+      playerId: entry.player.id,
+      firstName: entry.player.first_name,
+      lastName: entry.player.last_name,
+      gender: entry.player.gender,
+      birthYear: entry.player.birth_year,
+      licenseNumber: entry.player.license_number,
+      defaultCapNumber: entry.player.default_cap_number ?? 0,
+      loanFromClub: entry.player.loan_club_name || undefined,
+      loanClub: entry.player.loan_club_name || undefined,
+      licenseVerified: !!entry.player.license_verified_until,
+      licenseVerifiedAt: entry.player.license_verified_until || undefined,
+      licenseVerifiedBy: undefined,
+      licenseValidUntil: entry.player.license_verified_until || undefined,
+      tournamentCapNumber: entry.slot,
+      matchCapNumber: entry.slot,
+      isGoalkeeper: entry.is_goalkeeper,
+      isCaptain: entry.is_captain,
     }));
   }
 
@@ -267,7 +406,11 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
       <div className="text-sm text-gray-700 px-1">
         {roster.tournamentCount === 0 && roster.matchCount === 0 ? message : "Numer czepka wynika ze slotu. Puste sloty pozostają puste."}
       </div>
+      {tournamentRosterMissing ? <div className="px-1 text-sm text-red-600">Najpierw wyślij listę turniejową.</div> : null}
+      {rosterLoading ? <div className="px-1 text-sm text-slate-500">Ładowanie listy...</div> : null}
+      {rosterError ? <div className="px-1 text-sm text-red-600">{rosterError}</div> : null}
       {roster.warning ? <div className="text-sm text-red-600">{roster.warning}</div> : null}
+      {saveError ? <div className="text-sm text-red-600">{saveError}</div> : null}
       {saveMessage ? <div className="text-sm text-green-700">{saveMessage}</div> : null}
       {(roster.tournamentLimitReached || roster.matchLimitReached) ? <div className="text-sm text-red-600">Osiągnięto maksymalny limit zawodników.</div> : null}
 
@@ -291,9 +434,9 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
           <RosterSourcePanel
             title={isTournamentMatch ? "Lista turniejowa" : "Zawodnicy klubu"}
             players={isTournamentMatch ? roster.tournamentPlayersForMatch : roster.clubPlayersForMatch}
-            addDisabled={roster.matchLimitReached}
+            addDisabled={isTournamentMatch ? roster.matchLimitReached || tournamentRosterMissing : roster.matchLimitReached}
             targetDate={targetDate}
-            onAdd={isTournamentMatch ? roster.addTournamentPlayerToMatchRoster : roster.addClubPlayerToMatchRoster}
+            onAdd={isTournamentMatch ? (tournamentRosterMissing ? () => undefined : roster.addTournamentPlayerToMatchRoster) : roster.addClubPlayerToMatchRoster}
           />
 
           <MatchRosterPanel
@@ -301,9 +444,9 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
             count={roster.matchCount}
             limitReached={roster.matchLimitReached}
             targetDate={targetDate}
-            onCopyPreviousMatch={roster.copyPreviousMatchRoster}
-            onCopyPreviousTournament={roster.copyPreviousTournamentToMatchRoster}
-            onCopyLastRoster={roster.copyLastRoster}
+            onCopyPreviousMatch={tournamentRosterMissing ? () => undefined : roster.copyPreviousMatchRoster}
+            onCopyPreviousTournament={tournamentRosterMissing ? () => undefined : roster.copyPreviousTournamentToMatchRoster}
+            onCopyLastRoster={tournamentRosterMissing ? () => undefined : roster.copyLastRoster}
             onRemoveFromMatch={roster.removeFromMatchRoster}
             onMoveMatchPlayer={roster.moveMatchPlayer}
             onToggleGoalkeeper={roster.toggleMatchGoalkeeper}

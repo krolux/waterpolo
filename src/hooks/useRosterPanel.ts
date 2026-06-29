@@ -13,6 +13,7 @@ export type RosterSlot = {
 type UseRosterPanelOptions = {
   maxBirthYear?: number;
   initialTournamentRosterPlayers?: RosterPanelPlayer[] | null;
+  initialMatchRosterPlayers?: RosterPanelPlayer[] | null;
 };
 
 const TOURNAMENT_LIMIT = 17;
@@ -107,7 +108,7 @@ function licenseStatusRank(player: RosterPanelPlayer) {
 }
 
 export function useRosterPanel(players: Player[], options: UseRosterPanelOptions = {}) {
-  const { maxBirthYear, initialTournamentRosterPlayers = null } = options;
+  const { maxBirthYear, initialTournamentRosterPlayers = null, initialMatchRosterPlayers = null } = options;
 
   const [query, setQuery] = React.useState("");
   const [sortMode, setSortMode] = React.useState<SortMode>("number");
@@ -170,6 +171,7 @@ export function useRosterPanel(players: Player[], options: UseRosterPanelOptions
 
   React.useEffect(() => {
     if (initialTournamentRosterPlayers === null) {
+      setTournamentSlots(createEmptySlots(TOURNAMENT_LIMIT));
       return;
     }
 
@@ -187,6 +189,27 @@ export function useRosterPanel(players: Player[], options: UseRosterPanelOptions
 
     setTournamentSlots(nextSlots);
   }, [initialTournamentRosterPlayers]);
+
+  React.useEffect(() => {
+    if (initialMatchRosterPlayers === null) {
+      setMatchSlots(createEmptySlots(MATCH_LIMIT));
+      return;
+    }
+
+    const nextSlots = createEmptySlots(MATCH_LIMIT);
+    initialMatchRosterPlayers.forEach((player) => {
+      const slotIndex = clampIndex((player.matchCapNumber || 1) - 1, MATCH_LIMIT);
+      nextSlots[slotIndex] = {
+        ...nextSlots[slotIndex],
+        player: {
+          ...player,
+          matchCapNumber: slotIndex + 1,
+        },
+      };
+    });
+
+    setMatchSlots(nextSlots);
+  }, [initialMatchRosterPlayers]);
 
   const mockSources = React.useMemo(
     () => ({

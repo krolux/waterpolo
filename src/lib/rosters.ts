@@ -134,6 +134,8 @@ export type SaveMatchRosterPayload = {
   matchId: string;
   clubId: string;
   tournamentRosterId?: string | null;
+  submittedByProfileId?: string | null;
+  submittedByName?: string | null;
   players: SaveMatchRosterPlayerInput[];
 };
 
@@ -480,6 +482,48 @@ export async function saveMatchRoster(payload: SaveMatchRosterPayload): Promise<
 
   const rosterRow = roster as MatchRosterRow;
   await replaceMatchRosterPlayers(rosterRow.id, payload.players);
+
+  let submittedByProfileId = payload.submittedByProfileId ?? null;
+  let submittedByName = payload.submittedByName ?? null;
+
+  if (!submittedByProfileId || !submittedByName) {
+    const { data: authData } = await supabase.auth.getUser();
+    submittedByProfileId = submittedByProfileId || authData.user?.id || null;
+
+    if (submittedByProfileId && !submittedByName) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', submittedByProfileId)
+        .maybeSingle();
+
+      submittedByName = profileData?.display_name || null;
+    }
+  }
+
+  const { data: priorSubmissions, error: versionError } = await supabase
+    .from('roster_submissions')
+    .select('version')
+    .eq('match_roster_id', rosterRow.id)
+    .order('version', { ascending: false })
+    .limit(1);
+
+  if (versionError) throw versionError;
+
+  const nextVersion = (priorSubmissions && priorSubmissions.length > 0 ? Number((priorSubmissions[0] as { version?: number }).version || 0) : 0) + 1;
+
+  const { error: submissionError } = await supabase
+    .from('roster_submissions')
+    .insert({
+      roster_type: 'match',
+      match_roster_id: rosterRow.id,
+      submitted_by_profile_id: submittedByProfileId,
+      submitted_by_name: submittedByName,
+      submitted_at: submittedAt,
+      version: nextVersion,
+    });
+
+  if (submissionError) throw submissionError;
 
   const fresh = await getMatchRoster(payload.matchId, payload.clubId);
   if (!fresh) {

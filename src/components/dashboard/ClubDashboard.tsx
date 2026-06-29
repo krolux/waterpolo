@@ -2,7 +2,7 @@ import React from "react";
 import { CalendarClock, Users } from "lucide-react";
 import { ClubOverview } from "../club/ClubOverview";
 import { PlayerTable } from "../club/PlayerTable";
-import { RosterPanel } from "../club/RosterPanel";
+import { RosterPanel, type RosterContext } from "../club/RosterPanel";
 import { Section } from "../shared/Section";
 import { createPlayer, deactivatePlayer, listPlayers, updatePlayer, type PlayerRow } from "../../lib/rosters";
 import type { Match, Role } from "../../types/wpolo";
@@ -73,7 +73,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   const [savingPlayer, setSavingPlayer] = React.useState(false);
   const [editingPlayerId, setEditingPlayerId] = React.useState<string>("");
   const [playerForm, setPlayerForm] = React.useState<PlayerFormState>(emptyPlayerFormState);
-  const [rosterContext, setRosterContext] = React.useState<React.ComponentProps<typeof RosterPanel>["context"]>(null);
+  const [rosterContext, setRosterContext] = React.useState<RosterContext | null>(null);
   const maxBirthYearByTournamentId: Record<string, number> = {};
 
   const parseMatchDateTime = React.useCallback((match: Match) => new Date(`${match.date}T${match.time || "00:00"}`), []);
