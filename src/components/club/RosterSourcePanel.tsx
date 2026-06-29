@@ -7,6 +7,7 @@ type RosterSourcePanelProps = {
   title: string;
   players: RosterPanelPlayer[];
   addDisabled: boolean;
+  targetDate?: string;
   onAdd: (playerId: string) => void;
 };
 
@@ -14,6 +15,7 @@ export const RosterSourcePanel: React.FC<RosterSourcePanelProps> = ({
   title,
   players,
   addDisabled,
+  targetDate,
   onAdd,
 }) => {
   return (
@@ -40,7 +42,7 @@ export const RosterSourcePanel: React.FC<RosterSourcePanelProps> = ({
                     {(player.loanClub || player.loanFromClub) ? <div className="text-xs text-gray-500">Wypozyczony z: {player.loanClub || player.loanFromClub}</div> : null}
                   </td>
                   <td className="px-2 py-1.5">{player.defaultCapNumber}</td>
-                  <td className="px-2 py-1.5"><LicenseStatus verified={player.licenseVerified} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} validUntil={player.licenseValidUntil} /></td>
+                  <td className="px-2 py-1.5"><LicenseStatus licenseValidUntil={player.licenseValidUntil} targetDate={targetDate} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} /></td>
                   <td className="px-2 py-1.5 text-right">
                     <button
                       onClick={() => onAdd(player.playerId)}

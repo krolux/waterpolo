@@ -1,6 +1,6 @@
 export type RosterSaveMode = "tournament" | "match";
 
-export type RosterLicenseStatus = "verified" | "expiring_soon" | "unverified";
+export type RosterLicenseStatus = "approved" | "requires_approval";
 
 export type SaveRosterPlayerPayload = {
   slot: number;
@@ -11,6 +11,7 @@ export type SaveRosterPlayerPayload = {
   isCaptain: boolean;
   licenseNumber: string;
   loanClub: string | null;
+  licenseValidUntil?: string | null;
   licenseStatus: RosterLicenseStatus;
 };
 
@@ -21,15 +22,17 @@ export type SaveRosterPayload = {
   tournamentId?: string;
   players: SaveRosterPlayerPayload[];
   savedAt: string;
+  updatedAt?: string;
 };
 
-export function resolveRosterLicenseStatus(verified: boolean, validUntil?: string): RosterLicenseStatus {
-  if (!verified) return "unverified";
-  if (!validUntil) return "verified";
+export function resolveRosterLicenseStatus(validUntil?: string, targetDate?: string): RosterLicenseStatus {
+  if (!validUntil) return "requires_approval";
 
-  const diff = new Date(validUntil).getTime() - Date.now();
-  const days = diff / (1000 * 60 * 60 * 24);
-  return days <= 30 ? "expiring_soon" : "verified";
+  const checkDate = targetDate ? new Date(targetDate) : new Date();
+  const expirationDate = new Date(validUntil);
+  if (Number.isNaN(expirationDate.getTime())) return "requires_approval";
+
+  return expirationDate.getTime() >= checkDate.getTime() ? "approved" : "requires_approval";
 }
 
 // Prepared row contracts for future Supabase persistence (no DB migration in this step).

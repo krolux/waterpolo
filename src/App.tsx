@@ -379,6 +379,10 @@ const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'my-match
 const [savedRosters, setSavedRosters] = useState<SaveRosterPayload[]>([]);
 
 const handleSaveRoster = React.useCallback((payload: SaveRosterPayload) => {
+  const nextPayload: SaveRosterPayload = {
+    ...payload,
+    updatedAt: payload.updatedAt ?? payload.savedAt,
+  };
   setSavedRosters((current) => {
     const next = [...current];
     const index = next.findIndex((item) =>
@@ -390,11 +394,11 @@ const handleSaveRoster = React.useCallback((payload: SaveRosterPayload) => {
     );
 
     if (index >= 0) {
-      next[index] = payload;
+      next[index] = nextPayload;
       return next;
     }
 
-    next.push(payload);
+    next.push(nextPayload);
     return next;
   });
 }, []);

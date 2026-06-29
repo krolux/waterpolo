@@ -8,6 +8,7 @@ import { Section } from "../shared/Section";
 import { StageForm } from "../tournaments/StageForm";
 import { TournamentForm } from "../tournaments/TournamentForm";
 import { MatchForm } from "../matches/MatchForm";
+import { LicenseStatus } from "../club/LicenseStatus";
 import type { Competition, CompetitionSeason, Stage, Tournament, TournamentClub } from "../../lib/competitions";
 import type { AppState, Role } from "../../types/wpolo";
 import type { SaveRosterPayload } from "../../types/rosters";
@@ -159,6 +160,17 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
   const [openRosterPreview, setOpenRosterPreview] = React.useState<{ tournamentId: string; clubName: string } | null>(null);
   const [approvedPlayers, setApprovedPlayers] = React.useState<Set<string>>(new Set());
   const canApprove = !!effectiveUser && ["Referee", "Delegate", "Admin"].includes(effectiveUser.role);
+  const tournamentTargetDateById = React.useMemo(() => {
+    const map = new Map<string, string>();
+    state.matches.forEach((match) => {
+      if (!match.tournamentId) return;
+      const current = map.get(match.tournamentId);
+      if (!current || match.date > current) {
+        map.set(match.tournamentId, match.date);
+      }
+    });
+    return map;
+  }, [state.matches]);
 
   const toggleApproved = React.useCallback((key: string) => {
     setApprovedPlayers((current) => {
@@ -338,6 +350,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                     item.tournamentId === tournament.id &&
                                     item.clubName === club.club_name
                                   );
+                                  const targetDate = tournamentTargetDateById.get(tournament.id);
+                                  const updatedAt = roster?.updatedAt || roster?.savedAt;
 
                                   return (
                                     <div key={club.id} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
@@ -353,6 +367,12 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
 
                                       {previewOpen ? (
                                         <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                                          {roster ? (
+                                            <div className="flex flex-wrap gap-3 border-b border-slate-200 px-2 py-1.5 text-xs text-slate-600">
+                                              <span>Skład wysłano: {new Date(roster.savedAt).toLocaleString("pl-PL")}</span>
+                                              <span>Ostatnia zmiana: {updatedAt ? new Date(updatedAt).toLocaleString("pl-PL") : "-"}</span>
+                                            </div>
+                                          ) : null}
                                           <table className="min-w-full text-xs text-left text-gray-700">
                                             <thead className="text-xs uppercase text-gray-500">
                                               <tr>
@@ -369,6 +389,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                               {(roster?.players ?? []).map((player) => {
                                                 const approveKey = `${tournament.id}:${club.club_name}:${player.playerId}`;
                                                 const approved = approvedPlayers.has(approveKey);
+                                                const savedPlayer = roster?.players.find((saved) => saved.playerId === player.playerId);
                                                 return (
                                                   <tr key={approveKey} className="border-t border-slate-200 align-top">
                                                     <td className="px-2 py-1.5">{player.slot}</td>
@@ -376,7 +397,14 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                                     <td className="px-2 py-1.5">{player.birthYear}</td>
                                                     <td className="px-2 py-1.5">{player.licenseNumber}</td>
                                                     <td className="px-2 py-1.5">{player.loanClub || "-"}</td>
-                                                    <td className="px-2 py-1.5">{player.licenseStatus}</td>
+                                                    <td className="px-2 py-1.5">
+                                                      <LicenseStatus
+                                                        licenseValidUntil={savedPlayer?.licenseValidUntil || undefined}
+                                                        targetDate={targetDate}
+                                                        verifiedAt={roster?.savedAt}
+                                                        verifiedBy={roster?.clubName}
+                                                      />
+                                                    </td>
                                                     {canApprove ? (
                                                       <td className="px-2 py-1.5 text-right">
                                                         <button

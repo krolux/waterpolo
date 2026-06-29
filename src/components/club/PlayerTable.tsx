@@ -32,7 +32,7 @@ export const PlayerTable: React.FC<PlayerTableProps> = ({ players }) => {
               <td className="px-3 py-2">{player.birthYear}</td>
               <td className="px-3 py-2">{player.licenseNumber}</td>
               <td className="px-3 py-2">{player.loanClub || player.loanFromClub || "-"}</td>
-              <td className="px-3 py-2"><LicenseStatus verified={player.licenseVerified} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} validUntil={player.licenseValidUntil} /></td>
+              <td className="px-3 py-2"><LicenseStatus licenseValidUntil={player.licenseValidUntil} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} /></td>
             </tr>
           ))}
         </tbody>

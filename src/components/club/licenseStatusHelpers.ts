@@ -1,15 +1,17 @@
-export function getLicenseStatusMeta(verified: boolean, validUntil?: string) {
-  if (!verified) {
-    return { icon: "🔴", label: "Niezweryfikowany", className: "text-red-600" };
+export function getLicenseStatusMeta(licenseValidUntil?: string, targetDate?: string) {
+  if (!licenseValidUntil) {
+    return { icon: "🔴", label: "Wymaga zatwierdzenia", className: "text-red-600" };
   }
 
-  if (validUntil) {
-    const diff = new Date(validUntil).getTime() - Date.now();
-    const days = diff / (1000 * 60 * 60 * 24);
-    if (days <= 30) {
-      return { icon: "🟡", label: "Wygasa w ciągu 30 dni", className: "text-amber-600" };
-    }
+  const expirationDate = new Date(licenseValidUntil);
+  const checkDate = targetDate ? new Date(targetDate) : new Date();
+  if (Number.isNaN(expirationDate.getTime())) {
+    return { icon: "🔴", label: "Wymaga zatwierdzenia", className: "text-red-600" };
   }
 
-  return { icon: "🟢", label: "Sprawdzony", className: "text-green-600" };
+  if (expirationDate.getTime() >= checkDate.getTime()) {
+    return { icon: "🟢", label: "Zatwierdzony", className: "text-green-600" };
+  }
+
+  return { icon: "🔴", label: "Wymaga zatwierdzenia", className: "text-red-600" };
 }

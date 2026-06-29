@@ -9,6 +9,7 @@ type MatchRosterPanelProps = {
   slots: RosterSlot[];
   count: number;
   limitReached: boolean;
+  targetDate?: string;
   onCopyPreviousMatch: () => void;
   onCopyPreviousTournament: () => void;
   onCopyLastRoster: () => void;
@@ -22,6 +23,7 @@ export const MatchRosterPanel: React.FC<MatchRosterPanelProps> = ({
   slots,
   count,
   limitReached,
+  targetDate,
   onCopyPreviousMatch,
   onCopyPreviousTournament,
   onCopyLastRoster,
@@ -74,7 +76,7 @@ export const MatchRosterPanel: React.FC<MatchRosterPanelProps> = ({
                   {slot.player ? <input type="checkbox" checked={!!slot.player.isCaptain} onChange={(e) => onToggleCaptain(slot.player!.playerId, e.target.checked)} className="h-4 w-4 rounded border-slate-300" /> : null}
                 </td>
                 <td className="px-2 py-1.5">
-                  {slot.player ? <LicenseStatus verified={slot.player.licenseVerified} verifiedAt={slot.player.licenseVerifiedAt} verifiedBy={slot.player.licenseVerifiedBy} validUntil={slot.player.licenseValidUntil} /> : null}
+                  {slot.player ? <LicenseStatus licenseValidUntil={slot.player.licenseValidUntil} targetDate={targetDate} verifiedAt={slot.player.licenseVerifiedAt} verifiedBy={slot.player.licenseVerifiedBy} /> : null}
                 </td>
                 <td className="px-2 py-1.5">
                   {slot.player ? (

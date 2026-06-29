@@ -37,6 +37,8 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
       .slice(0, 6);
   }, [matches, myClub, parseMatchDateTime]);
 
+  const getTournamentTargetDate = React.useCallback((match: Match) => match.date, []);
+
   const formatDate = React.useCallback((date: string) => new Date(date).toLocaleDateString("pl-PL"), []);
 
   return (
@@ -80,6 +82,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                           date: match.date,
                           time: match.time,
                           location: match.location,
+                          targetDate: match.date,
                           tournamentId: match.tournamentId || undefined,
                           tournamentName: tournamentName || undefined,
                           maxBirthYear: match.tournamentId ? maxBirthYearByTournamentId[match.tournamentId] : undefined,
@@ -98,6 +101,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                             date: match.date,
                             time: match.time,
                             location: match.location,
+                            targetDate: getTournamentTargetDate(match),
                             tournamentId: match.tournamentId || undefined,
                             tournamentName: tournamentName || undefined,
                             maxBirthYear: maxBirthYearByTournamentId[match.tournamentId],

@@ -10,6 +10,7 @@ type TournamentRosterPanelProps = {
   slots: RosterSlot[];
   count: number;
   limitReached: boolean;
+  targetDate?: string;
   onAddPlayers: () => void;
   onAddPlayer: (playerId: string) => void;
   onCopy: () => void;
@@ -22,6 +23,7 @@ export const TournamentRosterPanel: React.FC<TournamentRosterPanelProps> = ({
   slots,
   count,
   limitReached,
+  targetDate,
   onAddPlayers,
   onAddPlayer,
   onCopy,
@@ -60,7 +62,7 @@ export const TournamentRosterPanel: React.FC<TournamentRosterPanelProps> = ({
                       {(player.loanClub || player.loanFromClub) ? <div className="text-xs text-gray-500">Wypozyczony z: {player.loanClub || player.loanFromClub}</div> : null}
                     </td>
                     <td className="px-2 py-1.5">{player.defaultCapNumber}</td>
-                    <td className="px-2 py-1.5"><LicenseStatus verified={player.licenseVerified} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} validUntil={player.licenseValidUntil} /></td>
+                    <td className="px-2 py-1.5"><LicenseStatus licenseValidUntil={player.licenseValidUntil} targetDate={targetDate} verifiedAt={player.licenseVerifiedAt} verifiedBy={player.licenseVerifiedBy} /></td>
                     <td className="px-2 py-1.5 text-right">
                       <button
                         onClick={() => onAddPlayer(player.playerId)}
@@ -111,7 +113,7 @@ export const TournamentRosterPanel: React.FC<TournamentRosterPanelProps> = ({
                     {slot.player ? slot.player.birthYear : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-2 py-1.5">
-                    {slot.player ? <LicenseStatus verified={slot.player.licenseVerified} verifiedAt={slot.player.licenseVerifiedAt} verifiedBy={slot.player.licenseVerifiedBy} validUntil={slot.player.licenseValidUntil} /> : <span className="text-gray-300">—</span>}
+                    {slot.player ? <LicenseStatus licenseValidUntil={slot.player.licenseValidUntil} targetDate={targetDate} verifiedAt={slot.player.licenseVerifiedAt} verifiedBy={slot.player.licenseVerifiedBy} /> : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-2 py-1.5">
                     {slot.player ? (

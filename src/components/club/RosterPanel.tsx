@@ -16,6 +16,7 @@ export type RosterContext =
       date: string;
       time?: string;
       location: string;
+      targetDate?: string;
       tournamentId?: string;
       tournamentName?: string;
       maxBirthYear?: number;
@@ -28,6 +29,7 @@ export type RosterContext =
       date: string;
       time?: string;
       location: string;
+      targetDate?: string;
       tournamentId?: string;
       tournamentName?: string;
       maxBirthYear?: number;
@@ -65,6 +67,7 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
 
   const isTournamentMode = context.mode === "tournament";
   const isTournamentMatch = context.mode === "match" && !!context.tournamentId;
+  const targetDate = context.targetDate || context.date;
   const headerTitle = isTournamentMode
     ? `Zgłoszenie do turnieju: ${context.tournamentName || "Turniej"}`
     : `Lista startowa meczu: ${context.home} vs ${context.away}`;
@@ -98,7 +101,8 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
           isCaptain: !!player.isCaptain,
           licenseNumber: player.licenseNumber,
           loanClub: player.loanClub || player.loanFromClub || null,
-          licenseStatus: resolveRosterLicenseStatus(player.licenseVerified, player.licenseValidUntil),
+              licenseValidUntil: player.licenseValidUntil || null,
+              licenseStatus: resolveRosterLicenseStatus(player.licenseValidUntil, targetDate),
         };
       });
 
@@ -109,6 +113,7 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
       tournamentId: context.tournamentId,
       players: payloadPlayers,
       savedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     onSaveRoster?.(payload);
@@ -155,6 +160,7 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
           slots={roster.tournamentSlots}
           count={roster.tournamentCount}
           limitReached={roster.tournamentLimitReached}
+          targetDate={targetDate}
           onAddPlayers={roster.addPlayersToTournamentRoster}
           onAddPlayer={roster.addPlayerToTournamentRoster}
           onCopy={roster.copyPreviousTournamentRoster}
@@ -167,6 +173,7 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
             title={isTournamentMatch ? "Lista turniejowa" : "Zawodnicy klubu"}
             players={isTournamentMatch ? roster.tournamentPlayersForMatch : roster.clubPlayersForMatch}
             addDisabled={roster.matchLimitReached}
+            targetDate={targetDate}
             onAdd={isTournamentMatch ? roster.addTournamentPlayerToMatchRoster : roster.addClubPlayerToMatchRoster}
           />
 
@@ -174,6 +181,7 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
             slots={roster.matchSlots}
             count={roster.matchCount}
             limitReached={roster.matchLimitReached}
+            targetDate={targetDate}
             onCopyPreviousMatch={roster.copyPreviousMatchRoster}
             onCopyPreviousTournament={roster.copyPreviousTournamentToMatchRoster}
             onCopyLastRoster={roster.copyLastRoster}

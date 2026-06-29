@@ -4,20 +4,20 @@ import { LicenseStatusPopover } from "./LicenseStatusPopover";
 import { getLicenseStatusMeta } from "./licenseStatusHelpers";
 
 type LicenseStatusProps = {
-  verified: boolean;
+  licenseValidUntil?: string;
+  targetDate?: string;
   verifiedAt?: string;
   verifiedBy?: string;
-  validUntil?: string;
 };
 
-export const LicenseStatus: React.FC<LicenseStatusProps> = ({ verified, verifiedAt, verifiedBy, validUntil }) => {
+export const LicenseStatus: React.FC<LicenseStatusProps> = ({ licenseValidUntil, targetDate, verifiedAt, verifiedBy }) => {
   const [open, setOpen] = React.useState(false);
-  const tone = React.useMemo(() => getLicenseStatusMeta(verified, validUntil), [verified, validUntil]);
+  const tone = React.useMemo(() => getLicenseStatusMeta(licenseValidUntil, targetDate), [licenseValidUntil, targetDate]);
 
   return (
     <div className="relative inline-block">
       <LicenseStatusBadge label={tone.label} icon={tone.icon} className={tone.className} onClick={() => setOpen((v) => !v)} />
-      {open ? <LicenseStatusPopover verifiedAt={verifiedAt} verifiedBy={verifiedBy} validUntil={validUntil} /> : null}
+      {open ? <LicenseStatusPopover verifiedAt={verifiedAt} verifiedBy={verifiedBy} validUntil={licenseValidUntil} /> : null}
     </div>
   );
 };
