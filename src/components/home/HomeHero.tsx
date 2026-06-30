@@ -39,11 +39,8 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
 
   return (
     <section className="relative min-h-[390px] overflow-hidden rounded-3xl border border-[#e9edf2] bg-white shadow-[0_12px_28px_rgba(2,32,71,0.08)] sm:min-h-[460px]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_18%,rgba(44,192,255,0.2),transparent_34%),radial-gradient(circle_at_82%_10%,rgba(5,140,255,0.18),transparent_36%),linear-gradient(180deg,#ffffff_0%,#f4faff_56%,#edf7ff_100%)]" />
-      <div className="absolute -left-20 bottom-[-60px] h-48 w-96 rounded-[999px] border-[16px] border-[#2CC0FF]/20" />
-
       <div className="relative px-5 py-6 sm:px-7 sm:py-7 md:px-9 md:py-8">
-        <div className="grid min-h-[320px] gap-8 pb-2 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <div className="grid min-h-[320px] gap-8 pb-2 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
           <div className="self-center text-[#0A1F44]">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#058CFF] sm:text-sm">Portal polskiej piłki wodnej</p>
             <h1 className="mt-3 text-[2.2rem] font-bold leading-[1.05] sm:text-5xl md:text-6xl">
@@ -77,22 +74,14 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
           </div>
 
           <div className="relative min-h-[320px] lg:min-h-[360px]">
-            <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-gradient-to-br from-[#058CFF] via-[#2CC0FF] to-[#8eddff] opacity-95 shadow-[0_18px_36px_rgba(5,140,255,0.3)] sm:h-72 sm:w-72" />
-            <div className="absolute right-5 top-8 h-52 w-52 rounded-full border-[14px] border-white/40" />
-            <div className="absolute right-12 top-16 h-40 w-40 rounded-full border-[10px] border-[#0A1F44]/14" />
-            <div className="absolute right-20 top-[114px] h-7 w-7 rounded-full bg-[#F5B32E] shadow-[0_0_0_6px_rgba(245,179,46,0.24)]" />
-
-            <svg viewBox="0 0 560 320" className="absolute bottom-8 right-0 h-48 w-[92%] text-[#058CFF]" aria-hidden="true">
-              <path d="M18 248 C92 214, 154 278, 224 242 C286 210, 340 252, 402 224 C450 204, 500 218, 544 198" fill="none" stroke="currentColor" strokeWidth="16" strokeLinecap="round" opacity="0.28" />
-              <path d="M8 276 C86 238, 150 304, 222 270 C292 236, 346 282, 416 252 C466 232, 510 242, 554 220" fill="none" stroke="#2CC0FF" strokeWidth="14" strokeLinecap="round" opacity="0.42" />
-              <path d="M20 298 C92 266, 154 320, 228 292 C302 264, 360 312, 432 288 C476 274, 514 278, 552 266" fill="none" stroke="#058CFF" strokeWidth="12" strokeLinecap="round" opacity="0.58" />
-            </svg>
-
-            <svg viewBox="0 0 240 220" className="absolute right-[90px] top-[84px] h-36 w-36 text-[#0A1F44]/70" aria-hidden="true">
-              <circle cx="182" cy="28" r="14" fill="currentColor" opacity="0.26" />
-              <path d="M102 78 C118 58, 146 54, 166 66 C176 72, 180 88, 176 102 L160 148 C155 162, 142 170, 128 166 C114 162, 108 146, 112 132 L124 92 L102 114 C92 124, 76 126, 66 118 C56 110, 56 96, 66 88 L102 78 Z" fill="currentColor" opacity="0.24" />
-              <path d="M88 154 C102 166, 122 170, 142 166" fill="none" stroke="currentColor" strokeWidth="10" strokeLinecap="round" opacity="0.26" />
-            </svg>
+            <div className="flex h-full items-center justify-end">
+              <img
+                src="/tlo_head.png"
+                alt="Ilustracja piłki wodnej"
+                className="h-full max-h-[360px] w-full max-w-[620px] object-contain"
+                style={{ objectPosition: "center right" }}
+              />
+            </div>
 
             <div className="absolute bottom-0 left-0 w-[88%] rounded-3xl border border-[#cfe6ff] bg-white/95 p-5 text-[#0A1F44] shadow-[0_16px_34px_rgba(2,32,71,0.15)] backdrop-blur-sm sm:w-[80%]">
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#058CFF]">Najbliższy mecz</div>

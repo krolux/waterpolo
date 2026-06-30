@@ -978,16 +978,13 @@ const delegateCandidateNames = Array.from(new Set([
  <header className="mx-auto mb-5 flex max-w-[1220px] items-center justify-between rounded-3xl border border-[#dbeafe] bg-white/95 px-4 py-3 text-[#0A1F44] shadow-[0_10px_24px_rgba(2,32,71,0.08)] backdrop-blur-xl sm:px-5 sm:py-3.5">
   <div className="flex items-center gap-3">
 <img
-  src="/branding/wpolo-logo.png"
+  src="/logo.svg"
   alt="WPOLO.PL"
-  onError={(event) => {
-    event.currentTarget.onerror = null;
-    event.currentTarget.src = "/logo.png";
-  }}
   className="
     shrink-0
-    h-14 w-14
-    sm:h-16 sm:w-16
+    h-14
+    sm:h-16
+    w-auto
     object-contain         /* zachowuje proporcje */
     rounded-none           /* brak zaokrągleń */
     bg-transparent         /* całkowicie przezroczyste tło */

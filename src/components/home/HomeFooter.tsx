@@ -23,12 +23,8 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
       <div className="relative z-10 grid gap-8 md:grid-cols-3">
         <div>
           <img
-            src="/branding/wpolo-logo.png"
+            src="/logo.svg"
             alt="WPolo"
-            onError={(event) => {
-              event.currentTarget.onerror = null;
-              event.currentTarget.src = "/logo.png";
-            }}
             className="h-12 w-auto object-contain"
           />
           <p className="mt-2 text-sm text-slate-300">Piłka wodna • Pasja • Emocje</p>
