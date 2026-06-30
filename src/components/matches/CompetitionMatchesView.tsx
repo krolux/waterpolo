@@ -80,7 +80,7 @@ export const CompetitionMatchesView: React.FC<CompetitionMatchesViewProps> = ({
       {isTournamentView && currentUser && isAdmin(currentUser) && onAddMatch && tournamentId && (
         <button
           onClick={() => onAddMatch(tournamentId)}
-          className="text-sm px-2 py-1 text-blue-600 hover:bg-blue-100 rounded transition"
+          className="rounded-lg px-2 py-1 text-sm text-amber-700 transition hover:bg-amber-50"
         >
           + Dodaj mecz
         </button>
@@ -107,7 +107,7 @@ export const CompetitionMatchesView: React.FC<CompetitionMatchesViewProps> = ({
       {isTournamentView && currentUser && isAdmin(currentUser) && onAddMatch && tournamentId && (
         <button
           onClick={() => onAddMatch(tournamentId)}
-          className="text-sm px-2 py-1 text-blue-600 hover:bg-blue-100 rounded transition"
+          className="rounded-lg px-2 py-1 text-sm text-amber-700 transition hover:bg-amber-50"
         >
           + Dodaj mecz
         </button>

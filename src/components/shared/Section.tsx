@@ -9,15 +9,15 @@ type SectionProps = PropsWithChildren<{ title: string; icon?: React.ReactNode; c
 const Section: React.FC<SectionProps> = ({ title, icon, children, className }) => (
   <div
     className={clsx(
-      'rounded-2xl p-3 sm:p-4 md:p-6',
-      'bg-white/50 backdrop-blur-xl backdrop-saturate-150',
-      'border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.08)]',
+      'rounded-3xl p-4 sm:p-5 md:p-6',
+      'bg-[#f8fcff]',
+      'border border-[#dbeafe] shadow-[0_10px_24px_rgba(2,32,71,0.06)]',
       className
     )}
   >
-    <div className="flex items-center gap-2 mb-4">
+    <div className="mb-4 flex items-center gap-2">
       {icon}
-      <h2 className="text-xl md:text-2xl font-semibold">{title}</h2>
+      <h2 className="text-xl font-semibold text-[#061a33] md:text-2xl">{title}</h2>
     </div>
     {children}
   </div>

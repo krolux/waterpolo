@@ -55,26 +55,26 @@ export const ClubOverview: React.FC<ClubOverviewProps> = ({ effectiveUser, match
 
   if (!myClub) {
     return (
-      <Section title="Mój klub" icon={<Users className="w-5 h-5" />} className="bg-white/60">
-        <div className="text-sm text-gray-500">Brak przypisanego klubu dla zalogowanego użytkownika.</div>
+      <Section title="Mój klub" icon={<Users className="w-5 h-5" />}>
+        <div className="text-sm text-slate-500">Brak przypisanego klubu dla zalogowanego użytkownika.</div>
       </Section>
     );
   }
 
   return (
     <>
-      <Section title="Najbliższe mecze" icon={<Shield className="w-5 h-5" />} className="bg-white/60">
+      <Section title="Najbliższe mecze" icon={<Shield className="w-5 h-5" />}>
         {upcomingClubMatches.length > 0 ? (
-          <ul className="space-y-2 text-sm text-gray-700">
+          <ul className="space-y-2 text-sm text-slate-700">
             {upcomingClubMatches.map(match => {
               const opponent = match.home === myClub ? match.away : match.home;
               const commsDone = !!match.commsByClub?.[myClub];
               const rosterDone = !!match.rosterByClub?.[myClub];
               const reportDone = !!match.matchReport;
               return (
-                <li key={match.id} className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
+                <li key={match.id} className="rounded-xl border border-[#dbeafe] bg-white px-3 py-2">
                   <div className="font-medium">{new Date(match.date).toLocaleDateString("pl-PL")}</div>
-                  <div className="text-xs text-gray-600">{match.time || "-"}</div>
+                  <div className="text-xs text-slate-600">{match.time || "-"}</div>
                   <div className="text-xs text-slate-700">Przeciwnik: {opponent}</div>
                   <div className="text-xs text-gray-600">{match.location}</div>
                   <div className="text-xs text-slate-600">
@@ -85,19 +85,19 @@ export const ClubOverview: React.FC<ClubOverviewProps> = ({ effectiveUser, match
             })}
           </ul>
         ) : (
-          <div className="text-sm text-gray-500">Brak nadchodzących meczów do wyświetlenia.</div>
+          <div className="text-sm text-slate-500">Brak nadchodzących meczów do wyświetlenia.</div>
         )}
       </Section>
 
-      <Section title="Dokumenty do uzupełnienia" icon={<FileText className="w-5 h-5" />} className="bg-white/60">
+      <Section title="Dokumenty do uzupełnienia" icon={<FileText className="w-5 h-5" />}>
         {docsStatus.length > 0 ? (
-          <ul className="space-y-2 text-sm text-gray-700">
+          <ul className="space-y-2 text-sm text-slate-700">
             {docsStatus.map(({ match, commsDone, rosterDone, reportDone }) => {
               const opponent = match.home === myClub ? match.away : match.home;
               return (
-                <li key={match.id} className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
+                <li key={match.id} className="rounded-xl border border-[#dbeafe] bg-white px-3 py-2">
                   <div className="font-medium">{new Date(match.date).toLocaleDateString("pl-PL")}</div>
-                  <div className="text-xs text-gray-600">{match.time || "-"}</div>
+                  <div className="text-xs text-slate-600">{match.time || "-"}</div>
                   <div className="text-xs text-slate-700">Przeciwnik: {opponent}</div>
                   <div className="text-xs text-slate-600">
                     ✓ Komunikat: {commsDone ? "✓" : "Brak"} • ✓ Skład: {rosterDone ? "✓" : "Brak"} • ✓ Protokół: {reportDone ? "✓" : "Brak"}
@@ -107,17 +107,17 @@ export const ClubOverview: React.FC<ClubOverviewProps> = ({ effectiveUser, match
             })}
           </ul>
         ) : (
-          <div className="text-sm text-gray-500">Brak dokumentów wymagających uzupełnienia.</div>
+          <div className="text-sm text-slate-500">Brak dokumentów wymagających uzupełnienia.</div>
         )}
       </Section>
 
-      <Section title="Ostatnie wyniki" icon={<Shield className="w-5 h-5" />} className="bg-white/60">
+      <Section title="Ostatnie wyniki" icon={<Shield className="w-5 h-5" />}>
         {recentResults.length > 0 ? (
-          <ul className="space-y-2 text-sm text-gray-700">
+          <ul className="space-y-2 text-sm text-slate-700">
             {recentResults.map(match => {
               const opponent = match.home === myClub ? match.away : match.home;
               return (
-                <li key={match.id} className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
+                <li key={match.id} className="rounded-xl border border-[#dbeafe] bg-white px-3 py-2">
                   <div className="font-medium">{new Date(match.date).toLocaleDateString("pl-PL")}</div>
                   <div className="text-xs text-slate-700">Przeciwnik: {opponent}</div>
                   <div className="text-xs text-slate-700">Wynik: {match.result}</div>
@@ -126,22 +126,22 @@ export const ClubOverview: React.FC<ClubOverviewProps> = ({ effectiveUser, match
             })}
           </ul>
         ) : (
-          <div className="text-sm text-gray-500">Brak wyników do wyświetlenia.</div>
+          <div className="text-sm text-slate-500">Brak wyników do wyświetlenia.</div>
         )}
       </Section>
 
-      <Section title="Statystyki" icon={<Shield className="w-5 h-5" />} className="bg-white/60">
+      <Section title="Statystyki" icon={<Shield className="w-5 h-5" />}>
         <div className="grid gap-2 sm:grid-cols-3 text-sm">
-          <div className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
-            <div className="text-xs text-gray-500">Rozegrane mecze</div>
+          <div className="rounded-xl border border-[#dbeafe] bg-white px-3 py-2">
+            <div className="text-xs text-slate-500">Rozegrane mecze</div>
             <div className="text-lg font-semibold text-slate-800">{stats.played}</div>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
-            <div className="text-xs text-gray-500">Nadchodzące</div>
+          <div className="rounded-xl border border-[#dbeafe] bg-white px-3 py-2">
+            <div className="text-xs text-slate-500">Nadchodzące</div>
             <div className="text-lg font-semibold text-slate-800">{stats.upcoming}</div>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
-            <div className="text-xs text-gray-500">Brakujące dokumenty</div>
+          <div className="rounded-xl border border-[#dbeafe] bg-white px-3 py-2">
+            <div className="text-xs text-slate-500">Brakujące dokumenty</div>
             <div className="text-lg font-semibold text-slate-800">{stats.missingDocs}</div>
           </div>
         </div>

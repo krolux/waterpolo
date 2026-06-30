@@ -8,9 +8,9 @@ type PlayerTableProps = {
 
 export const PlayerTable: React.FC<PlayerTableProps> = ({ players }) => {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-sm text-left text-gray-700">
-        <thead className="text-xs uppercase text-gray-500">
+    <div className="overflow-x-auto rounded-2xl border border-[#dbeafe] bg-white">
+      <table className="min-w-full text-left text-sm text-slate-700">
+        <thead className="text-xs uppercase text-[#08284a]">
           <tr>
             <th className="px-3 py-2">Domyślny nr</th>
             <th className="px-3 py-2">Imię</th>
@@ -24,7 +24,7 @@ export const PlayerTable: React.FC<PlayerTableProps> = ({ players }) => {
         </thead>
         <tbody>
           {players.map((player) => (
-            <tr key={player.id} className="border-t border-slate-200">
+            <tr key={player.id} className="border-t border-[#dbeafe] hover:bg-sky-50/60">
               <td className="px-3 py-2">{player.capNumber}</td>
               <td className="px-3 py-2">{player.firstName}</td>
               <td className="px-3 py-2">{player.lastName}</td>

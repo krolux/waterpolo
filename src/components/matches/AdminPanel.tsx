@@ -10,10 +10,10 @@ function clsx(...xs: (string | false | null | undefined)[]) {
 }
 
 const classes = {
-  input: "w-full px-3 py-2 rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-sky-300",
-  btnPrimary: "px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow",
-  btnSecondary: "px-3 py-2 rounded-xl border bg-white hover:bg-gray-50",
-  iconBtn: "p-2 rounded-lg border bg-white hover:bg-gray-50",
+  input: "w-full px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300/80 focus:border-sky-300",
+  btnPrimary: "px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-semibold hover:from-amber-400 hover:to-orange-400 shadow-[0_10px_20px_rgba(245,158,11,0.24)]",
+  btnSecondary: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
+  iconBtn: "p-2 rounded-lg border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
 };
 
 function sanitizeUrl(u?: string | null) {
@@ -186,7 +186,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   if (compact) {
     return (
-      <div className="rounded-xl border border-sky-200 bg-slate-50/80 p-3">
+      <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-3 shadow-sm">
         <div className="mb-2 text-sm font-semibold text-slate-700">Edytuj mecz</div>
         <div className="grid gap-2">
           <div className="grid grid-cols-2 gap-2">
@@ -321,10 +321,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="font-medium mb-2">Istniejące mecze</div>
           <div className="flex flex-col gap-2">
             {state.matches.map(m => (
-              <div key={m.id} className="rounded-xl border p-3 bg-white flex items-center justify-between">
+              <div key={m.id} className="flex items-center justify-between rounded-xl border border-[#dbeafe] bg-white p-3 shadow-sm">
                 <div>
                   <div className="font-medium">{m.date} {m.time ? m.time + " • " : ""}{m.home} vs {m.away}</div>
-                  <div className="text-xs text-gray-600">{m.location} • Sędz.: {m.referees.join(", ")} • Deleg.: {m.delegate || "-"} • Wynik: {m.result || "-"}</div>
+                  <div className="text-xs text-slate-600">{m.location} • Sędz.: {m.referees.join(", ")} • Deleg.: {m.delegate || "-"} • Wynik: {m.result || "-"}</div>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => { setDraft(m); setEditId(m.id); }} className={classes.iconBtn} title="Edytuj"><Edit className="w-4 h-4" /></button>

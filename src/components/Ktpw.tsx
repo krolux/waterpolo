@@ -113,7 +113,7 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
         pdf_name = selectedFile.name;
       } else if (pdfUrl && pdfUrl.trim()) {
         storagePath = pdfUrl.trim();
-        pdf_name = pdfFileName || null;
+        pdf_name = pdfFileName || undefined;
       }
 
       await insertKtpwDocument({
@@ -195,19 +195,19 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
     <section className="max-w-6xl mx-auto w-full">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-5">
         <div>
-          <h2 className="text-3xl font-bold">KTPW</h2>
-          <p className="text-sm text-slate-700 mt-1">
+          <h2 className="text-3xl font-bold text-[#061a33]">KTPW</h2>
+          <p className="text-sm text-slate-600 mt-1">
             Przepisy, uchwały, interpretacje i komunikaty Komitetu Technicznego Piłki Wodnej.
           </p>
         </div>
       </div>
 
-      <div className="rounded-2xl p-4 sm:p-5 md:p-6 bg-white/70 backdrop-blur-xl border border-white/50 shadow mb-4">
+      <div className="mb-4 rounded-3xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm sm:p-5 md:p-6">
         <div className="flex flex-wrap gap-2 items-center">
           <button
             type="button"
             onClick={() => setFilter("All")}
-            className={`px-3 py-2 rounded-xl border ${filter === "All" ? "bg-amber-600 text-white border-amber-600" : "bg-white hover:bg-slate-50"}`}
+            className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${filter === "All" ? "border-amber-500 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950" : "border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50"}`}
           >
             Wszystkie
           </button>
@@ -216,7 +216,7 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
               type="button"
               key={c}
               onClick={() => setFilter(c)}
-              className={`px-3 py-2 rounded-xl border ${filter === c ? "bg-amber-600 text-white border-amber-600" : "bg-white hover:bg-slate-50"}`}
+              className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${filter === c ? "border-amber-500 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950" : "border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50"}`}
             >
               {c}
             </button>
@@ -225,10 +225,10 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
       </div>
 
       {isAdmin && (
-        <div className="rounded-2xl p-4 sm:p-5 md:p-6 bg-white/70 backdrop-blur-xl border border-white/50 shadow mb-4">
+        <div className="mb-4 rounded-3xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm sm:p-5 md:p-6">
           <div className="mb-4">
-            <div className="text-xl font-semibold">Dodaj wpis KTPW</div>
-            <div className="text-sm text-slate-600">Dodaj uchwałę, przepis, interpretację albo komunikat. PDF możesz wgrać bezpośrednio z komputera.</div>
+            <div className="text-xl font-semibold text-[#061a33]">Dodaj wpis KTPW</div>
+            <div className="text-sm text-slate-500">Dodaj uchwałę, przepis, interpretację albo komunikat. PDF możesz wgrać bezpośrednio z komputera.</div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -239,14 +239,14 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
             <input className="w-full px-3 py-2 rounded-xl border bg-white md:col-span-2" placeholder="Krótki opis / streszczenie" value={summary} onChange={e=>setSummary(e.target.value)} />
             <textarea className="w-full px-3 py-2 rounded-xl border bg-white min-h-[140px] md:col-span-2" placeholder="Treść wpisu / najważniejsze informacje" value={content} onChange={e=>setContent(e.target.value)} />
 
-            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center rounded-xl border bg-white p-3">
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center rounded-xl border border-[#dbeafe] bg-white p-3">
               <div>
                 <div className="text-sm font-medium">Załącznik PDF</div>
                 <div className="text-xs text-slate-500">
                   {pdfFileName ? `Wybrano: ${pdfFileName}` : "Wgraj plik PDF z komputera albo wklej link poniżej."}
                 </div>
               </div>
-              <label className="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 cursor-pointer text-center">
+              <label className="cursor-pointer rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-center text-[#08284a] hover:bg-sky-50">
                 Wybierz PDF
                 <input type="file" accept="application/pdf" className="hidden" onChange={e => handlePdfUpload(e.target.files?.[0])} />
               </label>
@@ -256,40 +256,40 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
           </div>
 
           <div className="flex flex-wrap gap-2 mt-4">
-            <button onClick={addDoc} className="px-4 py-2 rounded-xl bg-amber-600 text-white font-medium hover:bg-amber-700">Dodaj wpis</button>
-            <button onClick={clearForm} className="px-4 py-2 rounded-xl border bg-white hover:bg-slate-50">Wyczyść</button>
+            <button onClick={addDoc} className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 font-semibold text-slate-950 hover:from-amber-400 hover:to-orange-400">Dodaj wpis</button>
+            <button onClick={clearForm} className="rounded-xl border border-[#dbeafe] bg-white px-4 py-2 text-[#08284a] hover:bg-sky-50">Wyczyść</button>
           </div>
         </div>
       )}
 
-      <div className="rounded-2xl p-4 sm:p-5 md:p-6 bg-white/70 backdrop-blur-xl border border-white/50 shadow">
+      <div className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5 md:p-6">
         <div className="flex items-center justify-between gap-2 mb-4">
-          <div className="text-xl font-semibold">Dokumenty KTPW</div>
+          <div className="text-xl font-semibold text-[#061a33]">Dokumenty KTPW</div>
           <div className="text-sm text-slate-500">{filtered.length} wpisów</div>
         </div>
 
         <div className="space-y-3">
           {filtered.length === 0 ? (
-            <div className="rounded-xl border bg-white p-4 text-sm text-gray-600">Brak wpisów w tej kategorii.</div>
+            <div className="rounded-xl border border-[#dbeafe] bg-[#f8fcff] p-4 text-sm text-slate-500">Brak wpisów w tej kategorii.</div>
           ) : (
             filtered.map(d => (
-              <div key={d.id} className="rounded-xl border p-4 bg-white shadow-sm">
+              <div key={d.id} className="rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 mb-1">
-                      <span className="px-2 py-1 rounded-full bg-sky-100 text-sky-800">{d.category}</span>
+                    <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <span className="rounded-full bg-sky-100 px-2 py-1 text-[#08284a]">{d.category}</span>
                       <span>{new Date(d.date).toLocaleString("pl-PL")}</span>
                       <span>Autor: {d.author}</span>
                     </div>
-                    <div className="font-semibold text-xl break-words">{d.title}</div>
-                    {d.summary && <div className="text-sm text-gray-700 mt-1">{d.summary}</div>}
+                    <div className="break-words text-xl font-semibold text-[#061a33]">{d.title}</div>
+                    {d.summary && <div className="mt-1 text-sm text-slate-600">{d.summary}</div>}
                     <div className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">{d.content}</div>
                     {d.pdfUrl && (
                       <div className="mt-3">
                         <button
                           type="button"
                           onClick={() => openPdf(d)}
-                          className="inline-flex items-center px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-blue-700"
+                          className="inline-flex items-center rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-[#08284a] hover:bg-sky-50"
                         >
                           {d.pdfName ? `Otwórz PDF: ${d.pdfName}` : "Otwórz PDF"}
                         </button>
@@ -298,7 +298,7 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
                   </div>
                   {isAdmin && (
                     <div className="shrink-0">
-                      <button onClick={() => removeDoc(d.id)} className="px-3 py-2 rounded-xl border text-red-600 bg-white hover:bg-red-50">Usuń</button>
+                      <button onClick={() => removeDoc(d.id)} className="rounded-xl border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50">Usuń</button>
                     </div>
                   )}
                 </div>

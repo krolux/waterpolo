@@ -515,18 +515,19 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
 
   return (
     <>
-      <div className="rounded-2xl border border-white/40 bg-white/80 p-3 shadow-sm mb-4">
-        <div className="mb-2 text-sm font-semibold text-gray-700">Kategoria rozgrywek:</div>
+      <div className="mb-4 rounded-3xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
+        <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Filtr rozgrywek</div>
+        <div className="mb-2 text-base font-semibold text-[#061a33]">Kategoria rozgrywek</div>
         <div className="flex flex-wrap gap-2">
           {(competitions.length ? competitions : fallbackCompetitions).map(comp => (
             <button
               key={comp.id}
               onClick={() => handleCompetitionChange(comp.id)}
               className={
-                "px-3 py-2 rounded-xl border text-sm font-medium transition " +
+                "rounded-2xl border px-3 py-2 text-sm font-medium transition " +
                 (selectedCompetitionId === comp.id
-                  ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50")
+                  ? "border-amber-500 bg-amber-500 text-slate-950 shadow-[0_8px_16px_rgba(245,158,11,0.25)] hover:bg-amber-400"
+                  : "border-[#dbeafe] bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50")
               }
             >
               {comp.short_name || comp.name}
@@ -567,7 +568,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
               showExport={showExport}
               state={tableState}
               setState={setState}
-              user={currentUser ?? undefined}
+              user={currentUser ?? null}
               onRefresh={refreshMatches}
               loading={loadingMatches}
               penaltyMap={penaltiesByMatch}
@@ -620,7 +621,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
         />
       ) : (
         <div className="space-y-4">
-          <Section title={selectedCompetitionSeason?.name || "Kategoria"} icon={<Shield className="w-5 h-5" />} className="bg-white/60">
+          <Section title={selectedCompetitionSeason?.name || "Kategoria"} icon={<Shield className="w-5 h-5" />}>
             {loadingStages ? (
               <div className="text-gray-500">Ładowanie etapów...</div>
             ) : stages.length === 0 ? (
@@ -628,7 +629,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
             ) : (
               <div className="space-y-4">
                 {stages.map(stage => (
-                  <div key={stage.id} className="border-l-4 border-amber-600 pl-4 py-3 bg-amber-50 rounded">
+                  <div key={stage.id} className="rounded-2xl border border-[#dbeafe] bg-white pl-4 py-3 shadow-sm">
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <h3 className="font-semibold text-gray-800">{stage.name}</h3>
@@ -651,8 +652,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                     {tournaments.get(stage.id) && tournaments.get(stage.id)!.length > 0 ? (
                       <div className="mt-3 space-y-3 ml-2 border-t pt-2">
                         {tournaments.get(stage.id)!.map(tournament => (
-                          <div key={tournament.id} className="bg-white border border-gray-200 rounded">
-                            <div className="flex justify-between items-center p-2 bg-gray-50 border-b">
+                          <div key={tournament.id} className="rounded-xl border border-[#dbeafe] bg-white">
+                            <div className="flex items-center justify-between border-b border-[#dbeafe] bg-[#f8fbff] p-2">
                               <div>
                                 <p className="font-medium text-gray-800">{tournament.name}</p>
                                 <p className="text-xs text-gray-500">
@@ -671,7 +672,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                               )}
                             </div>
 
-                            <div className="p-3 border-b border-gray-200 bg-white">
+                            <div className="border-b border-[#dbeafe] bg-white p-3">
                               <div className="mb-2 text-sm font-semibold text-slate-700">Drużyny zgłoszone do turnieju</div>
                               <div className="space-y-2">
                                 {(tournamentClubs.get(tournament.id) ?? []).map((club) => {
@@ -814,7 +815,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                   showExport={showExport}
                                   state={tableState}
                                   setState={setState}
-                                  user={currentUser ?? undefined}
+                                  user={currentUser ?? null}
                                   onRefresh={refreshMatches}
                                   loading={loadingMatches}
                                   penaltyMap={penaltiesByMatch}
@@ -879,7 +880,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                             setSelectedStageForTournament(stage.id);
                             setShowAddTournamentForm(true);
                           }}
-                          className="text-sm px-2 py-1 text-blue-600 hover:bg-blue-100 rounded transition"
+                          className="rounded-lg px-2 py-1 text-sm text-amber-700 transition hover:bg-amber-50"
                         >
                           + Dodaj turniej
                         </button>
@@ -896,7 +897,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
               {!showAddStageForm ? (
                 <button
                   onClick={() => setShowAddStageForm(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  className="rounded-xl bg-amber-500 px-4 py-2 font-medium text-slate-950 transition hover:bg-amber-400"
                 >
                   + Dodaj etap
                 </button>

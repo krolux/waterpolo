@@ -367,15 +367,15 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
 
   return (
     <div className="space-y-4">
-      <Section title="Logo klubu" icon={<Users className="w-5 h-5" />} className="bg-white/60">
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+      <Section title="Logo klubu" icon={<Users className="w-5 h-5" />}>
+        <div className="space-y-3 rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
           {isAdmin ? (
             <label className="text-xs text-slate-600">
               Wybierz klub
               <select
                 value={selectedLogoClubId}
                 onChange={(event) => setSelectedLogoClubId(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm"
               >
                 {logoOptions.map((clubOption) => (
                   <option key={clubOption.id} value={clubOption.id}>{clubOption.name}</option>
@@ -387,7 +387,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
           )}
 
           {logoPreviewUrl ? (
-            <div className="inline-flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="inline-flex items-center gap-3 rounded-xl border border-[#dbeafe] bg-white p-3">
               <img src={logoPreviewUrl} alt="Logo klubu" className="h-16 w-16 rounded object-contain bg-white" />
               <span className="text-xs text-slate-600">Aktualne logo klubu</span>
             </div>
@@ -395,7 +395,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
             <div className="text-xs text-slate-500">Brak wgranego logo.</div>
           )}
 
-          <label className="inline-flex cursor-pointer items-center rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
+          <label className="inline-flex cursor-pointer items-center rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm text-[#08284a] hover:bg-sky-50">
             {uploadingLogo ? "Wgrywanie logo..." : "Wgraj logo"}
             <input
               type="file"
@@ -412,7 +412,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
 
       <ClubOverview effectiveUser={effectiveUser} matches={matches} />
 
-      <Section title="Lista startowa" icon={<Users className="w-5 h-5" />} className="bg-white/60">
+      <Section title="Lista startowa" icon={<Users className="w-5 h-5" />}>
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <CalendarClock className="h-4 w-4" />
@@ -420,7 +420,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
           </div>
 
           {upcomingClubMatches.length === 0 ? (
-            <div className="rounded-lg border border-slate-200 bg-white/70 p-3 text-sm text-gray-500">
+            <div className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm text-slate-500">
               Brak nadchodzących meczów dla Twojego klubu.
             </div>
           ) : (
@@ -435,8 +435,8 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                       const tournamentName = match.tournamentId ? tournamentNameById[match.tournamentId] : undefined;
 
                       return (
-                        <div key={match.id} className="rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm text-sm">
-                          <div className="mb-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                        <div key={match.id} className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm shadow-sm">
+                          <div className="mb-2 inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-[#08284a]">
                             {categoryLabel}
                           </div>
                           <div className="space-y-0.5 text-xs text-slate-600">
@@ -464,7 +464,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                                 tournamentName: tournamentName || undefined,
                                 maxBirthYear: match.tournamentId ? maxBirthYearByTournamentId[match.tournamentId] : undefined,
                               })}
-                              className="rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                              className="rounded-lg border border-[#dbeafe] bg-white px-2 py-1 text-xs text-[#08284a] hover:bg-sky-50"
                             >
                               {match.tournamentId ? "Skład meczowy" : "Dodaj skład"}
                             </button>
@@ -483,7 +483,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                                   tournamentName: tournamentName || undefined,
                                   maxBirthYear: maxBirthYearByTournamentId[match.tournamentId],
                                 })}
-                                className="rounded-lg border bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                                className="rounded-lg border border-[#dbeafe] bg-white px-2 py-1 text-xs text-[#08284a] hover:bg-sky-50"
                               >
                                 Lista turniejowa
                               </button>
@@ -510,9 +510,9 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
         </div>
       </Section>
 
-      <Section title="Zawodnicy" icon={<Users className="w-5 h-5" />} className="bg-white/60">
+      <Section title="Zawodnicy" icon={<Users className="w-5 h-5" />}>
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+          <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <div className="text-sm font-semibold text-slate-800">Dodaj zawodnika</div>
@@ -521,7 +521,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
               <button
                 type="button"
                 onClick={beginCreatePlayer}
-                className="rounded-lg border bg-white px-3 py-1.5 text-xs hover:bg-gray-50"
+                className="rounded-xl border border-[#dbeafe] bg-white px-3 py-1.5 text-xs text-[#08284a] hover:bg-sky-50"
               >
                 Nowy zawodnik
               </button>
@@ -540,7 +540,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                     }
                     beginEditPlayer(nextPlayer);
                   }}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm"
                 >
                   <option value="">Nowy zawodnik</option>
                   {playerRows.map((player) => (
@@ -561,7 +561,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                 <input
                   value={playerForm.firstName}
                   onChange={(event) => setPlayerForm((current) => ({ ...current, firstName: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm"
                   required
                 />
               </label>
@@ -570,7 +570,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                 <input
                   value={playerForm.lastName}
                   onChange={(event) => setPlayerForm((current) => ({ ...current, lastName: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm"
                   required
                 />
               </label>
@@ -579,7 +579,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                 <select
                   value={playerForm.gender}
                   onChange={(event) => setPlayerForm((current) => ({ ...current, gender: event.target.value as "M" | "F" }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm"
                 >
                   <option value="M">M</option>
                   <option value="F">F</option>
@@ -591,7 +591,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                   type="number"
                   value={playerForm.birthYear}
                   onChange={(event) => setPlayerForm((current) => ({ ...current, birthYear: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm"
                   required
                 />
               </label>
@@ -601,7 +601,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                   type="number"
                   value={playerForm.defaultCapNumber}
                   onChange={(event) => setPlayerForm((current) => ({ ...current, defaultCapNumber: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm"
                 />
               </label>
               <label className="text-xs text-slate-600">
@@ -609,7 +609,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                 <input
                   value={playerForm.licenseNumber}
                   onChange={(event) => setPlayerForm((current) => ({ ...current, licenseNumber: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm"
                   required
                 />
               </label>
@@ -618,7 +618,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                 <input
                   value={playerForm.loanClubName}
                   onChange={(event) => setPlayerForm((current) => ({ ...current, loanClubName: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm"
                 />
               </label>
               <label className="text-xs text-slate-600 md:col-span-2">
@@ -626,7 +626,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                 <textarea
                   value={playerForm.notes}
                   onChange={(event) => setPlayerForm((current) => ({ ...current, notes: event.target.value }))}
-                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="mt-1 min-h-24 w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm"
                 />
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-700 md:col-span-2">
@@ -642,7 +642,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                 <button
                   type="submit"
                   disabled={savingPlayer}
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                  className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:from-amber-400 hover:to-orange-400 disabled:opacity-60"
                 >
                   {editingPlayerId ? "Zapisz zmiany" : "Dodaj zawodnika"}
                 </button>

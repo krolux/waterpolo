@@ -37,68 +37,68 @@ export const MatchForm: React.FC<MatchFormProps> = ({
   onCancel,
 }) => {
   return (
-    <div className="border border-purple-300 rounded-lg p-4 bg-purple-50">
-      <h3 className="font-semibold mb-3 text-gray-800">Dodaj nowy mecz</h3>
+    <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
+      <h3 className="mb-3 font-semibold text-[#061a33]">Dodaj nowy mecz</h3>
       <div className="space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Data *</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Data *</label>
             <input
               type="date"
               value={matchFormData.date}
               onChange={e => setMatchFormData(p => ({ ...p, date: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Godzina</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Godzina</label>
             <input
               type="time"
               value={matchFormData.time}
               onChange={e => setMatchFormData(p => ({ ...p, time: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2"
             />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Miejsce *</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Miejsce *</label>
           <input
             type="text"
             value={matchFormData.location}
             onChange={e => setMatchFormData(p => ({ ...p, location: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2"
             placeholder="np. Basen Otwarty Poznań"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nr meczu / Round</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Nr meczu / Round</label>
             <input
               type="text"
               value={matchFormData.round}
               onChange={e => setMatchFormData(p => ({ ...p, round: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2"
               placeholder="np. 1"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Runda / Series Round</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Runda / Series Round</label>
             <input
               type="text"
               value={matchFormData.series_round}
               onChange={e => setMatchFormData(p => ({ ...p, series_round: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2"
               placeholder="np. 1"
             />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Gospodarz *</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Gospodarz *</label>
             <select
               value={matchFormData.home}
               onChange={e => setMatchFormData(p => ({ ...p, home: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2"
             >
               <option value="">Wybierz gospodarza</option>
               {(tournamentClubs.get(selectedTournamentForMatch || "") || []).map(c => (
@@ -109,11 +109,11 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Goście *</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Goście *</label>
             <select
               value={matchFormData.away}
               onChange={e => setMatchFormData(p => ({ ...p, away: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2"
             >
               <option value="">Wybierz gości</option>
               {(tournamentClubs.get(selectedTournamentForMatch || "") || []).map(c => (
@@ -126,11 +126,11 @@ export const MatchForm: React.FC<MatchFormProps> = ({
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sędzia 1</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Sędzia 1</label>
             <select
               value={matchFormData.referee1}
               onChange={e => setMatchFormData(p => ({ ...p, referee1: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2"
             >
               <option value="">Wybierz sędziego 1</option>
               {refereeNames.map(n => (
@@ -141,11 +141,11 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sędzia 2</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Sędzia 2</label>
             <select
               value={matchFormData.referee2}
               onChange={e => setMatchFormData(p => ({ ...p, referee2: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2"
             >
               <option value="">Wybierz sędziego 2</option>
               {refereeNames.map(n => (
@@ -156,11 +156,11 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Delegat</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Delegat</label>
             <select
               value={matchFormData.delegate}
               onChange={e => setMatchFormData(p => ({ ...p, delegate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2"
             >
               <option value="">Wybierz delegata</option>
               {delegateNames.map(n => (
@@ -172,11 +172,11 @@ export const MatchForm: React.FC<MatchFormProps> = ({
           </div>
         </div>
         <div className="flex gap-2 mt-3">
-          <button onClick={onSubmit} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+          <button onClick={onSubmit} className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 font-semibold text-slate-950 transition hover:from-amber-400 hover:to-orange-400">
             <Save className="w-4 h-4 inline mr-2" />
             Dodaj mecz
           </button>
-          <button onClick={onCancel} className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition">
+          <button onClick={onCancel} className="rounded-xl border border-[#dbeafe] bg-white px-4 py-2 text-[#08284a] transition hover:bg-sky-50">
             Anuluj
           </button>
         </div>

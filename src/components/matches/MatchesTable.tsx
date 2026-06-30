@@ -47,12 +47,12 @@ function clsx(...xs: (string | false | null | undefined)[]) {
 }
 
 const classes = {
-  input: "w-full px-3 py-2 rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-sky-300",
-  btnPrimary: "px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow",
-  btnOutline: "px-3 py-2 rounded-xl border border-amber-600 text-amber-700 bg-white hover:bg-amber-50",
-  btnSecondary: "px-3 py-2 rounded-xl border bg-white hover:bg-gray-50",
-  iconBtn: "p-2 rounded-lg border bg-white hover:bg-gray-50",
-  pill: "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white",
+  input: "w-full px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300/80 focus:border-sky-300",
+  btnPrimary: "px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-semibold hover:from-amber-400 hover:to-orange-400 shadow-[0_10px_20px_rgba(245,158,11,0.24)]",
+  btnOutline: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
+  btnSecondary: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
+  iconBtn: "p-2 rounded-lg border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
+  pill: "inline-flex items-center gap-1 rounded-full border border-[#dbeafe] bg-white px-2 py-1 text-xs text-slate-700",
 };
 
 const normKey = (s?: string) =>
@@ -238,7 +238,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
     <Section title={title} icon={<Table className="w-5 h-5" />} className={sectionClassName}>
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="relative flex-1 min-w-[220px]">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
@@ -274,11 +274,11 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
         {showExport && user && user.role !== "Guest" && renderExportImport?.({ state, setState })}
       </div>
 
-      {filtered.length === 0 && <div className="text-sm text-gray-600">Brak meczów do wyświetlenia.</div>}
+      {filtered.length === 0 && <div className="text-sm text-slate-500">Brak meczów do wyświetlenia.</div>}
 
       <div className="md:hidden space-y-4">
         {groupedByRound.sortedRounds.map(runda => (
-          <div key={runda} className="rounded-xl border-2 border-amber-400 overflow-hidden bg-white">
+          <div key={runda} className="overflow-hidden rounded-2xl border border-[#dbeafe] bg-white shadow-sm">
             <div className="bg-amber-50 text-amber-800 font-semibold text-center py-1">Runda {runda}</div>
 
             <div className="p-3 space-y-3">
@@ -309,7 +309,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                           {m.delegate ? ` • Delegat: ${m.delegate}` : ""}
                           {user && isAdmin(user) && onQuickEdit && (
                             <button
-                              className="ml-2 underline text-blue-700"
+                              className="ml-2 text-[#08284a] underline"
                               onClick={() => onQuickEdit(m.id)}
                               title="Szybka edycja w panelu admina"
                             >
@@ -391,7 +391,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                                 m.myAvailabilitySet
                                   ? m.myAvailable
                                     ? "bg-green-50 border-green-300 text-green-700"
-                                    : "bg-gray-100 border-gray-300 text-gray-500"
+                                    : "border-[#dbeafe] bg-slate-100 text-slate-500"
                                   : "bg-green-50 border-green-300 text-green-700"
                               )}
                               onClick={async () => {
@@ -425,7 +425,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                                 m.myAvailabilitySet
                                   ? !m.myAvailable
                                     ? "bg-red-50 border-red-300 text-red-700"
-                                    : "bg-gray-100 border-gray-300 text-gray-500"
+                                    : "border-[#dbeafe] bg-slate-100 text-slate-500"
                                   : "bg-red-50 border-red-300 text-red-700"
                               )}
                               onClick={async () => {
@@ -626,7 +626,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                   <tr>
                     <td
                       colSpan={11 + (variant === "upcoming" && isUserReferee ? 1 : 0) + (isUserAdmin ? 1 : 0)}
-                      className="bg-amber-50 border-y-2 border-amber-400 text-center font-semibold text-amber-800 py-2"
+                      className="border-y border-[#dbeafe] bg-[#f7fbff] py-2 text-center font-semibold text-[#061a33]"
                     >
                       Runda {runda}
                     </td>
@@ -634,8 +634,8 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
 
                   {group.map((m, i) => {
                     const isLast = i === group.length - 1;
-                    const sideBorders = "border-l-2 border-r-2 border-amber-400";
-                    const bottomBorder = isLast ? "border-b-2 border-amber-400" : "";
+                    const sideBorders = "border-l border-r border-[#dbeafe]";
+                    const bottomBorder = isLast ? "border-b border-[#dbeafe]" : "";
                     const streamHref = sanitizeUrl(m.streamUrl);
                     const isEditingThisMatch = editingMatchId === m.id;
 
@@ -663,7 +663,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                             {m.referees.join(", ")}
                             {user && isAdmin(user) && onQuickEdit && (
                               <button
-                                className="ml-2 underline text-blue-700"
+                                className="ml-2 text-[#08284a] underline"
                                 onClick={() => onQuickEdit(m.id)}
                                 title="Szybka edycja w panelu admina"
                               >
@@ -850,7 +850,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                                     m.myAvailabilitySet
                                       ? m.myAvailable
                                         ? "bg-green-50 border-green-300 text-green-700"
-                                        : "bg-gray-100 border-gray-300 text-gray-500"
+                                        : "border-[#dbeafe] bg-slate-100 text-slate-500"
                                       : "bg-green-50 border-green-300 text-green-700"
                                   )}
                                   title="Jestem dostępny"
@@ -882,7 +882,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                                     m.myAvailabilitySet
                                       ? !m.myAvailable
                                         ? "bg-red-50 border-red-300 text-red-700"
-                                        : "bg-gray-100 border-gray-300 text-gray-500"
+                                        : "border-[#dbeafe] bg-slate-100 text-slate-500"
                                       : "bg-red-50 border-red-300 text-red-700"
                                   )}
                                   title="Nie mogę"

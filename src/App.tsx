@@ -12,9 +12,9 @@ import { setMyAvailability, getMyAvailabilityForMatches, listAvailableReferees }
 import { namesOfAvailableReferees } from "./lib/availability";
 import { listCompetitions, getCompetitionSeason, listTournamentMatches, type Competition, type CompetitionSeason } from "./lib/competitions";
 import { useTournamentManagement } from "./hooks/useTournamentManagement";
-import { DashboardPage } from "./components/dashboard/DashboardPage";
 import { ClubDashboard } from "./components/dashboard/ClubDashboard";
 import { MatchesPage } from "./components/pages/MatchesPage";
+import { HomePortalPage } from "./components/pages/HomePortalPage";
 import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
 import { ArticleEditor } from "./components/ArticleEditor";
@@ -85,12 +85,12 @@ async function removeWholeSlot(
 
 
 const classes = {
-  input: "w-full px-3 py-2 rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-sky-300",
-  btnPrimary: "px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow",
-  btnOutline: "px-3 py-2 rounded-xl border border-amber-600 text-amber-700 bg-white hover:bg-amber-50",
-  btnSecondary: "px-3 py-2 rounded-xl border bg-white hover:bg-gray-50",
-  iconBtn: "p-2 rounded-lg border bg-white hover:bg-gray-50",
-  pill: "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white",
+  input: "w-full px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300/80 focus:border-sky-300",
+  btnPrimary: "px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-semibold hover:from-amber-400 hover:to-orange-400 shadow-[0_10px_20px_rgba(245,158,11,0.24)]",
+  btnOutline: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
+  btnSecondary: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
+  iconBtn: "p-2 rounded-lg border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
+  pill: "inline-flex items-center gap-1 rounded-full border border-[#dbeafe] bg-white px-2 py-1 text-xs text-slate-700",
 };
 
 
@@ -723,6 +723,11 @@ const tournamentNameById = useMemo(
   () => Object.fromEntries(Array.from(tournaments.values()).flat().map((tournament) => [tournament.id, tournament.name])),
   [tournaments]
 );
+
+const allTournaments = useMemo(
+  () => Array.from(tournaments.values()).flat(),
+  [tournaments]
+);
   
 // Podział na nadchodzące i zakończone (prosto: po obecności wyniku)
 const upcomingMatches = useMemo(
@@ -768,6 +773,13 @@ const formatMatchDate = (iso: string) =>
   new Date(iso)
     .toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "2-digit" })
     .replace(/\./g, "-");
+
+const navPillClass = (isActive: boolean) => clsx(
+  "inline-flex items-center rounded-2xl border px-4 py-2 text-sm font-medium transition",
+  isActive
+    ? "border-amber-500 bg-amber-500 text-slate-950 shadow-[0_10px_20px_rgba(245,158,11,0.25)]"
+    : "border-sky-100 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50"
+);
 
   // Load matches from Supabase and merge docs from localStorage
   const [loadingMatches,setLoadingMatches]=useState(false)
@@ -959,21 +971,19 @@ const delegateCandidateNames = Array.from(new Set([
   }
 }
  return (
-<div className="relative min-h-screen p-4 md:p-8 overflow-hidden">
-  <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#dff3ff] via-[#6ba8ff] to-[#001f54]" />
-  <div className="pointer-events-none absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-[#5fb3ff]/25 blur-3xl" />
-  <div className="pointer-events-none absolute top-1/3 -right-24 w-[520px] h-[520px] rounded-full bg-[#2ea7ff]/20 blur-3xl" />
-  <div className="pointer-events-none absolute -bottom-32 left-1/4 w-[560px] h-[560px] rounded-full bg-[#001f54]/30 blur-3xl" />
- <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between rounded-2xl p-3 sm:p-4 border border-white/40 bg-white/50 backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
+<div className="wp-theme relative min-h-screen overflow-hidden bg-[#f5fbff] px-4 py-4 md:px-8 md:py-6">
+  <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_16%_18%,rgba(56,189,248,0.2),transparent_34%),radial-gradient(circle_at_84%_20%,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,#f5fbff_0%,#eef7ff_55%,#e7f3ff_100%)]" />
+  <div className="pointer-events-none absolute -top-24 -left-20 h-[360px] w-[360px] rounded-full bg-sky-300/20 blur-3xl" />
+  <div className="pointer-events-none absolute -right-16 top-40 h-[320px] w-[320px] rounded-full bg-blue-300/15 blur-3xl" />
+ <header className="mx-auto mb-5 flex max-w-[1220px] items-center justify-between rounded-3xl border border-white/15 bg-[#08284a]/90 px-4 py-3 text-slate-100 shadow-[0_14px_32px_rgba(8,40,74,0.28)] backdrop-blur-xl sm:px-5 sm:py-3.5">
   <div className="flex items-center gap-3">
 <img
   src="/logo.png"
   alt="WPOLO.PL"
   className="
     shrink-0
-    h-16 w-16              /* większe: 64x64 na mobile */
-    sm:h-20 sm:w-20        /* 80x80 na większych ekranach */
-    md:h-24 md:w-24        /* 96x96 na desktopie */
+    h-12 w-12
+    sm:h-14 sm:w-14
     object-contain         /* zachowuje proporcje */
     rounded-none           /* brak zaokrągleń */
     bg-transparent         /* całkowicie przezroczyste tło */
@@ -981,11 +991,11 @@ const delegateCandidateNames = Array.from(new Set([
   "
 />
     <div>
-      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">
-        WPOLO.PL - Piłka wodna w Polsce
+      <h1 className="text-lg font-semibold leading-tight sm:text-xl md:text-2xl">
+        WPOLO.PL
       </h1>
-      <p className="text-sm text-gray-600">
-        Portal dla ludzi w czekpu urodzonych.
+      <p className="text-xs text-sky-100 sm:text-sm">
+        Portal polskiej piłki wodnej
       </p>
     </div>
   </div>
@@ -999,11 +1009,11 @@ const delegateCandidateNames = Array.from(new Set([
       {prettyRole(effectiveUser.role)}
       {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
     </Badge>
-    <span className="text-sm text-gray-700 truncate max-w-[40vw] sm:max-w-none">
+    <span className="max-w-[40vw] truncate text-sm text-slate-100 sm:max-w-none">
       {effectiveUser.name}
     </span>
 
-    <button onClick={signOut} className={classes.btnSecondary} title="Wyloguj">
+    <button onClick={signOut} className="rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20" title="Wyloguj">
       Wyloguj
     </button>
 
@@ -1021,14 +1031,14 @@ const delegateCandidateNames = Array.from(new Set([
       <>
         <button
           onClick={openModeration}
-          className={clsx(classes.btnSecondary, "whitespace-nowrap w-full sm:w-auto")}
+          className="w-full whitespace-nowrap rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20 sm:w-auto"
           title="Moderacja artykułów"
         >
           Moderacja
         </button>
         <button
           onClick={() => setPage('approvals')}
-          className={clsx(classes.btnSecondary, "whitespace-nowrap w-full sm:w-auto")}
+          className="w-full whitespace-nowrap rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20 sm:w-auto"
           title="Użytkownicy"
         >
           Użytkownicy
@@ -1042,7 +1052,7 @@ const delegateCandidateNames = Array.from(new Set([
       <LoginBox classes={classes} />
     </div>
     <button
-      className={clsx(classes.btnSecondary, "w-full sm:w-auto")}
+      className="w-full rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20 sm:w-auto"
       onClick={() => setPage('register')}
       title="Załóż konto, by móc komentować artykuły"
     >
@@ -1053,28 +1063,28 @@ const delegateCandidateNames = Array.from(new Set([
   </div>
 </header>
 
-<main className="max-w-6xl mx-auto grid gap-6">
+<main className="mx-auto grid max-w-[1220px] gap-5">
 
   {/* === [3.3] HOME: pasek 3 najnowszych newsów + dotychczasowa strona === */}
   {page === 'home' && (
     <>
-      <div className="rounded-2xl border border-white/40 bg-white/80 p-3 shadow-sm">
-        <div className="flex flex-wrap gap-2">
+      <div className="rounded-3xl border border-[#dbeafe] bg-white/95 p-3 shadow-sm">
+        <div className="flex flex-wrap gap-2.5">
           <button
-            className={clsx(classes.btnSecondary, activePage === 'dashboard' && 'bg-amber-600 text-white hover:bg-amber-700')}
+            className={navPillClass(activePage === 'dashboard')}
             onClick={() => setActivePage('dashboard')}
           >
             Start
           </button>
           <button
-            className={clsx(classes.btnSecondary, activePage === 'matches' && 'bg-amber-600 text-white hover:bg-amber-700')}
+            className={navPillClass(activePage === 'matches')}
             onClick={() => setActivePage('matches')}
           >
             Rozgrywki
           </button>
           {showMyMatches && (
             <button
-              className={clsx(classes.btnSecondary, activePage === 'my-matches' && 'bg-amber-600 text-white hover:bg-amber-700')}
+              className={navPillClass(activePage === 'my-matches')}
               onClick={() => setActivePage('my-matches')}
             >
               Moje mecze
@@ -1082,7 +1092,7 @@ const delegateCandidateNames = Array.from(new Set([
           )}
           {showClubTab && (
             <button
-              className={clsx(classes.btnSecondary, activePage === 'club' && 'bg-amber-600 text-white hover:bg-amber-700')}
+              className={navPillClass(activePage === 'club')}
               onClick={() => setActivePage('club')}
             >
               Mój klub
@@ -1090,7 +1100,7 @@ const delegateCandidateNames = Array.from(new Set([
           )}
           {showKtpwTab && (
             <button
-              className={clsx(classes.btnSecondary, activePage === 'ktpw' && 'bg-amber-600 text-white hover:bg-amber-700')}
+              className={navPillClass(activePage === 'ktpw')}
               onClick={() => setActivePage('ktpw')}
             >
               KTPW
@@ -1098,7 +1108,7 @@ const delegateCandidateNames = Array.from(new Set([
           )}
           {showAdminTab && (
             <button
-              className={clsx(classes.btnSecondary, activePage === 'admin' && 'bg-amber-600 text-white hover:bg-amber-700')}
+              className={navPillClass(activePage === 'admin')}
               onClick={() => setActivePage('admin')}
             >
               Admin
@@ -1108,74 +1118,93 @@ const delegateCandidateNames = Array.from(new Set([
       </div>
 
       {activePage === 'dashboard' && (
-        <DashboardPage openArticles={openArticles} openArticle={openArticle} />
-      )}
-
-      {activePage === 'matches' && (
-        <MatchesPage
-          competitions={competitions}
-          fallbackCompetitions={fallbackCompetitions}
-          handleCompetitionChange={handleCompetitionChange}
-          selectedCompetitionId={selectedCompetitionId}
-          selectedCompetitionSeason={selectedCompetitionSeason}
-          state={state}
-          setState={setState}
-          penaltiesByMatch={penaltiesByMatch}
+        <HomePortalPage
+          matches={state.matches}
+          tournaments={allTournaments}
           effectiveUser={effectiveUser}
-          clubs={clubs}
-          refereeNames={refereeNames}
-          delegateNames={delegateNames}
-          delegateCandidateNames={delegateCandidateNames}
-          refreshMatches={refreshMatches}
-          refreshPenalties={refreshPenalties}
-          loadingMatches={loadingMatches}
-          handleRemovePenalty={handleRemovePenalty}
-          handleQuickEdit={handleQuickEdit}
-          handleCancelInlineEdit={handleCancelInlineEdit}
-          editingMatchId={editingMatchId}
-          isAdmin={isAdmin}
-          removeWholeSlot={removeWholeSlot}
-          ExportImport={ExportImport}
-          loadingStages={loadingStages}
-          stages={stages}
-          tournaments={tournaments}
-          handleDeleteStage={handleDeleteStage}
-          handleDeleteTournament={handleDeleteTournament}
-          tournamentClubs={tournamentClubs}
-          showAddTournamentClubForm={showAddTournamentClubForm}
-          setShowAddTournamentClubForm={setShowAddTournamentClubForm}
-          tournamentClubFormData={tournamentClubFormData}
-          setTournamentClubFormData={setTournamentClubFormData}
-          handleAddTournamentClub={handleAddTournamentClub}
-          handleDeleteTournamentClub={handleDeleteTournamentClub}
-          setSelectedTournamentForMatch={setSelectedTournamentForMatch}
-          setShowAddMatchForm={setShowAddMatchForm}
-          showAddStageForm={showAddStageForm}
-          setShowAddStageForm={setShowAddStageForm}
-          stageFormData={stageFormData}
-          setStageFormData={setStageFormData}
-          handleAddStage={handleAddStage}
-          showAddTournamentForm={showAddTournamentForm}
-          setShowAddTournamentForm={setShowAddTournamentForm}
-          selectedStageForTournament={selectedStageForTournament}
-          setSelectedStageForTournament={setSelectedStageForTournament}
-          tournamentFormData={tournamentFormData}
-          setTournamentFormData={setTournamentFormData}
-          handleAddTournament={handleAddTournament}
-          showAddMatchForm={showAddMatchForm}
-          selectedTournamentForMatch={selectedTournamentForMatch}
-          matchFormData={matchFormData}
-          setMatchFormData={setMatchFormData}
-          handleAddMatch={handleAddMatch}
+          savedRosters={savedRosters}
+          competitionNameById={competitionNameById}
+          tournamentNameById={tournamentNameById}
+          onOpenMatches={() => setActivePage('matches')}
+          onOpenArticles={openArticles}
+          onOpenKtpw={() => setActivePage('ktpw')}
+          onOpenClubPage={showClubTab ? () => setActivePage('club') : undefined}
         />
       )}
 
+      {activePage === 'matches' && (
+        <section className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 rounded-2xl border border-[#dbeafe] bg-[#f7fbff] px-4 py-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Rozgrywki</div>
+            <h2 className="mt-1 text-xl font-semibold text-[#061a33]">Centrum meczowe</h2>
+          </div>
+          <MatchesPage
+            competitions={competitions}
+            fallbackCompetitions={fallbackCompetitions}
+            handleCompetitionChange={handleCompetitionChange}
+            selectedCompetitionId={selectedCompetitionId}
+            selectedCompetitionSeason={selectedCompetitionSeason}
+            state={state}
+            setState={setState}
+            penaltiesByMatch={penaltiesByMatch}
+            effectiveUser={effectiveUser}
+            clubs={clubs}
+            refereeNames={refereeNames}
+            delegateNames={delegateNames}
+            delegateCandidateNames={delegateCandidateNames}
+            refreshMatches={refreshMatches}
+            refreshPenalties={refreshPenalties}
+            loadingMatches={loadingMatches}
+            handleRemovePenalty={handleRemovePenalty}
+            handleQuickEdit={handleQuickEdit}
+            handleCancelInlineEdit={handleCancelInlineEdit}
+            editingMatchId={editingMatchId}
+            isAdmin={isAdmin}
+            removeWholeSlot={removeWholeSlot}
+            ExportImport={ExportImport}
+            loadingStages={loadingStages}
+            stages={stages}
+            tournaments={tournaments}
+            handleDeleteStage={handleDeleteStage}
+            handleDeleteTournament={handleDeleteTournament}
+            tournamentClubs={tournamentClubs}
+            showAddTournamentClubForm={showAddTournamentClubForm}
+            setShowAddTournamentClubForm={setShowAddTournamentClubForm}
+            tournamentClubFormData={tournamentClubFormData}
+            setTournamentClubFormData={setTournamentClubFormData}
+            handleAddTournamentClub={handleAddTournamentClub}
+            handleDeleteTournamentClub={handleDeleteTournamentClub}
+            setSelectedTournamentForMatch={setSelectedTournamentForMatch}
+            setShowAddMatchForm={setShowAddMatchForm}
+            showAddStageForm={showAddStageForm}
+            setShowAddStageForm={setShowAddStageForm}
+            stageFormData={stageFormData}
+            setStageFormData={setStageFormData}
+            handleAddStage={handleAddStage}
+            showAddTournamentForm={showAddTournamentForm}
+            setShowAddTournamentForm={setShowAddTournamentForm}
+            selectedStageForTournament={selectedStageForTournament}
+            setSelectedStageForTournament={setSelectedStageForTournament}
+            tournamentFormData={tournamentFormData}
+            setTournamentFormData={setTournamentFormData}
+            handleAddTournament={handleAddTournament}
+            showAddMatchForm={showAddMatchForm}
+            selectedTournamentForMatch={selectedTournamentForMatch}
+            matchFormData={matchFormData}
+            setMatchFormData={setMatchFormData}
+            handleAddMatch={handleAddMatch}
+          />
+        </section>
+      )}
+
       {activePage === 'ktpw' && (
-        <Ktpw effectiveUser={effectiveUser} isAdmin={effectiveUser ? isAdmin(effectiveUser) : false} />
+        <section className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
+          <Ktpw effectiveUser={effectiveUser} isAdmin={effectiveUser ? isAdmin(effectiveUser) : false} />
+        </section>
       )}
 
       {activePage === 'admin' && effectiveUser && isAdmin(effectiveUser) && (
-        <>
+        <section className="space-y-4 rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
           <AdminPanel
             state={state}
             setState={setState}
@@ -1206,22 +1235,22 @@ const delegateCandidateNames = Array.from(new Set([
           </Section>
 
           <Diagnostics state={state} />
-        </>
+        </section>
       )}
 
       {activePage === 'my-matches' && effectiveUser && (isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser)) && (
-        <Section title="Moje mecze" icon={<Users className="w-5 h-5" />} className="bg-white/60">
+        <Section title="Moje mecze" icon={<Users className="w-5 h-5" />}>
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 bg-white/70 p-3">
-              <div className="mb-3 text-sm font-semibold text-slate-700">Najbliższe mecze</div>
+            <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
+              <div className="mb-3 text-sm font-semibold text-[#061a33]">Najbliższe mecze</div>
               <div className="space-y-2">
                 {myUpcomingMatches.length === 0 ? (
-                  <div className="text-sm text-gray-500">Brak nadchodzących meczów.</div>
+                  <div className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm text-slate-500">Brak nadchodzących meczów.</div>
                 ) : (
                   myUpcomingMatches.map((match) => (
-                    <div key={match.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                    <div key={match.id} className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm shadow-sm">
                       <div className="font-medium">{formatMatchDate(match.date)}{match.time ? ` ${match.time}` : ""}</div>
-                      <div className="text-xs text-gray-600">{match.location}</div>
+                      <div className="text-xs text-slate-600">{match.location}</div>
                       <div className="mt-1 font-medium">{match.home} vs {match.away}</div>
                       <div className="mt-1 text-xs text-slate-600">
                         Rola: <span className="font-medium text-slate-700">{getMyMatchRole(effectiveUser, match)}</span>
@@ -1232,16 +1261,16 @@ const delegateCandidateNames = Array.from(new Set([
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white/70 p-3">
-              <div className="mb-3 text-sm font-semibold text-slate-700">Mecze zakończone</div>
+            <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
+              <div className="mb-3 text-sm font-semibold text-[#061a33]">Mecze zakończone</div>
               <div className="space-y-2">
                 {myFinishedMatches.length === 0 ? (
-                  <div className="text-sm text-gray-500">Brak zakończonych meczów.</div>
+                  <div className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm text-slate-500">Brak zakończonych meczów.</div>
                 ) : (
                   myFinishedMatches.map((match) => (
-                    <div key={match.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                    <div key={match.id} className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm shadow-sm">
                       <div className="font-medium">{formatMatchDate(match.date)}{match.time ? ` ${match.time}` : ""}</div>
-                      <div className="text-xs text-gray-600">{match.location}</div>
+                      <div className="text-xs text-slate-600">{match.location}</div>
                       <div className="mt-1 font-medium">{match.home} vs {match.away}</div>
                       <div className="mt-1 text-xs text-slate-600">
                         Rola: <span className="font-medium text-slate-700">{getMyMatchRole(effectiveUser, match)}</span>
@@ -1259,17 +1288,19 @@ const delegateCandidateNames = Array.from(new Set([
       )}
 
       {activePage === 'club' && (
-        <ClubDashboard
-          effectiveUser={effectiveUser}
-          clubId={myProfile?.club_id ?? null}
-          matches={state.matches}
-          competitionNameById={competitionNameById}
-          competitionSeasonNameById={competitionSeasonNameById}
-          stageNameById={stageNameById}
-          tournamentNameById={tournamentNameById}
-          penaltiesByMatch={penaltiesByMatch}
-          onSaveRoster={handleSaveRoster}
-        />
+        <section className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
+          <ClubDashboard
+            effectiveUser={effectiveUser}
+            clubId={myProfile?.club_id ?? null}
+            matches={state.matches}
+            competitionNameById={competitionNameById}
+            competitionSeasonNameById={competitionSeasonNameById}
+            stageNameById={stageNameById}
+            tournamentNameById={tournamentNameById}
+            penaltiesByMatch={penaltiesByMatch}
+            onSaveRoster={handleSaveRoster}
+          />
+        </section>
       )}
 
       {activePage === 'my-matches' && (!effectiveUser || !(isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser))) && (
@@ -1333,7 +1364,7 @@ const delegateCandidateNames = Array.from(new Set([
 )}
 </main>
 
-    <footer className="max-w-6xl mx-auto mt-8 text-xs text-gray-500">
+    <footer className="mx-auto mt-7 max-w-[1220px] text-xs text-slate-500">
       <p>copyright Lukasz Krol 2025</p>
     </footer>
   </div>)

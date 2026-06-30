@@ -16,3 +16,24 @@
     overscroll-behavior-x: none; 
   }
 }
+
+@layer components {
+  .wp-theme input:not([type="checkbox"]):not([type="radio"]),
+  .wp-theme select,
+  .wp-theme textarea {
+    @apply rounded-xl border border-sky-100 bg-white text-slate-800 placeholder:text-slate-400;
+    @apply focus:outline-none focus:ring-2 focus:ring-sky-300/80 focus:border-sky-300;
+  }
+
+  .wp-theme table thead tr {
+    @apply bg-[#f4f9ff] text-[#08284a];
+  }
+
+  .wp-theme table tbody tr {
+    @apply border-sky-100;
+  }
+
+  .wp-theme table tbody tr:hover {
+    @apply bg-sky-50/60;
+  }
+}
