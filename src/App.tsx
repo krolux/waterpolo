@@ -1,22 +1,41 @@
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
-import React, { useEffect, useMemo, useState, PropsWithChildren } from "react";
-import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, Save, UploadCloud, Image, Settings, Table, Check, RefreshCw, X } from "lucide-react";
-import { useSupabaseAuth, Role as SupaRole } from './hooks/useSupabaseAuth'
+import React, { useEffect, useMemo, useState } from "react";
+import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, UploadCloud, Image, Settings, Table, Check, RefreshCw, X } from "lucide-react";
+import { useSupabaseAuth } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
 import { listMatches, createMatch, updateMatch as dbUpdateMatch, deleteMatch as dbDeleteMatch, setMatchResult } from './lib/matches'
 import { addPenalty, listPenalties, deletePenalty, type Penalty } from "./lib/penalties";
-import { uploadDoc, getSignedUrl } from "./lib/storage";
+import { uploadDoc } from "./lib/storage";
 import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 import { setMyAvailability, getMyAvailabilityForMatches, listAvailableReferees } from "./lib/availability";
 import { namesOfAvailableReferees } from "./lib/availability";
-import { NewsStrip } from "./components/NewsStrip";
+import { listCompetitions, getCompetitionSeason, listTournamentMatches, type Competition, type CompetitionSeason } from "./lib/competitions";
+import { useTournamentManagement } from "./hooks/useTournamentManagement";
+import { ClubDashboard } from "./components/dashboard/ClubDashboard";
+import { MatchesPage } from "./components/pages/MatchesPage";
+import { HomePortalPage } from "./components/pages/HomePortalPage";
 import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
 import { ArticleEditor } from "./components/ArticleEditor";
 import { ArticleModeration } from "./components/ArticleModeration";
+import Ktpw from "./components/Ktpw";
 import { RegisterForm } from "./components/RegisterForm";
 import { AdminUserApprovals } from "./components/AdminUserApprovals";
+import { Section } from "./components/shared/Section";
+import { Badge } from "./components/shared/Badge";
+import { DocBadge } from "./components/shared/DocBadge";
+import { RankingTable } from "./components/matches/RankingTable";
+import { AdminAvailableReferees } from "./components/matches/AdminAvailableReferees";
+import { PerMatchActions } from "./components/matches/PerMatchActions";
+import { MatchesTable } from "./components/matches/MatchesTable";
+import { CompetitionMatchesView } from "./components/matches/CompetitionMatchesView";
+import { AdminPanel } from "./components/matches/AdminPanel";
+import { MatchForm } from "./components/matches/MatchForm";
+import { StageForm } from "./components/tournaments/StageForm";
+import { TournamentForm } from "./components/tournaments/TournamentForm";
+import type { Role, StoredFile, UploadLog, Match, AppState, ProfileRow } from "./types/wpolo";
+import type { SaveRosterPayload } from "./types/rosters";
 
 
 
@@ -66,13 +85,14 @@ async function removeWholeSlot(
 
 
 const classes = {
-  input: "w-full px-3 py-2 rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-sky-300",
-  btnPrimary: "px-3 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow",
-  btnOutline: "px-3 py-2 rounded-xl border border-amber-600 text-amber-700 bg-white hover:bg-amber-50",
-  btnSecondary: "px-3 py-2 rounded-xl border bg-white hover:bg-gray-50",
-  iconBtn: "p-2 rounded-lg border bg-white hover:bg-gray-50",
-  pill: "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white",
+  input: "w-full px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300/80 focus:border-sky-300",
+  btnPrimary: "px-3 py-2 rounded-xl bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white font-semibold hover:from-[#0f99ff] hover:to-[#4acbff] shadow-[0_10px_20px_rgba(5,140,255,0.24)]",
+  btnOutline: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
+  btnSecondary: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
+  iconBtn: "p-2 rounded-lg border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
+  pill: "inline-flex items-center gap-1 rounded-full border border-[#dbeafe] bg-white px-2 py-1 text-xs text-slate-700",
 };
+
 
 const HorizontalScroller: React.FC<React.PropsWithChildren<{ className?: string }>> = ({ className, children }) => {
   const ref = React.useRef<HTMLDivElement>(null);
@@ -106,74 +126,6 @@ const HorizontalScroller: React.FC<React.PropsWithChildren<{ className?: string 
   );
 };
 
-type Role = SupaRole;
-type SectionProps = PropsWithChildren<{ title: string; icon?: React.ReactNode; className?: string }>;
-const Section: React.FC<SectionProps> = ({ title, icon, children, className }) => (
-  <div
-    className={clsx(
-      "rounded-2xl p-3 sm:p-4 md:p-6",
-      "bg-white/50 backdrop-blur-xl backdrop-saturate-150",
-      "border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.08)]",
-      className
-    )}
-  >
-    <div className="flex items-center gap-2 mb-4">
-      {icon}
-      <h2 className="text-xl md:text-2xl font-semibold">{title}</h2>
-    </div>
-    {children}
-  </div>
-);
-
-const Badge: React.FC<{ children: React.ReactNode; tone?: "gray" | "green" | "blue" | "amber" }> = ({ children, tone="gray" }) => (
-  <span className={clsx("px-2 py-0.5 rounded-full text-xs font-medium border",
-  tone==="gray"&&"bg-gray-50 border-gray-200 text-gray-700",
-  tone==="green"&&"bg-green-50 border-green-200 text-green-700",
-  tone==="blue"&&"bg-blue-50 border-blue-200 text-blue-700",
-  tone==="amber"&&"bg-amber-50 border-amber-200 text-amber-700")}>{children}</span>
-);
-
-// Types
-type StoredFile = { id:string; name:string; mime:string; size:number; path:string; uploadedBy:string; uploadedAt:string; label?:string; };
-type UploadLog = { id:string; type:"comms"|"roster"|"protocol"|"photos"; matchId:string; club?:string|null; user:string; at:string; fileName:string; };
-type Match = {
-  id: string;
-  date: string;
-  time?: string;
-  round?: string;
-    seriesRound?: string | null;
-  location: string;
-  home: string;
-  away: string;
-  result?: string;
-  shootout?: boolean;               
-  referees: string[];
-  delegate?: string;
-  commsByClub: Record<string, StoredFile | null>;
-  rosterByClub: Record<string, StoredFile | null>;
-  matchReport?: StoredFile | null;
-  reportPhotos: StoredFile[];
-  notes?: string;
-  uploadsLog: UploadLog[];
-  myAvailable?: boolean;
-   myAvailabilitySet?: boolean;
-  streamUrl?: string | null;
-};
-type AppState = { matches: Match[]; users:{name:string; role:Role; club?:string}[]; };
-type ProfileRow = {
-  id: string;
-  display_name: string;
-  role: Role;
-  club_id: string | null;
-  club_name?: string | null;
-};
-
-
-
-
-
-
-
 // Files helpers
 async function toStoredFileUsingStorage(kind: "comms"|"roster"|"report"|"photos", matchId: string, clubOrNeutral: string, file: File, uploadedBy: string, label: string): Promise<StoredFile> {
   const path = await uploadDoc(kind, matchId, clubOrNeutral, file);
@@ -202,54 +154,6 @@ function sanitizeUrl(u?: string | null) {
     return null;
   }
 }
-
-async function downloadStoredFile(file: StoredFile) {
-const url = await getSignedUrl(file.path);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = file.label ? file.label : file.name;
-  a.click();
-}
-
-// Badge do pobierania dokumentów z Supabase Storage (podpisywane URL)
-const DocBadge: React.FC<{
-  file: StoredFile;
-  label: string;
-  disabled?: boolean;
-  canRemove?: boolean;
-  onRemove?: () => void;
-}> = ({ file, label, disabled, canRemove, onRemove }) => (
-  <div
-    className={clsx(
-      "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border bg-white",
-      disabled ? "opacity-50 cursor-not-allowed" : "hover:shadow"
-    )}
-    title={label}
-  >
-    <FileText className="w-3.5 h-3.5" />
-    <button
-      onClick={() => {
-        if (disabled) {
-          alert("Pobieranie dostępne po zalogowaniu (nie dla Gościa).");
-          return;
-        }
-        downloadStoredFile(file);
-      }}
-      className={clsx(!disabled && "hover:underline")}
-    >
-      {label}
-    </button>
-    {canRemove && (
-      <button
-        onClick={onRemove}
-        className="ml-1 rounded px-1 leading-none hover:bg-red-100 text-red-600"
-        title="Usuń dokument"
-      >
-        ×
-      </button>
-    )}
-  </div>
-);
 
 const prettyRole = (r: Role) => r; // pokazuj prawdziwą rolę
 // === MULTI-ROLE HELPERS (NEW) ===
@@ -322,1526 +226,6 @@ const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = (
   </div>)
 }
 
-const MatchesTable: React.FC<{
-  state: AppState;
-  setState: React.Dispatch<React.SetStateAction<AppState>>;
-  user: { name: string; role: Role; club?: string } | null;
-  onRefresh: () => void;
-  loading: boolean;
-  penaltyMap: Map<string, { home: { id: string; name: string }[]; away: { id: string; name: string }[] }>;
-  onRemovePenalty: (id: string) => void;
-  title?: string;
-  sectionClassName?: string;
-  showExport?: boolean;
-  variant?: "upcoming" | "finished";
-    onQuickEdit?: (id: string) => void; 
-}> = ({
-  state,
-  setState,
-  user,
-  onRefresh,
-  loading,
-  penaltyMap,
-  onRemovePenalty,
-  title = "Tabela meczów",
-  sectionClassName,
-  showExport = false,
-  variant = "upcoming",
-    onQuickEdit,
-}) => {
-const [q, setQ] = useState("");
-const [sortKey, setSortKey] = useState<"date" | "seriesRound">("date");
-const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");     // domyślnie rosnąco
-
-  // Kolory kart i paskowanie w zależności od wariantu
-  const cardBg =
-    variant === "finished"
-      ? "bg-[#e6f0ff] border-[#bcd4ff]"   // zakończone: jasny błękit
-      : "bg-white border-sky-100";        // nadchodzące: biały
-
-  const rowStriping =
-    variant === "finished"
-      ? "odd:bg-[#e6f0ff]/70 even:bg-[#d9e8ff]/70" // zakończone: błękitne pasy
-      : "odd:bg-white even:bg-slate-50/60";        // nadchodzące: jak było
-
-const sorted = useMemo(() => {
-  const arr = [...state.matches];
-
-  const parseRound = (r?: string) => {
-    const n = parseInt(String(r ?? "").trim(), 10);
-    return Number.isFinite(n) ? n : 0;
-  };
-
-arr.sort((a, b) => {
-  const as = (a.seriesRound ?? "").toString().trim();
-  const bs = (b.seriesRound ?? "").toString().trim();
-
-  const parseNum = (v: string) => {
-    const n = parseInt(v, 10);
-    return Number.isFinite(n) ? n : null;
-  };
-
-  if (sortKey === "seriesRound") {
-    const na = parseNum(as);
-    const nb = parseNum(bs);
-
-    if (na !== null && nb !== null && na !== nb) {
-      return sortDir === "asc" ? na - nb : nb - na;
-    }
-    if (as !== bs) {
-      return sortDir === "asc" ? as.localeCompare(bs, "pl") : bs.localeCompare(as, "pl");
-    }
-    // tie-breaker: po numerze meczu (round = nr meczu) rosnąco
-    const ma = parseNum(String(a.round ?? ""));
-    const mb = parseNum(String(b.round ?? ""));
-    if (ma !== null && mb !== null && ma !== mb) return ma - mb;
-
-    // ostatecznie po dacie
-    const da = new Date(a.date).getTime();
-    const db = new Date(b.date).getTime();
-    return da - db;
-  }
-
-  // sort wg daty
-  const da = new Date(a.date).getTime();
-  const db = new Date(b.date).getTime();
-  if (da !== db) return sortDir === "asc" ? da - db : db - da;
-
-  // tie-breaker: po numerze meczu rosnąco
-  const ma = parseNum(String(a.round ?? ""));
-  const mb = parseNum(String(b.round ?? ""));
-  return (ma ?? 0) - (mb ?? 0);
-});
-
-  return arr;
-}, [state.matches, sortKey, sortDir]);
-
-  const filtered = useMemo(
-    () =>
-      sorted.filter((m) =>
-        [m.home, m.away, m.location, m.round, m.result, m.delegate, ...m.referees]
-          .join(" ")
-          .toLowerCase()
-          .includes(q.toLowerCase())
-      ),
-    [sorted, q]
-  );
-
-  // --- [GRUPOWANIE WG RUNDY] ---
-const groupedByRound = useMemo(() => {
-  const groups: Record<string, Match[]> = {};
-
-  for (const m of filtered) {
-const key = (m.seriesRound ?? "").toString().trim() || "—";
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(m);
-  }
-
-  // Rundy numericzne najpierw rosnąco, nienumeryczne po nazwie
-  const sortedRounds = Object.keys(groups).sort((a, b) => {
-    const na = parseInt(a, 10);
-    const nb = parseInt(b, 10);
-    const aNum = Number.isFinite(na);
-    const bNum = Number.isFinite(nb);
-    if (aNum && bNum) return na - nb;
-    if (aNum !== bNum) return aNum ? -1 : 1;
-    return a.localeCompare(b, "pl");
-  });
-
-  return { groups, sortedRounds };
-}, [filtered]);
-
-
-
-const formatDate = (iso: string) =>
-  new Date(iso)
-    .toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "2-digit" })
-    .replace(/\./g, "-");
-  
-const isGuest = !user || hasRole(user, 'Guest');
-const canDownload = !!user && !isGuest;
-const isUserReferee = !!user && user.role === "Referee";
-const isUserAdmin = !!user && isAdmin(user);
-
-function renderResult(m: Match) {
-  const r = (m.result || "").trim();
-  if (!r) return "-";
-  if (!m.shootout) return r;
-
-  const [aStr, bStr] = r.split(":");
-  const a = parseInt(aStr, 10);
-  const b = parseInt(bStr, 10);
-  if (Number.isFinite(a) && Number.isFinite(b)) {
-    if (a > b) return `k${a}:${b}`;
-    if (b > a) return `${a}:${b}k`;
-  }
-  return r;
-}
-  return (
-  <Section title={title} icon={<Table className="w-5 h-5" />} className={sectionClassName}>
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className={clsx(classes.input, "pl-9")}
-            placeholder="Szukaj po drużynie, miejscu, sędziach..."
-          />
-        </div>
-
-<select
-  value={sortKey}
-  onChange={(e) => setSortKey(e.target.value as "date" | "seriesRound")}
-  className={classes.input}
-  style={{ maxWidth: 170 }}
-  title="Sortuj wg…"
->
-  <option value="date">Sortuj wg daty</option>
-  <option value="seriesRound">Sortuj wg rundy</option>
-</select>
-
-        <button
-          onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-          className={clsx(classes.btnSecondary, "px-2")}
-          title={sortDir === "asc" ? "Kierunek: rosnąco" : "Kierunek: malejąco"}
-        >
-          {sortDir === "asc" ? "↑" : "↓"}
-        </button>
-
-        <button
-          onClick={onRefresh}
-          className={clsx(classes.btnSecondary, "flex items-center gap-2")}
-        >
-          <RefreshCw className={clsx("w-4 h-4", loading && "animate-spin")} />
-          Odśwież
-        </button>
-
-{showExport && user && user.role !== "Guest" && (
-  <ExportImport state={state} setState={setState} />
-)}
-      </div>
-
-{filtered.length === 0 && (
-  <div className="text-sm text-gray-600">
-    Brak meczów do wyświetlenia.
-  </div>
-)}
-
-{/* MOBILE: grupy wg Rundy (karty) */}
-<div className="md:hidden space-y-4">
-  {groupedByRound.sortedRounds.map((runda) => (
-    <div key={runda} className="rounded-xl border-2 border-amber-400 overflow-hidden bg-white">
-      <div className="bg-amber-50 text-amber-800 font-semibold text-center py-1">
-        Runda {runda}
-      </div>
-
-      <div className="p-3 space-y-3">
-        {groupedByRound.groups[runda].map((m) => {
-          const homePens = penaltyMap.get(m.id)?.home || [];
-          const awayPens = penaltyMap.get(m.id)?.away || [];
-          const streamHref = sanitizeUrl(m.streamUrl);
-
-          return (
-            <div key={m.id} className={clsx("rounded-xl border p-3 shadow-sm", cardBg)}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-xs text-gray-500 truncate">
-                    {formatDate(m.date)}{m.time ? ` ${m.time}` : ""} • {m.location}
-                  </div>
-                  <div className="font-medium break-words">{m.home} vs {m.away}</div>
-
-                  <div className="text-xs text-gray-600 break-words">
-                    Sędziowie: {m.referees.filter(Boolean).join(", ") || "–"}
-                    {m.delegate ? ` • Delegat: ${m.delegate}` : ""}
-                    {user && isAdmin(user) && onQuickEdit && (
-                      <button
-                        className="ml-2 underline text-blue-700"
-                        onClick={() => onQuickEdit(m.id)}
-                        title="Szybka edycja w panelu admina"
-                      >
-                        Edytuj
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-right text-sm font-semibold shrink-0">
-                  {renderResult(m)}
-                </div>
-              </div>
-
-              {/* Kary – tylko dla zalogowanych */}
-              <div className="mt-2 grid grid-cols-1 gap-2">
-                <div className="text-xs">
-                  <span className="font-semibold">Kary (Gospodarz): </span>
-                  {isGuest ? (
-                    <span className="text-gray-500">–</span>
-                  ) : homePens.length === 0 ? (
-                    <span className="text-gray-500">–</span>
-                  ) : (
-                    <span className="inline-flex flex-wrap gap-1 align-top">
-                      {homePens.map(p => (
-                        <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-                          {p.name}
-                          {(user && (isAdmin(user) || isDelegate(user))) && (
-                            <button
-                              onClick={() => onRemovePenalty(p.id)}
-                              className="ml-1 rounded px-1 leading-none hover:bg-red-100"
-                              title="Usuń karę"
-                            >×</button>
-                          )}
-                        </span>
-                      ))}
-                    </span>
-                  )}
-                </div>
-
-                <div className="text-xs">
-                  <span className="font-semibold">Kary (Goście): </span>
-                  {isGuest ? (
-                    <span className="text-gray-500">–</span>
-                  ) : awayPens.length === 0 ? (
-                    <span className="text-gray-500">–</span>
-                  ) : (
-                    <span className="inline-flex flex-wrap gap-1 align-top">
-                      {awayPens.map(p => (
-                        <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-                          {p.name}
-                          {(user && (isAdmin(user) || m.delegate === user.name)) && (
-                            <button
-                              onClick={() => onRemovePenalty(p.id)}
-                              className="ml-1 rounded px-1 leading-none hover:bg-red-100"
-                              title="Usuń karę"
-                            >×</button>
-                          )}
-                        </span>
-                      ))}
-                    </span>
-                  )}
-                </div>
-
-                {isUserReferee && variant === "upcoming" && (
-                  <div className="text-xs">
-                    <span className="font-semibold mr-1">Dostępność:</span>
-                    <span className="inline-flex items-center gap-2">
-                      {/* DOSTĘPNY */}
-                      <button
-                        className={clsx(
-                          "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
-                          m.myAvailabilitySet
-                            ? (m.myAvailable
-                                ? "bg-green-50 border-green-300 text-green-700"
-                                : "bg-gray-100 border-gray-300 text-gray-500")
-                            : "bg-green-50 border-green-300 text-green-700"
-                        )}
-                        onClick={async () => {
-                          try {
-                            await setMyAvailability(m.id, true);
-                            setState(s => ({
-                              ...s,
-                              matches: s.matches.map(x =>
-                                x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x
-                              )
-                            }));
-                          } catch (e:any) {
-                            alert("Błąd zapisu dostępności: " + e.message);
-                          }
-                        }}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          <Check className={clsx("w-4 h-4",
-                            m.myAvailabilitySet ? (m.myAvailable ? "text-green-700" : "text-gray-400") : "text-green-700"
-                          )}/>
-                          Dostępny
-                        </span>
-                      </button>
-
-                      {/* NIEDOSTĘPNY */}
-                      <button
-                        className={clsx(
-                          "inline-flex items-center gap-1 px-2 py-0.5 rounded border",
-                          m.myAvailabilitySet
-                            ? (!m.myAvailable
-                                ? "bg-red-50 border-red-300 text-red-700"
-                                : "bg-gray-100 border-gray-300 text-gray-500")
-                            : "bg-red-50 border-red-300 text-red-700"
-                        )}
-                        onClick={async () => {
-                          try {
-                            await setMyAvailability(m.id, false);
-                            setState(s => ({
-                              ...s,
-                              matches: s.matches.map(x =>
-                                x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x
-                              )
-                            }));
-                          } catch (e:any) {
-                            alert("Błąd zapisu dostępności: " + e.message);
-                          }
-                        }}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          <X className={clsx("w-4 h-4",
-                            m.myAvailabilitySet ? (!m.myAvailable ? "text-red-700" : "text-gray-400") : "text-red-700"
-                          )}/>
-                          Niedostępny
-                        </span>
-                      </button>
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Dokumenty + transmisja */}
-              <div className="mt-2 flex flex-wrap gap-2">
-                {m.commsByClub.home && (
-                  <DocBadge
-                    file={m.commsByClub.home}
-                    label="Komunikat"
-                    disabled={!canDownload}
-                    canRemove={!!user && isAdmin(user)}
-                    onRemove={async () => {
-                      try {
-                        await removeWholeSlot("comms", m.id, normKey(m.home), m.commsByClub.home!.path);
-                        setState({
-                          ...state,
-                          matches: state.matches.map(x =>
-                            x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
-                          ),
-                        });
-                      } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-                    }}
-                  />
-                )}
-
-                {m.rosterByClub.home && (
-                  <DocBadge
-                    file={m.rosterByClub.home}
-                    label="Skład (Home)"
-                    disabled={!canDownload}
-                    canRemove={!!user && isAdmin(user)}
-                    onRemove={async () => {
-                      try {
-                        await removeWholeSlot("roster", m.id, normKey(m.home), m.rosterByClub.home!.path);
-                        setState({
-                          ...state,
-                          matches: state.matches.map(x =>
-                            x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
-                          ),
-                        });
-                      } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-                    }}
-                  />
-                )}
-
-                {m.rosterByClub.away && (
-                  <DocBadge
-                    file={m.rosterByClub.away}
-                    label="Skład (Away)"
-                    disabled={!canDownload}
-                    canRemove={!!user && isAdmin(user)}
-                    onRemove={async () => {
-                      try {
-                        await removeWholeSlot("roster", m.id, normKey(m.away), m.rosterByClub.away!.path);
-                        setState({
-                          ...state,
-                          matches: state.matches.map(x =>
-                            x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
-                          ),
-                        });
-                      } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-                    }}
-                  />
-                )}
-
-                {m.matchReport && (
-                  <DocBadge
-                    file={m.matchReport}
-                    label="Protokół"
-                    disabled={!canDownload}
-                    canRemove={!!user && isAdmin(user)}
-                    onRemove={async () => {
-                      try {
-                        await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
-                        setState({
-                          ...state,
-                          matches: state.matches.map(x =>
-                            x.id === m.id ? { ...x, matchReport: null } : x
-                          ),
-                        });
-                      } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-                    }}
-                  />
-                )}
-
-                {m.reportPhotos.length > 0 && (
-                  <span className={classes.pill}>
-                    <Image className="w-3.5 h-3.5" />
-                    Zdjęcia: {m.reportPhotos.length}
-                  </span>
-                )}
-
-                {streamHref && (
-                  <a
-                    href={streamHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={clsx(classes.pill, "hover:shadow")}
-                    title="Otwórz transmisję w nowej karcie"
-                  >
-                    ▶︎ Transmisja
-                  </a>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  ))}
-</div>
-
-
-{/* DESKTOP: tabela bez scrolla, węższe kolumny + zawijanie */}
-<div className="hidden md:block">
-  <table className="table-auto w-full text-xs sm:text-sm">
-    <thead className="bg-white">
-      <tr className="text-left border-b">
-        <th className="px-2 py-1 whitespace-nowrap w-[90px] text-center">Data</th>
-<th className="px-2 py-1 whitespace-nowrap w-[80px] text-center">Nr meczu</th>
-
-        <th className="px-2 py-1 break-words w-[120px]">Miejsce</th>
-        <th className="px-2 py-1 break-words w-[150px]">Gospodarz</th>
-        <th className="px-2 py-1 break-words w-[150px]">Goście</th>
-        <th className="px-2 py-1 whitespace-nowrap w-[72px] text-center">Wynik</th>
-        <th className="px-2 py-1 break-words w-[160px]">Sędziowie</th>
-        <th className="px-2 py-1 break-words w-[120px]">Delegat</th>
-        <th className="px-2 py-1 break-words w-[140px]">Kary (Gospodarz)</th>
-        <th className="px-2 py-1 break-words w-[140px]">Kary (Goście)</th>
-        <th className="px-2 py-1 break-words w-[140px]">Dokumenty</th>
-        {variant === "upcoming" && isUserReferee && (
-  <th className="px-2 py-1 whitespace-nowrap w-[110px] text-center">Dostępność</th>
-)}
-{isUserAdmin && (
-  <th className="px-2 py-1 break-words w-[220px]">Sędziowie dostępni</th>
-)}
-
-      </tr>
-    </thead>
-
-<tbody>
-  {groupedByRound.sortedRounds.map((runda) => {
-    const group = groupedByRound.groups[runda];
-    return (
-      <React.Fragment key={runda}>
-        {/* NAGŁÓWEK RUNDY */}
-        <tr>
-<td
-  colSpan={
-    11 +
-    (variant === "upcoming" && isUserReferee ? 1 : 0) +
-    (isUserAdmin ? 1 : 0)
-  }
-  className="bg-amber-50 border-y-2 border-amber-400 text-center font-semibold text-amber-800 py-2"
->
-  Runda {runda}
-</td>
-        </tr>
-
-        {/* MECZE DANEJ RUNDY */}
-        {group.map((m, i) => {
-          const isLast = i === group.length - 1;
-          const sideBorders = "border-l-2 border-r-2 border-amber-400";
-          const bottomBorder = isLast ? "border-b-2 border-amber-400" : "";
-          const streamHref = sanitizeUrl(m.streamUrl);
-
-          return (
-            <tr
-              key={m.id}
-              className={clsx(
-                "hover:bg-sky-50 transition-colors align-top",
-                rowStriping,
-                sideBorders,
-                bottomBorder
-              )}
-            >
-              <td className="px-2 py-1 whitespace-nowrap text-center">
-                {formatDate(m.date)}{m.time ? ` ${m.time}` : ""}
-              </td>
-              <td className="px-2 py-1 whitespace-nowrap text-center">{m.round ?? "-"}</td>
-              <td className="px-2 py-1 break-words">{m.location}</td>
-              <td className="px-2 py-1 break-words">{m.home}</td>
-              <td className="px-2 py-1 break-words">{m.away}</td>
-              <td className="px-2 py-1 whitespace-nowrap text-center">{renderResult(m)}</td>
-
-              <td className="px-2 py-1 break-words">
-                {m.referees.join(", ")}
-                {user && isAdmin(user) && onQuickEdit && (
-                  <button
-                    className="ml-2 underline text-blue-700"
-                    onClick={() => onQuickEdit(m.id)}
-                    title="Szybka edycja w panelu admina"
-                  >
-                    Edytuj
-                  </button>
-                )}
-              </td>
-
-              <td className="px-2 py-1 break-words">{m.delegate ?? "-"}</td>
-
-              {/* Kary (Gospodarz) */}
-              <td className="px-2 py-1">
-                {isGuest ? (
-                  <span className="text-gray-500">–</span>
-                ) : (
-                  <div className="flex flex-wrap gap-1">
-                    {(penaltyMap.get(m.id)?.home || []).map(p => (
-                      <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-                        {p.name}
-                        {(user && (isAdmin(user) || isDelegate(user))) && (
-                          <button
-                            onClick={() => onRemovePenalty(p.id)}
-                            className="ml-1 rounded px-1 leading-none hover:bg-red-100"
-                            title="Usuń karę"
-                          >×</button>
-                        )}
-                      </span>
-                    ))}
-                    {((penaltyMap.get(m.id)?.home || []).length === 0) && <span className="text-gray-500">–</span>}
-                  </div>
-                )}
-              </td>
-
-              {/* Kary (Goście) */}
-              <td className="px-2 py-1">
-                {isGuest ? (
-                  <span className="text-gray-500">–</span>
-                ) : (
-                  <div className="flex flex-wrap gap-1">
-                    {(penaltyMap.get(m.id)?.away || []).map(p => (
-                      <span key={p.id} className={clsx(classes.pill, "border-red-300 text-red-700 bg-red-50")}>
-                        {p.name}
-                        {(user && (isAdmin(user) || m.delegate === user.name)) && (
-                          <button
-                            onClick={() => onRemovePenalty(p.id)}
-                            className="ml-1 rounded px-1 leading-none hover:bg-red-100"
-                            title="Usuń karę"
-                          >×</button>
-                        )}
-                      </span>
-                    ))}
-                    {((penaltyMap.get(m.id)?.away || []).length === 0) && <span className="text-gray-500">–</span>}
-                  </div>
-                )}
-              </td>
-
-              {/* Dokumenty + transmisja */}
-              <td className="px-2 py-1">
-                <div className="flex flex-wrap gap-2">
-                  {m.commsByClub.home && (
-                    <DocBadge
-                      file={m.commsByClub.home}
-                      label="Komunikat"
-                      disabled={!canDownload}
-                      canRemove={!!user && isAdmin(user)}
-                      onRemove={async () => {
-                        try {
-                          await removeWholeSlot("comms", m.id, normKey(m.home), m.commsByClub.home!.path);
-                          setState({
-                            ...state,
-                            matches: state.matches.map(x =>
-                              x.id === m.id ? { ...x, commsByClub: { ...x.commsByClub, home: null } } : x
-                            ),
-                          });
-                        } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-                      }}
-                    />
-                  )}
-
-                  {m.rosterByClub.home && (
-                    <DocBadge
-                      file={m.rosterByClub.home}
-                      label="Skład (Home)"
-                      disabled={!canDownload}
-                      canRemove={!!user && isAdmin(user)}
-                      onRemove={async () => {
-                        try {
-                          await removeWholeSlot("roster", m.id, normKey(m.home), m.rosterByClub.home!.path);
-                          setState({
-                            ...state,
-                            matches: state.matches.map(x =>
-                              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, home: null } } : x
-                            ),
-                          });
-                        } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-                      }}
-                    />
-                  )}
-
-                  {m.rosterByClub.away && (
-                    <DocBadge
-                      file={m.rosterByClub.away}
-                      label="Skład (Away)"
-                      disabled={!canDownload}
-                      canRemove={!!user && isAdmin(user)}
-                      onRemove={async () => {
-                        try {
-                          await removeWholeSlot("roster", m.id, normKey(m.away), m.rosterByClub.away!.path);
-                          setState({
-                            ...state,
-                            matches: state.matches.map(x =>
-                              x.id === m.id ? { ...x, rosterByClub: { ...x.rosterByClub, away: null } } : x
-                            ),
-                          });
-                        } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-                      }}
-                    />
-                  )}
-
-                  {m.matchReport && (
-                    <DocBadge
-                      file={m.matchReport}
-                      label="Protokół"
-                      disabled={!canDownload}
-                      canRemove={!!user && isAdmin(user)}
-                      onRemove={async () => {
-                        try {
-                          await removeWholeSlot("report", m.id, "neutral", m.matchReport!.path);
-                          setState({
-                            ...state,
-                            matches: state.matches.map(x =>
-                              x.id === m.id ? { ...x, matchReport: null } : x
-                            ),
-                          });
-                        } catch (e:any) { alert("Błąd usuwania: " + e.message); }
-                      }}
-                    />
-                  )}
-
-                  {m.reportPhotos.length > 0 && (
-                    <span className={classes.pill}>
-                      <Image className="w-3.5 h-3.5" />
-                      Zdjęcia: {m.reportPhotos.length}
-                    </span>
-                  )}
-
-                  {streamHref && (
-                    <a
-                      href={streamHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={clsx(classes.pill, "hover:shadow")}
-                      title="Otwórz transmisję w nowej karcie"
-                    >
-                      ▶︎ Transmisja
-                    </a>
-                  )}
-                </div>
-              </td>
-
-              {/* Dostępność (dla sędziego) */}
-              {variant === "upcoming" && isUserReferee && (
-                <td className="px-2 py-1">
-                  <div className="flex items-center gap-2 justify-center">
-                    {/* DOSTĘPNY */}
-                    <button
-                      className={clsx(
-                        "px-2 py-1 rounded border text-sm min-w-[36px]",
-                        m.myAvailabilitySet
-                          ? (m.myAvailable
-                              ? "bg-green-50 border-green-300 text-green-700"
-                              : "bg-gray-100 border-gray-300 text-gray-500")
-                          : "bg-green-50 border-green-300 text-green-700"
-                      )}
-                      title="Jestem dostępny"
-                      onClick={async () => {
-                        try {
-                          await setMyAvailability(m.id, true);
-                          setState(s => ({
-                            ...s,
-                            matches: s.matches.map(x =>
-                              x.id === m.id ? { ...x, myAvailable: true, myAvailabilitySet: true } : x
-                            )
-                          }));
-                        } catch (e:any) {
-                          alert("Błąd zapisu dostępności: " + e.message);
-                        }
-                      }}
-                    >
-                      <Check
-                        className={clsx(
-                          "w-4 h-4",
-                          m.myAvailabilitySet
-                            ? (m.myAvailable ? "text-green-700" : "text-gray-400")
-                            : "text-green-700"
-                        )}
-                      />
-                    </button>
-
-                    {/* NIEDOSTĘPNY */}
-                    <button
-                      className={clsx(
-                        "px-2 py-1 rounded border text-sm min-w-[36px]",
-                        m.myAvailabilitySet
-                          ? (!m.myAvailable
-                              ? "bg-red-50 border-red-300 text-red-700"
-                              : "bg-gray-100 border-gray-300 text-gray-500")
-                          : "bg-red-50 border-red-300 text-red-700"
-                      )}
-                      title="Nie mogę"
-                      onClick={async () => {
-                        try {
-                          await setMyAvailability(m.id, false);
-                          setState(s => ({
-                            ...s,
-                            matches: s.matches.map(x =>
-                              x.id === m.id ? { ...x, myAvailable: false, myAvailabilitySet: true } : x
-                            )
-                          }));
-                        } catch (e:any) {
-                          alert("Błąd zapisu dostępności:" + e.message);
-                        }
-                      }}
-                    >
-                      <X
-                        className={clsx(
-                          "w-4 h-4",
-                          m.myAvailabilitySet
-                            ? (!m.myAvailable ? "text-red-700" : "text-gray-400")
-                            : "text-red-700"
-                        )}
-                      />
-                    </button>
-                  </div>
-                </td>
-              )}
-
-              {/* Sędziowie dostępni (Admin) */}
-              {isUserAdmin && (
-                <td className="px-2 py-1 break-words">
-                  <AdminAvailableReferees matchId={m.id} />
-                </td>
-              )}
-            </tr>
-          );
-        })}
-      </React.Fragment>
-    );
-  })}
-</tbody>
-
-  </table>
-</div>
-    </Section>
-  );
-};
-
-const AdminAvailableReferees: React.FC<{ matchId: string }> = ({ matchId }) => {
-  // Trzymamy wyniki jako tablicę dowolnych rekordów i dopiero przy renderze wyciągamy nazwę
-  const [list, setList] = React.useState<any[]>([]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const rows = await listAvailableReferees(matchId);
-        const arr: any[] = Array.isArray(rows) ? rows : [];
-
-        // Akceptujemy: string | { name: string } | { display_name: string } | cokolwiek z polem 'name'
-        const normalized = arr
-          .map((r) => {
-            if (typeof r === "string") return r;
-            if (r && typeof r === "object") {
-              if (typeof r.name === "string") return r.name;
-              if (typeof r.display_name === "string") return r.display_name;
-            }
-            return "";
-          })
-          .filter((s) => typeof s === "string" && s);
-
-        if (!cancelled) setList(normalized);
-      } catch (e: any) {
-        console.warn("listAvailableReferees error:", e?.message || e);
-        if (!cancelled) setList([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [matchId]);
-
-  if (!list.length) return <span className="text-gray-500">–</span>;
-  return <span className="text-xs">{list.join(", ")}</span>;
-};
-
-const PerMatchActions: React.FC<{
-  state: AppState;
-  setState: React.Dispatch<React.SetStateAction<AppState>>;
-  user: { name: string; role: Role; club?: string };
-  onPenaltiesChange: () => void;
-}> = ({ state, setState, user, onPenaltiesChange }) => {
-  const availableMatches = useMemo(() => {
-  if (user.role === "Delegate") {
-    return state.matches.filter(m => m.delegate === user.name);
-  }
-  if (user.role === "Club" && user.club) {
-    return state.matches.filter(m => m.home === user.club || m.away === user.club);
-  }
-  // Admin (lub inne role) widzą wszystko
-  return state.matches;
-}, [state.matches, user.role, user.name, user.club]);
-
-const [selectedId, setSelectedId] = useState<string>(availableMatches[0]?.id ?? "");
-useEffect(() => {
-  // gdy zmieni się lista dostępnych meczów, ustaw pierwszy jako domyślny
-  setSelectedId(availableMatches[0]?.id ?? "");
-}, [availableMatches]);
-
-const match = availableMatches.find(m => m.id === selectedId) || null;
-const isMatchDelegate = !!match && (match.delegate === user.name);
-const canActAsDelegate = isAdmin(user) || isMatchDelegate;
-  const [resultDraft, setResultDraft] = useState<string>(match?.result || "");
-  const [shootoutDraft, setShootoutDraft] = useState<boolean>(!!match?.shootout);
-
-  useEffect(() => {
-    setResultDraft(match?.result || "");
-    setShootoutDraft(!!match?.shootout);
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function pushLog(next: Match, entry: Omit<UploadLog, "id" | "matchId" | "at">) {
-    next.uploadsLog = [
-      { id: crypto.randomUUID(), matchId: next.id, at: new Date().toISOString(), ...entry },
-      ...next.uploadsLog,
-    ];
-  }
-
-async function handleUpload(type: "comms" | "roster" | "report" | "photos") {
-  if (!match) return;
-
-  // Otwórz wybór pliku(ów)
-  const input = document.createElement("input");
-  input.type = "file";
-  if (type === "photos") input.multiple = true;
-
-  input.onchange = async () => {
-    const files = Array.from(input.files || []);
-    if (files.length === 0) return;
-
-    const next = { ...match } as Match;
-
-    // --- KLUB: komunikat / skład ---
-    if (type === "comms" || type === "roster") {
-      if (user.role !== "Club" || !user.club) {
-        alert("Ta akcja jest dostępna tylko dla roli Klub (z ustawioną nazwą klubu).");
-        return;
-      }
-
-      const key =
-        user.club === match.home ? "home" :
-        user.club === match.away ? "away" : null;
-
-      if (!key) {
-        alert("Twój klub nie jest przypisany do tego meczu.");
-        return;
-      }
-
-      try {
-        if (type === "comms") {
-          if (!canUploadComms(user, match)) {
-            alert("Komunikat może dodać wyłącznie gospodarz meczu.");
-            return;
-          }
-
-          // UŻYWAMY znormalizowanego klucza klubu
-          const clubKey = normKey(match.home);
-          console.log("[UPLOAD] comms ->", { matchId: match.id, clubKey, file: files[0]?.name });
-
-          const sf = await toStoredFileUsingStorage(
-            "comms",
-            match.id,
-            clubKey,
-            files[0],
-            user.name,
-            `Komunikat - ${match.home} - ${match.date}`
-          );
-
-          next.commsByClub[key] = sf;
-          pushLog(next, { type: "comms", club: user.club, user: user.name, fileName: sf.name });
-        } else {
-          if (!canUploadRoster(user, match)) {
-            alert("Skład może dodać tylko klub biorący udział w meczu.");
-            return;
-          }
-
-          const clubName = key === "home" ? match.home : match.away;
-          const clubKey  = normKey(clubName);
-          console.log("[UPLOAD] roster ->", { matchId: match.id, clubKey, file: files[0]?.name });
-
-          const sf = await toStoredFileUsingStorage(
-            "roster",
-            match.id,
-            clubKey,
-            files[0],
-            user.name,
-            `Skład - ${clubName} - ${match.date}`
-          );
-
-          next.rosterByClub[key] = sf;
-          pushLog(next, { type: "roster", club: user.club, user: user.name, fileName: sf.name });
-        }
-      } catch (e: any) {
-        console.error("[UPLOAD ERROR]", e);
-        alert("Błąd wysyłania pliku: " + (e?.message || e));
-        return; // przerywamy — nic nie zapisujemy w stanie, jeśli upload padł
-      }
-    }
-
-    // --- DELEGAT/ADMIN: protokół ---
-    if (type === "report") {
-      try {
-        if (!canUploadReport(user, match)) {
-  alert("Protokół może dodać tylko delegat tego meczu lub Admin.");
-  return;
-}
-
-        console.log("[UPLOAD] report ->", { matchId: match.id, file: files[0]?.name });
-
-        const sf = await toStoredFileUsingStorage(
-          "report",
-          match.id,
-          "neutral",
-          files[0],
-          user.name,
-          `Protokół - ${match.home} vs ${match.away} - ${match.date}`
-        );
-
-        next.matchReport = sf;
-        pushLog(next, { type: "protocol", club: null, user: user.name, fileName: sf.name });
-      } catch (e: any) {
-        console.error("[UPLOAD ERROR]", e);
-        alert("Błąd wysyłania protokołu: " + (e?.message || e));
-        return;
-      }
-    }
-
-    // --- DELEGAT/ADMIN: zdjęcia raportu ---
-    if (type === "photos") {
-      try {
-       if (!canUploadReport(user, match)) {
-  alert("Zdjęcia raportu może dodać tylko delegat tego meczu lub Admin.");
-  return;
-}
-
-        console.log("[UPLOAD] photos ->", { matchId: match.id, count: files.length });
-
-        const sfs: StoredFile[] = [];
-        for (const f of files) {
-          sfs.push(
-            await toStoredFileUsingStorage("photos", match.id, "neutral", f, user.name, "Zdjęcie raportu")
-          );
-        }
-
-        next.reportPhotos = [...next.reportPhotos, ...sfs];
-        pushLog(next, { type: "photos", club: null, user: user.name, fileName: `${files.length} zdjęć` });
-      } catch (e: any) {
-        console.error("[UPLOAD ERROR]", e);
-        alert("Błąd wysyłania zdjęć: " + (e?.message || e));
-        return;
-      }
-    }
-
-    // Optymistyczna aktualizacja UI po udanym uploadzie
-    const newState = {
-      ...state,
-      matches: state.matches.map((m) => (m.id === match.id ? next : m)),
-    };
-    setState(newState);
-  };
-
-  input.click();
-}
-
-  async function saveResult() {
-    if (!match) return;
-    if (!canEditResult(user, match)) { alert("Wynik może ustawić tylko delegat tego meczu."); return; }
-    try {
-      await setMatchResult(match.id, resultDraft, shootoutDraft);
-      const newState = {
-        ...state,
-        matches: state.matches.map(m =>
-          m.id === match.id ? { ...m, result: resultDraft, shootout: shootoutDraft } : m
-        ),
-      };
-      setState(newState);
-    } catch (e: any) {
-      alert("Błąd zapisu wyniku: " + e.message);
-    }
-  }
-
-const canClubAct = () => isClub(user) && !!user.club;
-const canDelegateAct = () => isDelegate(user);
-
-
-  return (
-    <div className="grid gap-4">
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-amber-600">Wybierz mecz:</span>
-       <select className={classes.input} value={selectedId} onChange={e => setSelectedId(e.target.value)}>
-  {availableMatches.length === 0 ? (
-    <option value="" disabled>Brak meczów do wyboru</option>
-  ) : (
-    availableMatches.map(m => (
-      <option key={m.id} value={m.id}>
-        {m.date} {m.time ? m.time + " • " : ""}{m.home} vs {m.away}
-      </option>
-    ))
-  )}
-</select>
-      </div>
-
-      {match && (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            {canClubAct() && (
-              <>
-                {canUploadComms(user, match) && (
-                  <button onClick={() => handleUpload("comms")} className={clsx(classes.btnOutline, "flex items-center gap-2")}>
-                    <UploadCloud className="w-4 h-4" />Dodaj komunikat (Gospodarz)
-                  </button>
-                )}
-                {canUploadRoster(user, match) ? (
-                  <button onClick={() => handleUpload("roster")} className={clsx(classes.btnOutline, "flex items-center gap-2")}>
-                    <UploadCloud className="w-4 h-4" />Dodaj skład (Twój klub)
-                  </button>
-                ) : (
-                  <div className="text-sm text-gray-600">Twój klub nie jest uczestnikiem tego meczu.</div>
-                )}
-              </>
-            )}
-
-{/* Klub–gospodarz: zmiana daty i godziny (tylko jeśli zalogowany klub jest gospodarzem) */}
-{isClub(user) && user.club && match && user.club === match.home && (
-<>
-  <div className="mt-4 border-t pt-3">
-    <div className="text-sm text-amber-600 font-medium mb-2">
-      Zmień datę / godzinę (gospodarz)
-    </div>
-    <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-end">
-      <div>
-        <label className="text-xs text-gray-600">Data</label>
-        <input
-          type="date"
-          defaultValue={match.date}
-          id="host-date"
-          className={classes.input}
-          style={{ minWidth: 180 }}
-        />
-      </div>
-      <div>
-        <label className="text-xs text-gray-600">Godzina (opcjonalnie)</label>
-        <input
-          type="time"
-          defaultValue={match.time || ""}
-          id="host-time"
-          className={classes.input}
-          style={{ minWidth: 160 }}
-        />
-      </div>
-<button
-  className={classes.btnPrimary}
-  onClick={async () => {
-    const dateEl   = document.getElementById("host-date")   as HTMLInputElement;
-    const timeEl   = document.getElementById("host-time")   as HTMLInputElement;
-    const streamEl = document.getElementById("host-stream") as HTMLInputElement;
-
-    const newDate   = (dateEl?.value || "").trim();
-    const newTime   = (timeEl?.value || "").trim();
-    const rawStream = (streamEl?.value || "").trim();
-    const safeStream = sanitizeUrl(rawStream); // null jeśli niepoprawny
-
-    if (!newDate) { alert("Podaj poprawną datę."); return; }
-    if (rawStream && !safeStream) {
-      alert("Podany link do transmisji jest niepoprawny. Upewnij się, że zaczyna się od http(s)://");
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("matches")
-        .update({
-          date: newDate,
-          time: newTime || null,
-          stream_url: safeStream || null, // <-- ZAPISUJEMY LINK
-        })
-        .eq("id", match.id);
-      if (error) throw error;
-
-      // odśwież lokalny stan
-      const updated = {
-        ...match,
-        date: newDate,
-        time: newTime,
-        streamUrl: safeStream || null,    // <-- LOKALNIE TEŻ
-      };
-      setState({
-        ...state,
-        matches: state.matches.map(m => (m.id === match.id ? updated : m)),
-      });
-      alert("Zaktualizowano termin i link do transmisji.");
-    } catch (e:any) {
-      alert("Błąd zapisu: " + e.message);
-    }
-  }}
->
-        Zapisz termin i link
-      </button>
-    </div>
-    <div className="text-xs text-gray-500 mt-1">
-      Uprawnienie tylko dla klubu–gospodarza. Zmienić można datę, godzinę oraz link do transmisji.
-    </div>
-    </div>
-    <div>
-      <label className="text-xs text-gray-600">Link do transmisji (opcjonalnie)</label>
-      <input
-        type="url"
-        defaultValue={match.streamUrl || ""}
-        id="host-stream"
-        placeholder="https://…"
-        className={classes.input}
-        style={{ minWidth: 260 }}
-      />
-    </div>
-  </>
-)}
-
-            
-{canActAsDelegate && (
-  <>
-    <button onClick={() => handleUpload("report")} className={clsx(classes.btnPrimary, "flex items-center gap-2 w-full sm:w-auto")}>
-      <UploadCloud className="w-4 h-4" />Dodaj protokół
-    </button>
-    <button onClick={() => handleUpload("photos")} className={clsx(classes.btnOutline, "flex items-center gap-2 w-full sm:w-auto")}>
-      <Image className="w-4 h-4" />Dodaj zdjęcia raportu
-    </button>
-  </>
-)}
-
-          </div>
-
-          {canActAsDelegate && (
-            <div className="mt-4 border-t pt-3">
-             <div className="text-sm text-amber-600 font-medium mb-2">Nałóż karę</div>
-
-              <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-                <select id="pen-club" className={classes.input + " w-full"} defaultValue="">
-                  <option value="" disabled>Wybierz klub</option>
-                  <option value={match.home}>{match.home} (gospodarz)</option>
-                  <option value={match.away}>{match.away} (goście)</option>
-                </select>
-                <input id="pen-player" className={classes.input + " w-full"} placeholder="Nazwisko zawodnika" />
-  <input id="pen-games" className={classes.input + " w-full"} type="number" min={1} placeholder="Mecze kary" />
-              </div>
-
-              <div className="mt-2">
-                <button
-                  className={clsx(classes.btnPrimary, "flex items-center gap-2")}
-                  onClick={async () => {
-                    const clubSel = document.getElementById("pen-club") as HTMLSelectElement;
-                    const playerInp = document.getElementById("pen-player") as HTMLInputElement;
-                    const gamesInp = document.getElementById("pen-games") as HTMLInputElement;
-
-                    const club = clubSel?.value || "";
-                    const player = playerInp?.value?.trim() || "";
-                    const games = parseInt(gamesInp?.value || "0", 10);
-
-                    if (!club || !player || !games || games < 1) {
-                      alert("Wypełnij wszystkie pola: Klub, Nazwisko, Liczba meczów (>=1).");
-                      return;
-                    }
-
-                    try {
-                      await addPenalty(match.id, club, player, games);
-                      onPenaltiesChange();
-                      alert("Kara dodana.");
-                      clubSel.value = "";
-                      playerInp.value = "";
-                      gamesInp.value = "";
-                    } catch (e: any) {
-                      alert("Błąd dodawania kary: " + e.message);
-                    }
-                  }}
-                >
-                  Dodaj karę
-                </button>
-                <div className="text-xs text-gray-500 mt-1">
-                  Kara będzie widoczna w najbliższych meczach danego klubu, poczynając od następnego spotkania po meczu, w którym ją nałożono.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {canEditResult(user, match) && (
-          <div className="grid gap-2 grid-cols-1 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-  <input
-    className={classes.input + " w-full sm:w-auto"}
-    placeholder="Wynik (np. 10:9)"
-    value={resultDraft}
-    onChange={(e) => setResultDraft(e.target.value)}
-    style={{ maxWidth: 200 }}
-  />
-
-  <label className="inline-flex items-center gap-2 text-sm">
-    <input
-      type="checkbox"
-      checked={shootoutDraft}
-      onChange={(e) => setShootoutDraft(e.target.checked)}
-    />
-    Rzuty karne
-  </label>
-
-  <button
-    onClick={saveResult}
-    className={clsx(classes.btnPrimary, "flex items-center gap-2 w-full sm:w-auto")}
-  >
-    <Check className="w-4 h-4" />
-    Zapisz wynik
-  </button>
-
-  <span className="text-xs text-gray-500 block">
-    (Dostępne tylko dla delegata tego meczu)
-  </span>
-</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};         
-
-const AdminPanel: React.FC<{
-  state: AppState;
-setState: React.Dispatch<React.SetStateAction<AppState>>; 
-  clubs: readonly string[];
-  refereeNames: string[];
-  delegateNames: string[];
-  onAfterChange: () => void;
-  canWrite: boolean;
-  editingMatchId?: string | null;
-  clearEditing?: () => void;
-}> = ({
-  state, setState, clubs, refereeNames, delegateNames, onAfterChange, canWrite,
-  editingMatchId, clearEditing
-}) => {
-
-
-const blank: Match = {
-  id: crypto.randomUUID(),
-  date: new Date().toISOString().slice(0,10),
-  time: "",
-  round: "",
-  seriesRound: null,
-  location: "",
-  home: "",
-  away: "",
-  referees: ["",""],
-  delegate: "",
-  commsByClub: { home: null, away: null },
-  rosterByClub: { home: null, away: null },
-  matchReport: null,
-  reportPhotos: [],
-  notes: "",
-  result: "",
-  uploadsLog: [],
-  streamUrl: null, // <-- DODANE
-};
-  const [draft,setDraft]=useState<Match>(blank); const [editId,setEditId]=useState<string|null>(null);
-  // ✓ przy sędziach dostępnych na aktualnie edytowany mecz (draft.id)
-const [availNames, setAvailNames] = React.useState<Set<string>>(new Set());
-
-React.useEffect(() => {
-  let cancelled = false;
-  (async () => {
-    try {
-      if (!draft?.id) {
-        if (!cancelled) setAvailNames(new Set());
-        return;
-      }
-
-      // Ręcznie określany typ, żeby TS nie robił z tego { name: any }[]
-      const result: unknown = await namesOfAvailableReferees(draft.id);
-
-      let safe = new Set<string>();
-
-      if (result instanceof Set) {
-        safe = new Set<string>(Array.from(result as Set<unknown>)
-          .map(String)
-          .filter(Boolean));
-      } else if (Array.isArray(result)) {
-        // Obsługuje: string[] | { name:string }[] | { display_name:string }[]
-        const arr = (result as any[])
-          .map((r) => {
-            if (typeof r === "string") return r;
-            if (r && typeof r === "object") {
-              if (typeof (r as any).name === "string") return (r as any).name;
-              if (typeof (r as any).display_name === "string") return (r as any).display_name;
-            }
-            return "";
-          })
-          .filter((x) => typeof x === "string" && x.length > 0);
-        safe = new Set<string>(arr);
-      }
-
-      if (!cancelled) setAvailNames(safe);
-    } catch (e: any) {
-      console.warn("namesOfAvailableReferees error:", e?.message || e);
-      if (!cancelled) setAvailNames(new Set());
-    }
-  })();
-  return () => {
-    cancelled = true;
-  };
-}, [draft?.id]);
-
-// ⤵️ Quick-edit z tabeli: po otrzymaniu id meczu ustawiamy formularz i tryb edycji
-useEffect(() => {
-  if (!editingMatchId) return;
-  const m = state.matches.find(x => x.id === editingMatchId);
-  if (m) {
-    setDraft(m);
-    setEditId(m.id);
-  }
-  // wyczyść trigger, żeby nie odpalać się ponownie
-  clearEditing?.();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [editingMatchId]);
-
-  
-function toDbRow(m: Match){
-  return {
-    date: m.date,
-    time: m.time || null,
-    round: m.round || null,
-        series_round: m.seriesRound || null,
-    location: m.location,
-    home: m.home,
-    away: m.away,
-    result: m.result || null,
-    referee1: m.referees[0] || null,
-    referee2: m.referees[1] || null,
-    delegate: m.delegate || null,
-    notes: m.notes || null,
-    stream_url: sanitizeUrl(m.streamUrl) || null, 
-  };
-}
-
-  async function saveDraft(){ 
-    if(!canWrite){ alert("Tylko Admin może zapisywać mecze do bazy."); return; }
-    if (!draft.home||!draft.away||!draft.location||!draft.date){ alert("Uzupełnij: data, miejsce, drużyny"); return; }
-    try{
-      if(editId){
-        await dbUpdateMatch(editId, toDbRow(draft))
-      } else {
-        await createMatch(toDbRow(draft) as any)
-      }
-      setDraft({ ...blank, id: crypto.randomUUID() }); setEditId(null); onAfterChange();
-    } catch(e:any){ alert("Błąd zapisu: " + e.message) }
-  }
-
-  async function removeMatch(id:string){
-    if(!canWrite){ alert("Tylko Admin może usuwać mecze."); return; }
-    if(!confirm("Usunąć mecz?")) return;
-    try{ await dbDeleteMatch(id); onAfterChange(); } catch(e:any){ alert("Błąd usuwania: " + e.message) }
-  }
-
-  return (<Section title="Panel administratora (mecze w bazie)" icon={<Settings className="w-5 h-5" />}> 
-    <div className="grid md:grid-cols-2 gap-6">
-      <div><div className="font-medium mb-2">Dodaj / edytuj mecz</div><div className="grid gap-2">
-        <div className="grid grid-cols-2 gap-2"><input className={classes.input} type="date" value={draft.date} onChange={e=>setDraft({...draft, date:e.target.value})}/><input className={classes.input} placeholder="Godzina (opcjonalnie)" value={draft.time||""} onChange={e=>setDraft({...draft, time:e.target.value})}/></div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-  <input
-    className={classes.input}
-    placeholder="Nr meczu"
-    value={draft.round || ""}
-    onChange={e => setDraft({ ...draft, round: e.target.value })}
-  />
-  <input
-    className={classes.input}
-    placeholder="Runda"
-    value={draft.seriesRound || ""}
-    onChange={e => setDraft({ ...draft, seriesRound: e.target.value })}
-  />
-  <input
-    className={classes.input}
-    placeholder="Miejsce"
-    value={draft.location}
-    onChange={e => setDraft({ ...draft, location: e.target.value })}
-  />
-</div>
-        <div className="grid grid-cols-2 gap-2">
-          <select className={classes.input} value={draft.home} onChange={e=>setDraft({...draft, home:e.target.value})}><option value="">Wybierz gospodarza</option>{clubs.map(c=><option key={c} value={c}>{c}</option>)}</select>
-          <select className={classes.input} value={draft.away} onChange={e=>setDraft({...draft, away:e.target.value})}><option value="">Wybierz gości</option>{clubs.map(c=><option key={c} value={c}>{c}</option>)}</select>
-        </div>
-<div className="grid grid-cols-2 gap-2">
-  <select
-    className={classes.input}
-    value={draft.referees[0]}
-    onChange={e=>setDraft({...draft, referees:[e.target.value, draft.referees[1]||""]})}
-  >
-    <option value="">Sędzia 1</option>
-    {refereeNames.map(n => (
-      <option key={n} value={n}>
-        {n}{availNames.has(n) ? " ✓" : ""}
-      </option>
-    ))}
-  </select>
-
-  <select
-    className={classes.input}
-    value={draft.referees[1]}
-    onChange={e=>setDraft({...draft, referees:[draft.referees[0]||"", e.target.value]})}
-  >
-    <option value="">Sędzia 2</option>
-    {refereeNames.map(n => (
-      <option key={n} value={n}>
-        {n}{availNames.has(n) ? " ✓" : ""}
-      </option>
-    ))}
-  </select>
-</div>
-        <select className={classes.input} value={draft.delegate||""} onChange={e=>setDraft({...draft, delegate:e.target.value})}><option value="">Delegat</option>{delegateNames.map(n=><option key={n} value={n}>{n}</option>)}</select>
-        <input className={classes.input} placeholder="Wynik (np. 10:9)" value={draft.result||""} onChange={e=>setDraft({...draft, result:e.target.value})}/>
-        <textarea className={classes.input + " min-h-[80px]"} placeholder="Notatki" value={draft.notes||""} onChange={e=>setDraft({...draft, notes:e.target.value})}/>
-        <input
-  className={classes.input}
-  placeholder="Link do transmisji (opcjonalny)"
-  value={draft.streamUrl || ""}
-  onChange={e => setDraft({ ...draft, streamUrl: e.target.value })}
-/>
-        <div className="flex gap-2"><button onClick={saveDraft} className={clsx(classes.btnPrimary,"flex items-center gap-2")}><Save className="w-4 h-4"/>{editId?"Zapisz zmiany":"Dodaj mecz"}</button>{editId && (
-  <button
-    className={classes.btnSecondary}
-    onClick={() => {
-      setDraft({ ...blank, id: crypto.randomUUID() });
-      setEditId(null);
-    }}
-  >
-    Anuluj edycję
-  </button>
-)}</div>
-        {!canWrite && <div className="text-xs text-amber-700">Zaloguj się jako Admin, aby dodać/edytować mecze.</div>}
-      </div></div>
-      <div><div className="font-medium mb-2">Istniejące mecze</div><div className="flex flex-col gap-2">
-        {state.matches.map(m=>(<div key={m.id} className="rounded-xl border p-3 bg-white flex items-center justify-between">
-          <div><div className="font-medium">{m.date} {m.time? m.time+" • ":""}{m.home} vs {m.away}</div><div className="text-xs text-gray-600">{m.location} • Sędz.: {m.referees.join(", ")} • Deleg.: {m.delegate||"-"} • Wynik: {m.result||'-'}</div></div>
-          <div className="flex gap-2"><button onClick={()=>{setDraft(m); setEditId(m.id);}} className={classes.iconBtn} title="Edytuj"><Edit className="w-4 h-4"/></button><button onClick={()=>removeMatch(m.id)} className={clsx(classes.iconBtn,"text-red-600")} title="Usuń"><Trash2 className="w-4 h-4"/></button></div>
-        </div>))}
-        {state.matches.length===0 && <div className="text-sm text-gray-500">Brak meczów w bazie.</div>}
-      </div></div>
-    </div>
-  </Section>)
-}
-
 // Diagnostics
 function runDiagnostics(state:AppState){
   type Test={name:string; pass:boolean; details?:string}; const tests:Test[]=[]; const sample=state.matches[0];
@@ -1860,118 +244,6 @@ const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=r
   return (<Section title="Diagnostyka (testy runtime)" icon={<Shield className="w-5 h-5"/>}><div className="mb-2 text-sm">Wynik: {allPass? <span className="text-green-700 font-semibold">OK</span> : <span className="text-red-700 font-semibold">BŁĘDY</span>}</div>
     <ul className="text-sm space-y-1">{tests.map((t,i)=>(<li key={i} className={t.pass?"text-green-700":"text-red-700"}>• {t.name} — {t.pass?"PASS":"FAIL"}{t.details?` (${t.details})`:''}</li>))}</ul></Section>)
 }
-
-const RankingTable: React.FC<{ matches: Match[]; clubs: string[] }> = ({ matches, clubs }) => {
-  const table = useMemo(() => {
-    type Row = { team: string; pts: number; played: number; goalsFor: number; goalsAgainst: number };
-    const stats: Record<string, Row> = {};
-
-    // normalizacja nazw (usuwa kropki na końcu, podwójne spacje, NBSP itd.)
-    const normalizeTeam = (s: string) =>
-      (s || "")
-        .replace(/\u00A0/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .replace(/\.+$/, "");
-
-    const seeded =
-      clubs?.length
-        ? clubs
-        : Array.from(new Set(matches.flatMap(m => [m.home, m.away])));
-
-    // zainicjuj z listy klubów
-    seeded.forEach(raw => {
-      const name = normalizeTeam(raw);
-      if (!name) return;
-      stats[name] = { team: raw || name, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
-    });
-
-    const ensure = (raw: string) => {
-      const name = normalizeTeam(raw);
-      if (!name) return null;
-      if (!stats[name]) {
-        stats[name] = { team: raw || name, pts: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
-      }
-      return name;
-    };
-
-    for (const m of matches) {
-      if (!m?.result) continue;
-
-      const home = ensure(m.home);
-      const away = ensure(m.away);
-      if (!home || !away) continue;
-
-// akceptuj 10:9, 10-9, 10–9, 10—9 (z ewentualnymi spacjami)
-const score = String(m.result);
-const mScore = score.match(/^\s*(\d+)\s*[:\-–—]\s*(\d+)\s*$/);
-if (!mScore) continue;
-const a = Number(mScore[1]);
-const b = Number(mScore[2]);
-
-      const H = stats[home];
-      const A = stats[away];
-
-      H.played++; A.played++;
-      H.goalsFor += a; H.goalsAgainst += b;
-      A.goalsFor += b; A.goalsAgainst += a;
-
-      if (m.shootout) {
-        if (a > b) { H.pts += 2; A.pts += 1; }
-        else       { A.pts += 2; H.pts += 1; }
-      } else {
-        if (a > b) H.pts += 3;
-        else if (b > a) A.pts += 3;
-      }
-    }
-
-    return Object.values(stats).sort((x, y) => {
-      if (x.played === 0 && y.played === 0) return x.team.localeCompare(y.team);
-      return (
-        y.pts - x.pts ||
-        (y.goalsFor - y.goalsAgainst) - (x.goalsFor - x.goalsAgainst) ||
-        y.goalsFor - x.goalsFor ||
-        x.team.localeCompare(y.team)
-      );
-    });
-  }, [matches, clubs]);
-
-  return (
-    <Section title="Tabela wyników" icon={<Table className="w-5 h-5" />}>
-      <table className="table-auto w-full text-xs sm:text-sm">
-        <thead className="bg-white shadow-sm">
-          <tr className="text-left border-b bg-gray-50">
-            <th className="px-2 py-1 whitespace-nowrap w-[80px] text-center">Miejsce</th>
-            <th className="px-2 py-1 break-words">Drużyna</th>
-            <th className="px-2 py-1 whitespace-nowrap w-[70px] text-center">Pkt</th>
-            <th className="px-2 py-1 whitespace-nowrap w-[70px] text-center">M</th>
-            <th className="px-2 py-1 whitespace-nowrap w-[90px] text-center">B</th>
-          </tr>
-        </thead>
-        <tbody>
-          {table.map((row, i) => (
-            <tr
-              key={row.team}
-              className={clsx(
-                "border-b hover:bg-sky-50 transition-colors",
-                i % 2 ? "bg-white" : "bg-slate-50/60",
-                i === 0 && "!bg-amber-200",
-                i === 1 && "!bg-gray-200",
-                i === 2 && "!bg-orange-200"
-              )}
-            >
-              <td className="px-2 py-1 whitespace-nowrap text-center">{i + 1}</td>
-              <td className="px-2 py-1 break-words">{row.team}</td>
-              <td className="px-2 py-1 whitespace-nowrap text-center">{row.pts}</td>
-              <td className="px-2 py-1 whitespace-nowrap text-center">{row.played}</td>
-              <td className="px-2 py-1 whitespace-nowrap text-center">{row.goalsFor}:{row.goalsAgainst}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Section>
-  );
-};
 
 const UserChip: React.FC<{
   effectiveUser: { name: string; role: Role; club?: string } | null;
@@ -2080,16 +352,15 @@ useEffect(() => {
 }, [authUser?.id, userDisplay, authUser?.email]);
 
 
-// --- quick edit (Admin): scroll do panelu + załaduj mecz ---
-const adminPanelRef = React.useRef<HTMLDivElement>(null);
+// --- quick edit (Admin): otwieraj edycję inline pod wybranym meczem ---
 const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
 
 function handleQuickEdit(matchId: string) {
-  setEditingMatchId(matchId);
-  // delikatne opóźnienie, żeby DOM miał ref już wpięty
-  setTimeout(() => {
-    adminPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, 50);
+  setEditingMatchId((current) => (current === matchId ? null : matchId));
+}
+
+function handleCancelInlineEdit() {
+  setEditingMatchId(null);
 }
 // === [3.3] PROSTA NAWIGACJA ARTYKUŁÓW (mini-router) ===
 const [page, setPage] = useState<'home' | 'articles' | 'article' | 'editor' | 'moderation' | 'register' | 'approvals'>('home');
@@ -2103,6 +374,34 @@ function openEditor(newId?: string | null) {
   setOpenedArticleId(newId ?? null);
   setPage('editor');
 }
+
+const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'my-matches' | 'club' | 'ktpw' | 'admin'>('dashboard');
+const [savedRosters, setSavedRosters] = useState<SaveRosterPayload[]>([]);
+
+const handleSaveRoster = React.useCallback((payload: SaveRosterPayload) => {
+  const nextPayload: SaveRosterPayload = {
+    ...payload,
+    updatedAt: payload.updatedAt ?? payload.savedAt,
+  };
+  setSavedRosters((current) => {
+    const next = [...current];
+    const index = next.findIndex((item) =>
+      item.mode === payload.mode &&
+      item.clubName === payload.clubName &&
+      (payload.mode === "tournament"
+        ? item.tournamentId === payload.tournamentId
+        : item.matchId === payload.matchId)
+    );
+
+    if (index >= 0) {
+      next[index] = nextPayload;
+      return next;
+    }
+
+    next.push(nextPayload);
+    return next;
+  });
+}, []);
 
   const [state,setState]=useState<AppState>({ matches: [], users:[
     {name:"Admin", role:"Admin"}, {name:"AZS Szczecin – Klub", role:"Club", club:"AZS Szczecin"}, {name:"KS Warszawa – Klub", role:"Club", club:"KS Warszawa"}, {name:"Anna Delegat", role:"Delegate"}, {name:"Sędzia – Demo", role:"Referee"}, {name:"Gość", role:"Guest"}
@@ -2125,6 +424,136 @@ useEffect(() => {
   refreshClubs();
 }, [refreshClubs]);
 
+  // --- Competitions (rozgrywki) --- Layer 1
+  const fallbackCompetitions: Competition[] = [
+    { id: 'fallback-ekstraklasa', name: 'Ekstraklasa', short_name: 'EKS', type: 'league', level: 'senior', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-puchar-polski', name: 'Puchar Polski', short_name: 'PP', type: 'cup', level: 'senior', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-u23', name: 'U23', short_name: 'U23', type: 'league', level: 'U23', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-u19', name: 'U19', short_name: 'U19', type: 'league', level: 'U19', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-u17', name: 'U17', short_name: 'U17', type: 'league', level: 'U17', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-u15', name: 'U15', short_name: 'U15', type: 'league', level: 'U15', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+    { id: 'fallback-u13', name: 'U13', short_name: 'U13', type: 'league', level: 'U13', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
+  ];
+const [competitions, setCompetitions] = useState<Competition[]>([]);
+const [selectedCompetitionId, setSelectedCompetitionId] = useState<string | null>(null);
+const [selectedCompetitionSeason, setSelectedCompetitionSeason] = useState<CompetitionSeason | null>(null);
+const [loadingCompetitions, setLoadingCompetitions] = useState(false);
+
+const refreshCompetitions = React.useCallback(async () => {
+  setLoadingCompetitions(true);
+  try {
+    const comps = await listCompetitions();
+    setCompetitions(comps);
+
+    setSelectedCompetitionId((current) => {
+      if (current && comps.some((c) => c.id === current)) {
+        return current;
+      }
+
+      const ekstraklasa = comps.find(
+        (c) => c.name === 'Ekstraklasa' || c.short_name === 'EKS'
+      );
+      return ekstraklasa?.id || comps[0]?.id || null;
+    });
+
+    const ekstraklasa = comps.find((c) => c.name === 'Ekstraklasa');
+    if (ekstraklasa) {
+      // Znajdź sezon 2025/2026 dla Ekstraklasy
+      try {
+        const { data: seasons, error: seErr } = await supabase
+          .from('seasons')
+          .select('id')
+          .eq('name', '2025/2026')
+          .single();
+
+        if (!seErr && seasons) {
+          const compSeason = await getCompetitionSeason(ekstraklasa.id, seasons.id);
+          setSelectedCompetitionSeason(compSeason);
+        }
+      } catch (e) {
+        console.warn('[refreshCompetitions] sezon lookup failed', e);
+      }
+    }
+  } catch (e: any) {
+    console.warn('[refreshCompetitions] error', e?.message);
+  }
+  setLoadingCompetitions(false);
+}, []);
+
+useEffect(() => {
+  refreshCompetitions();
+}, [refreshCompetitions]);
+
+useEffect(() => {
+  if (!selectedCompetitionId) {
+    const fallbackEkstraklasa = fallbackCompetitions.find(c => c.name === 'Ekstraklasa');
+    setSelectedCompetitionId(fallbackEkstraklasa?.id ?? fallbackCompetitions[0].id);
+  }
+}, [selectedCompetitionId, fallbackCompetitions]);
+
+const handleCompetitionChange = async (competitionId: string) => {
+  setSelectedCompetitionId(competitionId);
+  setSelectedCompetitionSeason(null);
+
+  if (competitionId.startsWith('fallback-')) {
+    return;
+  }
+
+  // Pobierz sezon 2025/2026
+  try {
+    const { data: seasons, error: seErr } = await supabase
+      .from('seasons')
+      .select('id')
+      .eq('name', '2025/2026')
+      .single();
+
+    if (!seErr && seasons) {
+      const compSeason = await getCompetitionSeason(competitionId, seasons.id);
+      setSelectedCompetitionSeason(compSeason);
+    }
+  } catch (e) {
+    console.warn('[handleCompetitionChange] error', e);
+  }
+};
+
+  const {
+    stages,
+    tournaments,
+    loadingStages,
+    tournamentClubs,
+    showAddStageForm,
+    setShowAddStageForm,
+    stageFormData,
+    setStageFormData,
+    showAddTournamentForm,
+    setShowAddTournamentForm,
+    selectedStageForTournament,
+    setSelectedStageForTournament,
+    tournamentFormData,
+    setTournamentFormData,
+    showAddMatchForm,
+    setShowAddMatchForm,
+    selectedTournamentForMatch,
+    setSelectedTournamentForMatch,
+    matchFormData,
+    setMatchFormData,
+    showAddTournamentClubForm,
+    setShowAddTournamentClubForm,
+    tournamentClubFormData,
+    setTournamentClubFormData,
+    handleAddStage,
+    handleDeleteStage,
+    handleAddTournament,
+    handleDeleteTournament,
+    handleAddTournamentClub,
+    handleDeleteTournamentClub,
+    handleAddMatch,
+    handleDeleteMatch,
+  } = useTournamentManagement({
+    selectedCompetitionSeason,
+    competitions,
+    refreshMatches,
+  });
   
   // Load profiles (for admin select lists)
   const [profiles,setProfiles]=useState<ProfileRow[]>([])
@@ -2181,6 +610,11 @@ const effectiveUser = useMemo(() => {
   return demoUser;
 }, [supaUser, myProfile?.role, myProfile?.club_name, userDisplay, demoUser]);
 
+const showMyMatches = !!effectiveUser && (isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser));
+const showClubTab = !!effectiveUser && isClub(effectiveUser);
+const showKtpwTab = !!effectiveUser;
+const showAdminTab = !!effectiveUser && isAdmin(effectiveUser);
+
 useEffect(() => {
   // Ładuj profile tylko gdy jestem Adminem
   if (effectiveUser?.role && effectiveUser.role.toString().includes("Admin")) {
@@ -2218,28 +652,33 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
   const byId = new Map(matches.map(m => [m.id, m]));
   const map = new Map<string, Bucket>();
 
+  const seasonKey = (m: Match) => m.competitionSeasonId ?? "__legacy__";
+
   // pomocniczo: wszystkie mecze danej drużyny posortowane po dacie
-  function clubSchedule(club: string) {
+  function clubSchedule(club: string, contextKey: string) {
     return matches
-      .filter(m => m.home === club || m.away === club)
+      .filter(m => (m.home === club || m.away === club) && seasonKey(m) === contextKey)
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
   penalties.forEach(p => {
     const club = p.club_name;
-    const schedule = clubSchedule(club);
 
     // mecz, po którym kara została nałożona
     const startMatch = byId.get(p.match_id);
+    if (!startMatch) return;
+
+    // Kara działa tylko w obrębie tej samej kategorii/competition season.
+    // Dla meczów bez competitionSeasonId utrzymujemy osobny legacy kontekst.
+    const contextKey = seasonKey(startMatch);
+    const schedule = clubSchedule(club, contextKey);
 
     // Indeks tego meczu w terminarzu klubu. Kara obowiązuje OD KOLEJNEGO meczu.
-    let startIdx = -1;
-    if (startMatch) {
-      startIdx = schedule.findIndex(m => m.id === startMatch.id);
-    } else {
-      // fallback: szukamy pierwszego meczu PO dacie utworzenia
+    let startIdx = schedule.findIndex(m => m.id === startMatch.id);
+    if (startIdx < 0) {
+      // fallback: szukamy pierwszego meczu PO dacie utworzenia, nadal w tym samym kontekście
       const created = new Date(p.created_at);
-      startIdx = schedule.findIndex(m => new Date(m.date) > created) - 1; // tak, by slice(startIdx+1, ...)
+      startIdx = schedule.findIndex(m => new Date(m.date) > created) - 1;
     }
 
     const nextMatches = schedule.slice(startIdx + 1, startIdx + 1 + p.games);
@@ -2259,6 +698,36 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
   () => buildPenaltyMap(penalties, state.matches),
   [penalties, state.matches]
 );
+
+const competitionNameById = useMemo(
+  () => Object.fromEntries((competitions || []).map((competition) => [competition.id, competition.name])),
+  [competitions]
+);
+
+const competitionSeasonNameById = useMemo(() => {
+  if (!selectedCompetitionSeason?.id || !selectedCompetitionSeason?.name) {
+    return {} as Record<string, string>;
+  }
+
+  return {
+    [selectedCompetitionSeason.id]: selectedCompetitionSeason.name,
+  };
+}, [selectedCompetitionSeason?.id, selectedCompetitionSeason?.name]);
+
+const stageNameById = useMemo(
+  () => Object.fromEntries((stages || []).map((stage) => [stage.id, stage.name])),
+  [stages]
+);
+
+const tournamentNameById = useMemo(
+  () => Object.fromEntries(Array.from(tournaments.values()).flat().map((tournament) => [tournament.id, tournament.name])),
+  [tournaments]
+);
+
+const allTournaments = useMemo(
+  () => Array.from(tournaments.values()).flat(),
+  [tournaments]
+);
   
 // Podział na nadchodzące i zakończone (prosto: po obecności wyniku)
 const upcomingMatches = useMemo(
@@ -2269,6 +738,47 @@ const upcomingMatches = useMemo(
 const finishedMatches = useMemo(
   () => state.matches.filter(m => !!m.result && m.result.trim() !== ""),
   [state.matches]
+);
+
+function getMyMatchRole(user: { name?: string } | null | undefined, match: Match) {
+  const name = user?.name?.trim();
+  if (!name) return null;
+  if (match.delegate?.trim() === name) return "Delegat";
+  if (match.referees[0]?.trim() === name) return "Sędzia 1";
+  if (match.referees[1]?.trim() === name) return "Sędzia 2";
+  return null;
+}
+
+const myMatches = useMemo(() => {
+  const name = effectiveUser?.name?.trim();
+  if (!name) return [];
+
+  return state.matches.filter((match) => {
+    const role = getMyMatchRole(effectiveUser, match);
+    return !!role;
+  });
+}, [effectiveUser, state.matches]);
+
+const myUpcomingMatches = useMemo(
+  () => myMatches.filter((match) => !match.result || match.result.trim() === ""),
+  [myMatches]
+);
+
+const myFinishedMatches = useMemo(
+  () => myMatches.filter((match) => !!match.result && match.result.trim() !== ""),
+  [myMatches]
+);
+
+const formatMatchDate = (iso: string) =>
+  new Date(iso)
+    .toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "2-digit" })
+    .replace(/\./g, "-");
+
+const navPillClass = (isActive: boolean) => clsx(
+  "inline-flex items-center rounded-2xl border px-4 py-2 text-sm font-medium transition",
+  isActive
+    ? "border-[#058CFF] bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white shadow-[0_10px_20px_rgba(5,140,255,0.24)]"
+    : "border-sky-100 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50"
 );
 
   // Load matches from Supabase and merge docs from localStorage
@@ -2293,6 +803,9 @@ const matches: Match[] = rows.map((r: any) => ({
   shootout: !!r.shootout,                
   referees: [r.referee1 || "", r.referee2 || ""],
   delegate: r.delegate || "",
+  tournamentId: r.tournament_id || null,
+  stageId: r.stage_id || null,
+  competitionSeasonId: r.competition_season_id || null,
   notes: r.notes || "",
   commsByClub: { home: null, away: null },
   rosterByClub: { home: null, away: null },
@@ -2458,21 +971,20 @@ const delegateCandidateNames = Array.from(new Set([
   }
 }
  return (
-<div className="relative min-h-screen p-4 md:p-8 overflow-hidden">
-  <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#dff3ff] via-[#6ba8ff] to-[#001f54]" />
-  <div className="pointer-events-none absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-[#5fb3ff]/25 blur-3xl" />
-  <div className="pointer-events-none absolute top-1/3 -right-24 w-[520px] h-[520px] rounded-full bg-[#2ea7ff]/20 blur-3xl" />
-  <div className="pointer-events-none absolute -bottom-32 left-1/4 w-[560px] h-[560px] rounded-full bg-[#001f54]/30 blur-3xl" />
- <header className="max-w-6xl mx-auto mb-6 flex items-center justify-between rounded-2xl p-3 sm:p-4 border border-white/40 bg-white/50 backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
+<div className="wp-theme relative min-h-screen overflow-hidden bg-[#f8fbff] px-4 py-4 md:px-8 md:py-6">
+  <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_16%_18%,rgba(56,189,248,0.2),transparent_34%),radial-gradient(circle_at_84%_20%,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,#f5fbff_0%,#eef7ff_55%,#e7f3ff_100%)]" />
+  <div className="pointer-events-none absolute -top-24 -left-20 h-[360px] w-[360px] rounded-full bg-sky-300/20 blur-3xl" />
+  <div className="pointer-events-none absolute -right-16 top-40 h-[320px] w-[320px] rounded-full bg-blue-300/15 blur-3xl" />
+ <header className="mx-auto mb-5 flex max-w-[1220px] items-center justify-between rounded-3xl border border-[#dbeafe] bg-white/95 px-4 py-3 text-[#0A1F44] shadow-[0_10px_24px_rgba(2,32,71,0.08)] backdrop-blur-xl sm:px-5 sm:py-3.5">
   <div className="flex items-center gap-3">
 <img
-  src="/logo.png"
+  src="/logo.svg"
   alt="WPOLO.PL"
   className="
     shrink-0
-    h-16 w-16              /* większe: 64x64 na mobile */
-    sm:h-20 sm:w-20        /* 80x80 na większych ekranach */
-    md:h-24 md:w-24        /* 96x96 na desktopie */
+    h-14
+    sm:h-16
+    w-auto
     object-contain         /* zachowuje proporcje */
     rounded-none           /* brak zaokrągleń */
     bg-transparent         /* całkowicie przezroczyste tło */
@@ -2480,11 +992,11 @@ const delegateCandidateNames = Array.from(new Set([
   "
 />
     <div>
-      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">
-        WPOLO.PL - Piłka wodna w Polsce
+      <h1 className="text-lg font-bold leading-tight text-[#0A1F44] sm:text-xl md:text-2xl">
+        WPOLO.PL
       </h1>
-      <p className="text-sm text-gray-600">
-        Portal dla ludzi w czekpu urodzonych.
+      <p className="text-xs text-slate-500 sm:text-sm">
+        Portal polskiej piłki wodnej
       </p>
     </div>
   </div>
@@ -2498,11 +1010,11 @@ const delegateCandidateNames = Array.from(new Set([
       {prettyRole(effectiveUser.role)}
       {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
     </Badge>
-    <span className="text-sm text-gray-700 truncate max-w-[40vw] sm:max-w-none">
+    <span className="max-w-[40vw] truncate text-sm text-slate-700 sm:max-w-none">
       {effectiveUser.name}
     </span>
 
-    <button onClick={signOut} className={classes.btnSecondary} title="Wyloguj">
+    <button onClick={signOut} className="rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50" title="Wyloguj">
       Wyloguj
     </button>
 
@@ -2520,14 +1032,14 @@ const delegateCandidateNames = Array.from(new Set([
       <>
         <button
           onClick={openModeration}
-          className={clsx(classes.btnSecondary, "whitespace-nowrap w-full sm:w-auto")}
+          className="w-full whitespace-nowrap rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50 sm:w-auto"
           title="Moderacja artykułów"
         >
           Moderacja
         </button>
         <button
           onClick={() => setPage('approvals')}
-          className={clsx(classes.btnSecondary, "whitespace-nowrap w-full sm:w-auto")}
+          className="w-full whitespace-nowrap rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50 sm:w-auto"
           title="Użytkownicy"
         >
           Użytkownicy
@@ -2541,7 +1053,7 @@ const delegateCandidateNames = Array.from(new Set([
       <LoginBox classes={classes} />
     </div>
     <button
-      className={clsx(classes.btnSecondary, "w-full sm:w-auto")}
+      className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50 sm:w-auto"
       onClick={() => setPage('register')}
       title="Załóż konto, by móc komentować artykuły"
     >
@@ -2552,62 +1064,148 @@ const delegateCandidateNames = Array.from(new Set([
   </div>
 </header>
 
-<main className="max-w-6xl mx-auto grid gap-6">
+<main className="mx-auto grid max-w-[1220px] gap-5">
 
   {/* === [3.3] HOME: pasek 3 najnowszych newsów + dotychczasowa strona === */}
   {page === 'home' && (
     <>
-      {/* Pasek newsów nad tabelą wyników */}
-      <NewsStrip
-         onMore={openArticles} 
-          onOpen={openArticle}
-      />
-
-     
-
-      <RankingTable matches={state.matches} clubs={clubs} />
-
-      {effectiveUser && effectiveUser.role !== "Guest" && (
-        <div>
-          <PerMatchActions
-            state={state}
-            setState={setState}
-            user={effectiveUser}
-            onPenaltiesChange={refreshPenalties}
-          />
+      <div className="rounded-3xl border border-[#dbeafe] bg-white/95 p-3 shadow-sm">
+        <div className="flex flex-wrap gap-2.5">
+          <button
+            className={navPillClass(activePage === 'dashboard')}
+            onClick={() => setActivePage('dashboard')}
+          >
+            Start
+          </button>
+          <button
+            className={navPillClass(activePage === 'matches')}
+            onClick={() => setActivePage('matches')}
+          >
+            Rozgrywki
+          </button>
+          {showMyMatches && (
+            <button
+              className={navPillClass(activePage === 'my-matches')}
+              onClick={() => setActivePage('my-matches')}
+            >
+              Moje mecze
+            </button>
+          )}
+          {showClubTab && (
+            <button
+              className={navPillClass(activePage === 'club')}
+              onClick={() => setActivePage('club')}
+            >
+              Mój klub
+            </button>
+          )}
+          {showKtpwTab && (
+            <button
+              className={navPillClass(activePage === 'ktpw')}
+              onClick={() => setActivePage('ktpw')}
+            >
+              KTPW
+            </button>
+          )}
+          {showAdminTab && (
+            <button
+              className={navPillClass(activePage === 'admin')}
+              onClick={() => setActivePage('admin')}
+            >
+              Admin
+            </button>
+          )}
         </div>
+      </div>
+
+      {activePage === 'dashboard' && (
+        <HomePortalPage
+          matches={state.matches}
+          tournaments={allTournaments}
+          effectiveUser={effectiveUser}
+          savedRosters={savedRosters}
+          competitionNameById={competitionNameById}
+          tournamentNameById={tournamentNameById}
+          onOpenMatches={() => setActivePage('matches')}
+          onOpenArticles={openArticles}
+          onOpenKtpw={() => setActivePage('ktpw')}
+          onOpenClubPage={showClubTab ? () => setActivePage('club') : undefined}
+        />
       )}
 
-      <MatchesTable
-        title="Nadchodzące mecze"
-        variant="upcoming"
-        showExport
-        state={{ ...state, matches: upcomingMatches }}
-        setState={setState}
-        user={effectiveUser}
-        onRefresh={refreshMatches}
-        loading={loadingMatches}
-        penaltyMap={penaltiesByMatch}
-        onRemovePenalty={handleRemovePenalty}
-        onQuickEdit={handleQuickEdit}
-      />
+      {activePage === 'matches' && (
+        <section className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 rounded-2xl border border-[#dbeafe] bg-[#f7fbff] px-4 py-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Rozgrywki</div>
+            <h2 className="mt-1 text-xl font-semibold text-[#061a33]">Centrum meczowe</h2>
+          </div>
+          <MatchesPage
+            competitions={competitions}
+            fallbackCompetitions={fallbackCompetitions}
+            handleCompetitionChange={handleCompetitionChange}
+            selectedCompetitionId={selectedCompetitionId}
+            selectedCompetitionSeason={selectedCompetitionSeason}
+            state={state}
+            setState={setState}
+            penaltiesByMatch={penaltiesByMatch}
+            effectiveUser={effectiveUser}
+            clubs={clubs}
+            refereeNames={refereeNames}
+            delegateNames={delegateNames}
+            delegateCandidateNames={delegateCandidateNames}
+            refreshMatches={refreshMatches}
+            refreshPenalties={refreshPenalties}
+            loadingMatches={loadingMatches}
+            handleRemovePenalty={handleRemovePenalty}
+            handleQuickEdit={handleQuickEdit}
+            handleCancelInlineEdit={handleCancelInlineEdit}
+            editingMatchId={editingMatchId}
+            isAdmin={isAdmin}
+            removeWholeSlot={removeWholeSlot}
+            ExportImport={ExportImport}
+            loadingStages={loadingStages}
+            stages={stages}
+            tournaments={tournaments}
+            handleDeleteStage={handleDeleteStage}
+            handleDeleteTournament={handleDeleteTournament}
+            tournamentClubs={tournamentClubs}
+            showAddTournamentClubForm={showAddTournamentClubForm}
+            setShowAddTournamentClubForm={setShowAddTournamentClubForm}
+            tournamentClubFormData={tournamentClubFormData}
+            setTournamentClubFormData={setTournamentClubFormData}
+            handleAddTournamentClub={handleAddTournamentClub}
+            handleDeleteTournamentClub={handleDeleteTournamentClub}
+            setSelectedTournamentForMatch={setSelectedTournamentForMatch}
+            setShowAddMatchForm={setShowAddMatchForm}
+            showAddStageForm={showAddStageForm}
+            setShowAddStageForm={setShowAddStageForm}
+            stageFormData={stageFormData}
+            setStageFormData={setStageFormData}
+            handleAddStage={handleAddStage}
+            showAddTournamentForm={showAddTournamentForm}
+            setShowAddTournamentForm={setShowAddTournamentForm}
+            selectedStageForTournament={selectedStageForTournament}
+            setSelectedStageForTournament={setSelectedStageForTournament}
+            tournamentFormData={tournamentFormData}
+            setTournamentFormData={setTournamentFormData}
+            handleAddTournament={handleAddTournament}
+            showAddMatchForm={showAddMatchForm}
+            selectedTournamentForMatch={selectedTournamentForMatch}
+            matchFormData={matchFormData}
+            setMatchFormData={setMatchFormData}
+            handleAddMatch={handleAddMatch}
+          />
+        </section>
+      )}
 
-      <MatchesTable
-        title="Zakończone mecze"
-        variant="finished"
-        sectionClassName="bg-white/60"
-        state={{ ...state, matches: finishedMatches }}
-        setState={setState}
-        user={effectiveUser}
-        onRefresh={refreshMatches}
-        loading={loadingMatches}
-        penaltyMap={penaltiesByMatch}
-        onRemovePenalty={handleRemovePenalty}
-        onQuickEdit={handleQuickEdit}
-      />
+      {activePage === 'ktpw' && (
+        <section className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
+          <Ktpw effectiveUser={effectiveUser} isAdmin={effectiveUser ? isAdmin(effectiveUser) : false} />
+        </section>
+      )}
 
-      {effectiveUser && isAdmin(effectiveUser) && (
-        <div ref={adminPanelRef}>
+      {activePage === 'admin' && effectiveUser && isAdmin(effectiveUser) && (
+        <section className="space-y-4 rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
           <AdminPanel
             state={state}
             setState={setState}
@@ -2619,12 +1217,96 @@ const delegateCandidateNames = Array.from(new Set([
             editingMatchId={editingMatchId}
             clearEditing={() => setEditingMatchId(null)}
           />
-        </div>
+
+          <Section title="Administracja" icon={<Shield className="w-5 h-5" />} className="bg-white/60">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                className={clsx(classes.btnSecondary, "w-full")}
+                onClick={openModeration}
+              >
+                Moderacja artykułów
+              </button>
+              <button
+                className={clsx(classes.btnSecondary, "w-full")}
+                onClick={() => setPage('approvals')}
+              >
+                Lista użytkowników
+              </button>
+            </div>
+          </Section>
+
+          <Diagnostics state={state} />
+        </section>
       )}
 
-      {effectiveUser && isAdmin(effectiveUser) && (
-        <Section title="Import użytkowników (CSV)" icon={<Upload className="w-5 h-5" />}>
-          {/* (treść importu pozostawiona jak było) */}
+      {activePage === 'my-matches' && effectiveUser && (isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser)) && (
+        <Section title="Moje mecze" icon={<Users className="w-5 h-5" />}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
+              <div className="mb-3 text-sm font-semibold text-[#061a33]">Najbliższe mecze</div>
+              <div className="space-y-2">
+                {myUpcomingMatches.length === 0 ? (
+                  <div className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm text-slate-500">Brak nadchodzących meczów.</div>
+                ) : (
+                  myUpcomingMatches.map((match) => (
+                    <div key={match.id} className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm shadow-sm">
+                      <div className="font-medium">{formatMatchDate(match.date)}{match.time ? ` ${match.time}` : ""}</div>
+                      <div className="text-xs text-slate-600">{match.location}</div>
+                      <div className="mt-1 font-medium">{match.home} vs {match.away}</div>
+                      <div className="mt-1 text-xs text-slate-600">
+                        Rola: <span className="font-medium text-slate-700">{getMyMatchRole(effectiveUser, match)}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
+              <div className="mb-3 text-sm font-semibold text-[#061a33]">Mecze zakończone</div>
+              <div className="space-y-2">
+                {myFinishedMatches.length === 0 ? (
+                  <div className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm text-slate-500">Brak zakończonych meczów.</div>
+                ) : (
+                  myFinishedMatches.map((match) => (
+                    <div key={match.id} className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm shadow-sm">
+                      <div className="font-medium">{formatMatchDate(match.date)}{match.time ? ` ${match.time}` : ""}</div>
+                      <div className="text-xs text-slate-600">{match.location}</div>
+                      <div className="mt-1 font-medium">{match.home} vs {match.away}</div>
+                      <div className="mt-1 text-xs text-slate-600">
+                        Rola: <span className="font-medium text-slate-700">{getMyMatchRole(effectiveUser, match)}</span>
+                      </div>
+                      {match.result && (
+                        <div className="mt-1 text-xs text-slate-600">Wynik: {match.result}</div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </Section>
+      )}
+
+      {activePage === 'club' && (
+        <section className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
+          <ClubDashboard
+            effectiveUser={effectiveUser}
+            clubId={myProfile?.club_id ?? null}
+            matches={state.matches}
+            competitionNameById={competitionNameById}
+            competitionSeasonNameById={competitionSeasonNameById}
+            stageNameById={stageNameById}
+            tournamentNameById={tournamentNameById}
+            penaltiesByMatch={penaltiesByMatch}
+            onSaveRoster={handleSaveRoster}
+          />
+        </section>
+      )}
+
+      {activePage === 'my-matches' && (!effectiveUser || !(isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser))) && (
+        <Section title="Moje mecze" icon={<Users className="w-5 h-5" />} className="bg-white/60">
+          <div className="text-sm text-gray-500">Panel dostępny tylko dla sędziów, delegatów i adminów.</div>
         </Section>
       )}
     </>
@@ -2683,7 +1365,7 @@ const delegateCandidateNames = Array.from(new Set([
 )}
 </main>
 
-    <footer className="max-w-6xl mx-auto mt-8 text-xs text-gray-500">
+    <footer className="mx-auto mt-7 max-w-[1220px] text-xs text-slate-500">
       <p>copyright Lukasz Krol 2025</p>
     </footer>
   </div>)
