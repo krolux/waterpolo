@@ -36,12 +36,12 @@ export const CompetitionCenter: React.FC<CompetitionCenterProps> = ({ matches, t
   const cards = [
     {
       title: "Najbliższe mecze",
-      icon: <CalendarDays className="h-5 w-5 text-amber-600" />,
+      icon: <CalendarDays className="h-5 w-5 text-[#058CFF]" />,
       content: (
         <ul className="space-y-2.5">
           {upcomingMatches.length === 0 ? <li className="text-sm text-slate-500">Brak danych.</li> : null}
           {upcomingMatches.map((match) => (
-            <li key={match.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            <li key={match.id} className="rounded-xl border border-[#e9edf2] bg-[#f8fcff] px-3 py-2 text-xs text-slate-700">
               <div className="font-medium text-slate-800">{match.home} vs {match.away}</div>
               <div className="mt-1">{new Date(match.date).toLocaleDateString("pl-PL")} • {match.time || "--:--"}</div>
               <div className="mt-1 inline-flex items-center gap-1 text-slate-500"><MapPin className="h-3.5 w-3.5" />{match.location}</div>
@@ -52,13 +52,13 @@ export const CompetitionCenter: React.FC<CompetitionCenterProps> = ({ matches, t
     },
     {
       title: "Ostatnie wyniki",
-      icon: <Flag className="h-5 w-5 text-amber-600" />,
+      icon: <Flag className="h-5 w-5 text-[#058CFF]" />,
       content: (
         <ul className="space-y-2.5">
           {recentResults.length === 0 ? <li className="text-sm text-slate-500">Brak danych.</li> : null}
           {recentResults.map((match) => (
-            <li key={match.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-              <div className="font-medium text-slate-800">{match.home} <span className="mx-1 rounded bg-slate-200 px-1.5 py-0.5 text-slate-900">{match.result}</span> {match.away}</div>
+            <li key={match.id} className="rounded-xl border border-[#e9edf2] bg-[#f8fcff] px-3 py-2 text-xs text-slate-700">
+              <div className="font-medium text-slate-800">{match.home} <span className="mx-1 rounded bg-[#F5B32E]/25 px-1.5 py-0.5 text-[#7a4a00]">{match.result}</span> {match.away}</div>
               <div className="mt-1">{new Date(match.date).toLocaleDateString("pl-PL")}</div>
             </li>
           ))}
@@ -67,12 +67,12 @@ export const CompetitionCenter: React.FC<CompetitionCenterProps> = ({ matches, t
     },
     {
       title: "Aktywne turnieje",
-      icon: <Trophy className="h-5 w-5 text-amber-600" />,
+      icon: <Trophy className="h-5 w-5 text-[#058CFF]" />,
       content: (
         <ul className="space-y-2.5">
           {activeTournaments.length === 0 ? <li className="text-sm text-slate-500">Brak danych.</li> : null}
           {activeTournaments.map((tournament) => (
-            <li key={tournament.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            <li key={tournament.id} className="rounded-xl border border-[#e9edf2] bg-[#f8fcff] px-3 py-2 text-xs text-slate-700">
               <div className="font-medium text-slate-800">{tournament.name}</div>
               <div className="mt-1">{tournament.tournament_type || "Turniej"}</div>
               <div className="mt-1">
@@ -88,7 +88,7 @@ export const CompetitionCenter: React.FC<CompetitionCenterProps> = ({ matches, t
   return (
     <section className="grid gap-4 md:grid-cols-3">
       {cards.map((card) => (
-        <article key={card.title} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+        <article key={card.title} className="rounded-2xl border border-[#e9edf2] bg-white p-4 shadow-[0_8px_20px_rgba(2,32,71,0.06)] transition hover:-translate-y-0.5 hover:shadow-md">
           <div className="mb-3 flex items-center gap-2">
             {card.icon}
             <h3 className="text-base font-semibold text-slate-800">{card.title}</h3>
@@ -98,7 +98,7 @@ export const CompetitionCenter: React.FC<CompetitionCenterProps> = ({ matches, t
 
           <button
             onClick={onOpenMore}
-            className="mt-4 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50"
+            className="mt-4 rounded-lg border border-[#cde6ff] px-3 py-1.5 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50"
           >
             Zobacz wszystkie
           </button>

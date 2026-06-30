@@ -85,7 +85,7 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
   }, []);
 
   return (
-    <div className="space-y-10 bg-[#f7fbff] pb-6">
+    <div className="space-y-8 bg-transparent pb-6">
       <HomeHero
         nearestMatch={nearestMatch}
         nearestMatchCategory={nearestMatchCategory}
@@ -96,30 +96,30 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
         onOpenNearestMatch={onOpenMatches}
       />
 
-      <section className="rounded-2xl border border-[#e5edf7] bg-white p-4 shadow-sm sm:p-5">
+      <section className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
         <HomeSectionHeader icon={<Trophy className="h-5 w-5" />} title="Centrum rozgrywek" actionLabel="Zobacz wszystkie" onAction={onOpenMatches} />
         <CompetitionCenter matches={matches} tournaments={tournaments} onOpenMore={onOpenMatches} />
       </section>
 
-      <section className="rounded-2xl border border-[#e5edf7] bg-white p-4 shadow-sm sm:p-5">
+      <section className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
         <HomeSectionHeader icon={<Flag className="h-5 w-5" />} title="Aktualności" actionLabel="Zobacz wszystkie" onAction={onOpenArticles} />
         <NewsHighlights onOpenAll={onOpenArticles} />
       </section>
 
       <div ref={nationalTeamsRef}>
-        <section className="rounded-2xl border border-[#e5edf7] bg-white p-4 shadow-sm sm:p-5">
+        <section className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
           <HomeSectionHeader icon={<Users className="h-5 w-5" />} title="Kadra Polski" />
           <NationalTeamsSection />
         </section>
       </div>
 
-      <section ref={tablesRef} className="rounded-2xl border border-[#e5edf7] bg-white p-4 shadow-sm sm:p-5">
+      <section ref={tablesRef} className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
         <HomeSectionHeader icon={<LayoutList className="h-5 w-5" />} title="Tabele rozgrywek" actionLabel="Zobacz wszystkie tabele" onAction={onOpenMatches} />
         <LeagueTablesSection />
       </section>
 
       <div ref={clubsRef}>
-        <section className="rounded-2xl border border-[#e5edf7] bg-white p-4 shadow-sm sm:p-5">
+        <section className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
           <HomeSectionHeader icon={<Users className="h-5 w-5" />} title="Kluby WPolo" actionLabel="Zobacz wszystkie kluby" onAction={onOpenClubPage || scrollToClubs} />
           <ClubsShowcaseSection onOpenClubProfile={(clubName) => {
             if (onOpenClubPage && effectiveUser?.club === clubName) {

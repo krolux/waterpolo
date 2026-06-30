@@ -86,7 +86,7 @@ async function removeWholeSlot(
 
 const classes = {
   input: "w-full px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300/80 focus:border-sky-300",
-  btnPrimary: "px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-semibold hover:from-amber-400 hover:to-orange-400 shadow-[0_10px_20px_rgba(245,158,11,0.24)]",
+  btnPrimary: "px-3 py-2 rounded-xl bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white font-semibold hover:from-[#0f99ff] hover:to-[#4acbff] shadow-[0_10px_20px_rgba(5,140,255,0.24)]",
   btnOutline: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
   btnSecondary: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
   iconBtn: "p-2 rounded-lg border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
@@ -777,7 +777,7 @@ const formatMatchDate = (iso: string) =>
 const navPillClass = (isActive: boolean) => clsx(
   "inline-flex items-center rounded-2xl border px-4 py-2 text-sm font-medium transition",
   isActive
-    ? "border-amber-500 bg-amber-500 text-slate-950 shadow-[0_10px_20px_rgba(245,158,11,0.25)]"
+    ? "border-[#058CFF] bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white shadow-[0_10px_20px_rgba(5,140,255,0.24)]"
     : "border-sky-100 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50"
 );
 
@@ -971,19 +971,23 @@ const delegateCandidateNames = Array.from(new Set([
   }
 }
  return (
-<div className="wp-theme relative min-h-screen overflow-hidden bg-[#f5fbff] px-4 py-4 md:px-8 md:py-6">
+<div className="wp-theme relative min-h-screen overflow-hidden bg-[#f8fbff] px-4 py-4 md:px-8 md:py-6">
   <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_16%_18%,rgba(56,189,248,0.2),transparent_34%),radial-gradient(circle_at_84%_20%,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,#f5fbff_0%,#eef7ff_55%,#e7f3ff_100%)]" />
   <div className="pointer-events-none absolute -top-24 -left-20 h-[360px] w-[360px] rounded-full bg-sky-300/20 blur-3xl" />
   <div className="pointer-events-none absolute -right-16 top-40 h-[320px] w-[320px] rounded-full bg-blue-300/15 blur-3xl" />
- <header className="mx-auto mb-5 flex max-w-[1220px] items-center justify-between rounded-3xl border border-white/15 bg-[#08284a]/90 px-4 py-3 text-slate-100 shadow-[0_14px_32px_rgba(8,40,74,0.28)] backdrop-blur-xl sm:px-5 sm:py-3.5">
+ <header className="mx-auto mb-5 flex max-w-[1220px] items-center justify-between rounded-3xl border border-[#dbeafe] bg-white/95 px-4 py-3 text-[#0A1F44] shadow-[0_10px_24px_rgba(2,32,71,0.08)] backdrop-blur-xl sm:px-5 sm:py-3.5">
   <div className="flex items-center gap-3">
 <img
-  src="/logo.png"
+  src="/branding/wpolo-logo.png"
   alt="WPOLO.PL"
+  onError={(event) => {
+    event.currentTarget.onerror = null;
+    event.currentTarget.src = "/logo.png";
+  }}
   className="
     shrink-0
-    h-12 w-12
-    sm:h-14 sm:w-14
+    h-14 w-14
+    sm:h-16 sm:w-16
     object-contain         /* zachowuje proporcje */
     rounded-none           /* brak zaokrągleń */
     bg-transparent         /* całkowicie przezroczyste tło */
@@ -991,10 +995,10 @@ const delegateCandidateNames = Array.from(new Set([
   "
 />
     <div>
-      <h1 className="text-lg font-semibold leading-tight sm:text-xl md:text-2xl">
+      <h1 className="text-lg font-bold leading-tight text-[#0A1F44] sm:text-xl md:text-2xl">
         WPOLO.PL
       </h1>
-      <p className="text-xs text-sky-100 sm:text-sm">
+      <p className="text-xs text-slate-500 sm:text-sm">
         Portal polskiej piłki wodnej
       </p>
     </div>
@@ -1009,11 +1013,11 @@ const delegateCandidateNames = Array.from(new Set([
       {prettyRole(effectiveUser.role)}
       {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
     </Badge>
-    <span className="max-w-[40vw] truncate text-sm text-slate-100 sm:max-w-none">
+    <span className="max-w-[40vw] truncate text-sm text-slate-700 sm:max-w-none">
       {effectiveUser.name}
     </span>
 
-    <button onClick={signOut} className="rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20" title="Wyloguj">
+    <button onClick={signOut} className="rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50" title="Wyloguj">
       Wyloguj
     </button>
 
@@ -1031,14 +1035,14 @@ const delegateCandidateNames = Array.from(new Set([
       <>
         <button
           onClick={openModeration}
-          className="w-full whitespace-nowrap rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20 sm:w-auto"
+          className="w-full whitespace-nowrap rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50 sm:w-auto"
           title="Moderacja artykułów"
         >
           Moderacja
         </button>
         <button
           onClick={() => setPage('approvals')}
-          className="w-full whitespace-nowrap rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20 sm:w-auto"
+          className="w-full whitespace-nowrap rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50 sm:w-auto"
           title="Użytkownicy"
         >
           Użytkownicy
@@ -1052,7 +1056,7 @@ const delegateCandidateNames = Array.from(new Set([
       <LoginBox classes={classes} />
     </div>
     <button
-      className="w-full rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20 sm:w-auto"
+      className="w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50 sm:w-auto"
       onClick={() => setPage('register')}
       title="Załóż konto, by móc komentować artykuły"
     >

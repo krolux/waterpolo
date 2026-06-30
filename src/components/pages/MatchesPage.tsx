@@ -526,7 +526,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
               className={
                 "rounded-2xl border px-3 py-2 text-sm font-medium transition " +
                 (selectedCompetitionId === comp.id
-                  ? "border-amber-500 bg-amber-500 text-slate-950 shadow-[0_8px_16px_rgba(245,158,11,0.25)] hover:bg-amber-400"
+                  ? "border-[#058CFF] bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white shadow-[0_8px_16px_rgba(5,140,255,0.24)] hover:from-[#0f99ff] hover:to-[#4acbff]"
                   : "border-[#dbeafe] bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50")
               }
             >
@@ -880,7 +880,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                             setSelectedStageForTournament(stage.id);
                             setShowAddTournamentForm(true);
                           }}
-                          className="rounded-lg px-2 py-1 text-sm text-amber-700 transition hover:bg-amber-50"
+                          className="rounded-lg px-2 py-1 text-sm text-[#058CFF] transition hover:bg-sky-50"
                         >
                           + Dodaj turniej
                         </button>
@@ -897,7 +897,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
               {!showAddStageForm ? (
                 <button
                   onClick={() => setShowAddStageForm(true)}
-                  className="rounded-xl bg-amber-500 px-4 py-2 font-medium text-slate-950 transition hover:bg-amber-400"
+                  className="rounded-xl bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] px-4 py-2 font-medium text-white transition hover:from-[#0f99ff] hover:to-[#4acbff]"
                 >
                   + Dodaj etap
                 </button>

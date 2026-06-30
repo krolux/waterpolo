@@ -18,11 +18,20 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
   onOpenArticles,
 }) => {
   return (
-    <footer className="rounded-3xl border border-slate-700/40 bg-slate-950 px-6 py-8 text-slate-200 shadow-[0_12px_30px_rgba(15,23,42,0.45)]">
-      <div className="grid gap-8 md:grid-cols-3">
+    <footer className="relative overflow-hidden rounded-3xl border border-[#0A1F44]/30 bg-[#0A1F44] px-6 py-8 text-slate-200 shadow-[0_12px_30px_rgba(15,23,42,0.38)]">
+      <div className="pointer-events-none absolute inset-0 opacity-50 [background-size:220px_110px] [background-image:radial-gradient(circle_at_12%_50%,rgba(44,192,255,0.18)_0,rgba(44,192,255,0.18)_1px,transparent_1px),linear-gradient(120deg,transparent_44%,rgba(5,140,255,0.2)_50%,transparent_56%)]" />
+      <div className="relative z-10 grid gap-8 md:grid-cols-3">
         <div>
-          <div className="text-2xl font-semibold text-white">WPolo</div>
-          <p className="mt-2 text-sm text-slate-300">Piłka wodna w Polsce</p>
+          <img
+            src="/branding/wpolo-logo.png"
+            alt="WPolo"
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = "/logo.png";
+            }}
+            className="h-12 w-auto object-contain"
+          />
+          <p className="mt-2 text-sm text-slate-300">Piłka wodna • Pasja • Emocje</p>
         </div>
 
         <div>
@@ -48,7 +57,7 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
         </div>
       </div>
 
-      <div className="mt-8 border-t border-slate-800 pt-4 text-xs text-slate-400">© 2025 WPolo. Wszelkie prawa zastrzeżone.</div>
+      <div className="relative z-10 mt-8 border-t border-slate-700 pt-4 text-xs text-slate-400">© 2025 WPolo. Wszelkie prawa zastrzeżone.</div>
     </footer>
   );
 };

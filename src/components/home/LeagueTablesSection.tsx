@@ -41,11 +41,11 @@ export const LeagueTablesSection: React.FC = () => {
     <section className="grid gap-4 xl:grid-cols-[1.45fr_0.75fr]">
       <div className="grid gap-4 lg:grid-cols-3">
         {tables.map((table) => (
-          <article key={table.name} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-            <h3 className="text-base font-semibold text-slate-800">{table.name}</h3>
-            <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+          <article key={table.name} className="rounded-2xl border border-[#e9edf2] bg-white p-4 shadow-[0_8px_20px_rgba(2,32,71,0.06)] transition hover:-translate-y-0.5 hover:shadow-md">
+            <h3 className="text-base font-semibold text-[#0A1F44]">{table.name}</h3>
+            <div className="mt-3 overflow-hidden rounded-xl border border-[#e9edf2]">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600">
+                <thead className="bg-[#f5faff] text-[#0A1F44]">
                   <tr>
                     <th className="px-2 py-2 font-medium">#</th>
                     <th className="px-2 py-2 font-medium">Klub</th>
@@ -56,7 +56,7 @@ export const LeagueTablesSection: React.FC = () => {
                 </thead>
                 <tbody>
                   {table.rows.map((row, idx) => (
-                    <tr key={row.club} className="border-t border-slate-100 text-slate-700">
+                    <tr key={row.club} className="border-t border-[#e9edf2] text-slate-700">
                       <td className="px-2 py-2">{idx + 1}</td>
                       <td className="px-2 py-2 font-medium">{row.club}</td>
                       <td className="px-2 py-2">{row.played}</td>
@@ -67,14 +67,14 @@ export const LeagueTablesSection: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            <button className="mt-3 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50">
+            <button className="mt-3 rounded-lg border border-[#cde6ff] px-3 py-1.5 text-sm text-[#0A1F44] transition hover:bg-sky-50">
               Pełna tabela
             </button>
           </article>
         ))}
       </div>
 
-      <article className="rounded-3xl border border-sky-200/20 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 text-slate-100 shadow-[0_16px_36px_rgba(15,23,42,0.45)]">
+      <article className="rounded-3xl border border-[#0A1F44]/15 bg-gradient-to-br from-[#0A1F44] via-[#0e2a59] to-[#0A1F44] p-5 text-slate-100 shadow-[0_16px_36px_rgba(15,23,42,0.32)]">
         <h3 className="text-lg font-semibold">Liderzy statystyk</h3>
         <p className="mt-1 text-xs text-slate-300">Kluczowe nazwiska sezonu 2026</p>
 
@@ -98,7 +98,7 @@ export const LeagueTablesSection: React.FC = () => {
           </div>
         </div>
 
-        <button className="mt-5 rounded-lg bg-sky-500/90 px-3 py-1.5 text-sm font-medium text-slate-950 transition hover:bg-sky-400">
+        <button className="mt-5 rounded-lg bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] px-3 py-1.5 text-sm font-medium text-white transition hover:from-[#0f99ff] hover:to-[#4acbff]">
           Więcej statystyk
         </button>
       </article>

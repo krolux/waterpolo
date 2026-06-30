@@ -38,14 +38,14 @@ type MetricCard = {
 };
 
 const MiniCard: React.FC<MetricCard> = ({ title, value, description, icon }) => (
-  <article className="rounded-2xl border border-white/15 bg-white/10 p-3 text-slate-100 backdrop-blur-sm transition hover:bg-white/15">
+  <article className="rounded-2xl border border-[#e9edf2] bg-white p-3 text-[#0A1F44] shadow-[0_8px_18px_rgba(2,32,71,0.05)] transition hover:-translate-y-0.5 hover:shadow-md">
     <div className="flex items-center justify-between gap-2">
-      <div className="text-xs uppercase tracking-[0.12em] text-slate-300">{title}</div>
-      <span className="text-sky-200">{icon}</span>
+      <div className="text-xs uppercase tracking-[0.12em] text-slate-500">{title}</div>
+      <span className="text-[#058CFF]">{icon}</span>
     </div>
     <div className="mt-2 text-2xl font-semibold">{value}</div>
-    <p className="mt-1 text-xs text-slate-300">{description}</p>
-    <button className="mt-3 rounded-lg border border-white/20 px-3 py-1 text-xs text-slate-100 transition hover:bg-white/10">Zobacz</button>
+    <p className="mt-1 text-xs text-slate-600">{description}</p>
+    <button className="mt-3 rounded-lg border border-[#cde6ff] px-3 py-1 text-xs text-[#0A1F44] transition hover:bg-sky-50">Zobacz</button>
   </article>
 );
 
@@ -94,10 +94,12 @@ export const UserZoneSection: React.FC<UserZoneSectionProps> = ({ user, matches,
     ];
 
     return (
-      <section className="overflow-hidden rounded-3xl border border-slate-700/40 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 shadow-[0_16px_38px_rgba(15,23,42,0.45)]">
+      <section className="overflow-hidden rounded-3xl border border-[#e9edf2] bg-white p-5 shadow-[0_12px_26px_rgba(2,32,71,0.08)]">
         <div className="mb-4">
-          <h3 className="text-lg font-semibold text-white">Strefa użytkownika</h3>
-          <p className="mt-1 text-sm text-slate-300">Dzień dobry, {user.club}</p>
+          <div className="rounded-2xl border border-[#0A1F44]/10 bg-gradient-to-r from-[#0A1F44] to-[#11346e] p-4 text-white">
+            <h3 className="text-lg font-semibold">Strefa użytkownika</h3>
+            <p className="mt-1 text-sm text-sky-100">Dzień dobry, {user.club}</p>
+          </div>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
           {cards.map((card) => <MiniCard key={card.title} {...card} />)}
@@ -130,10 +132,12 @@ export const UserZoneSection: React.FC<UserZoneSectionProps> = ({ user, matches,
     ];
 
     return (
-      <section className="overflow-hidden rounded-3xl border border-slate-700/40 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 shadow-[0_16px_38px_rgba(15,23,42,0.45)]">
+      <section className="overflow-hidden rounded-3xl border border-[#e9edf2] bg-white p-5 shadow-[0_12px_26px_rgba(2,32,71,0.08)]">
         <div className="mb-4">
-          <h3 className="text-lg font-semibold text-white">Strefa użytkownika</h3>
-          <p className="mt-1 text-sm text-slate-300">Panel administratora</p>
+          <div className="rounded-2xl border border-[#0A1F44]/10 bg-gradient-to-r from-[#0A1F44] to-[#11346e] p-4 text-white">
+            <h3 className="text-lg font-semibold">Strefa użytkownika</h3>
+            <p className="mt-1 text-sm text-sky-100">Panel administratora</p>
+          </div>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
           {cards.map((card) => <MiniCard key={card.title} {...card} />)}
@@ -173,10 +177,12 @@ export const UserZoneSection: React.FC<UserZoneSectionProps> = ({ user, matches,
     ];
 
     return (
-      <section className="overflow-hidden rounded-3xl border border-slate-700/40 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 shadow-[0_16px_38px_rgba(15,23,42,0.45)]">
+      <section className="overflow-hidden rounded-3xl border border-[#e9edf2] bg-white p-5 shadow-[0_12px_26px_rgba(2,32,71,0.08)]">
         <div className="mb-4">
-          <h3 className="text-lg font-semibold text-white">Strefa użytkownika</h3>
-          <p className="mt-1 text-sm text-slate-300">Dzień dobry, {user.name}</p>
+          <div className="rounded-2xl border border-[#0A1F44]/10 bg-gradient-to-r from-[#0A1F44] to-[#11346e] p-4 text-white">
+            <h3 className="text-lg font-semibold">Strefa użytkownika</h3>
+            <p className="mt-1 text-sm text-sky-100">Dzień dobry, {user.name}</p>
+          </div>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
           {cards.map((card) => <MiniCard key={card.title} {...card} />)}

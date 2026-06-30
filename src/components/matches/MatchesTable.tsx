@@ -48,7 +48,7 @@ function clsx(...xs: (string | false | null | undefined)[]) {
 
 const classes = {
   input: "w-full px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300/80 focus:border-sky-300",
-  btnPrimary: "px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-semibold hover:from-amber-400 hover:to-orange-400 shadow-[0_10px_20px_rgba(245,158,11,0.24)]",
+  btnPrimary: "px-3 py-2 rounded-xl bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white font-semibold hover:from-[#0f99ff] hover:to-[#4acbff] shadow-[0_10px_20px_rgba(5,140,255,0.24)]",
   btnOutline: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
   btnSecondary: "px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
   iconBtn: "p-2 rounded-lg border border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50",
@@ -279,7 +279,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
       <div className="md:hidden space-y-4">
         {groupedByRound.sortedRounds.map(runda => (
           <div key={runda} className="overflow-hidden rounded-2xl border border-[#dbeafe] bg-white shadow-sm">
-            <div className="bg-amber-50 text-amber-800 font-semibold text-center py-1">Runda {runda}</div>
+            <div className="bg-[#f5faff] text-[#0A1F44] font-semibold text-center py-1">Runda {runda}</div>
 
             <div className="p-3 space-y-3">
               {groupedByRound.groups[runda].map(m => {
@@ -294,7 +294,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                     className={clsx(
                       "rounded-xl border p-3 shadow-sm transition-colors",
                       cardBg,
-                      isEditingThisMatch && "border-amber-400 bg-amber-50/80"
+                      isEditingThisMatch && "border-[#9dd1ff] bg-[#f2f9ff]"
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -646,7 +646,7 @@ export const MatchesTable: React.FC<MatchesTableProps> = ({
                             "hover:bg-sky-50 transition-colors align-top",
                             rowStriping,
                             sideBorders,
-                            isEditingThisMatch ? "bg-amber-50/80" : "",
+                            isEditingThisMatch ? "bg-[#f2f9ff]" : "",
                             isEditingThisMatch ? "" : bottomBorder
                           )}
                         >

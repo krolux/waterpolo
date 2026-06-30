@@ -642,7 +642,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                 <button
                   type="submit"
                   disabled={savingPlayer}
-                  className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:from-amber-400 hover:to-orange-400 disabled:opacity-60"
+                  className="rounded-xl bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] px-4 py-2 text-sm font-semibold text-white transition hover:from-[#0f99ff] hover:to-[#4acbff] disabled:opacity-60"
                 >
                   {editingPlayerId ? "Zapisz zmiany" : "Dodaj zawodnika"}
                 </button>

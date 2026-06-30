@@ -207,7 +207,7 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
           <button
             type="button"
             onClick={() => setFilter("All")}
-            className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${filter === "All" ? "border-amber-500 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950" : "border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50"}`}
+            className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${filter === "All" ? "border-[#058CFF] bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white" : "border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50"}`}
           >
             Wszystkie
           </button>
@@ -216,7 +216,7 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
               type="button"
               key={c}
               onClick={() => setFilter(c)}
-              className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${filter === c ? "border-amber-500 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950" : "border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50"}`}
+              className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${filter === c ? "border-[#058CFF] bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white" : "border-[#dbeafe] bg-white text-[#08284a] hover:bg-sky-50"}`}
             >
               {c}
             </button>
@@ -256,7 +256,7 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
           </div>
 
           <div className="flex flex-wrap gap-2 mt-4">
-            <button onClick={addDoc} className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 font-semibold text-slate-950 hover:from-amber-400 hover:to-orange-400">Dodaj wpis</button>
+            <button onClick={addDoc} className="rounded-xl bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] px-4 py-2 font-semibold text-white hover:from-[#0f99ff] hover:to-[#4acbff]">Dodaj wpis</button>
             <button onClick={clearForm} className="rounded-xl border border-[#dbeafe] bg-white px-4 py-2 text-[#08284a] hover:bg-sky-50">Wyczyść</button>
           </div>
         </div>

@@ -43,15 +43,15 @@ export const NewsHighlights: React.FC<NewsHighlightsProps> = ({ onOpenAll }) => 
       <div className="grid gap-4 lg:grid-cols-5">
       <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md lg:col-span-3">
         <div className={`relative h-64 w-full ${featured.visualClass}`}>
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/65 via-slate-900/35 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0A1F44]/55 via-[#0A1F44]/20 to-transparent" />
           <div className="absolute inset-0 opacity-40 [background-size:110px_54px] [background-image:radial-gradient(circle_at_15%_48%,rgba(186,230,253,0.38)_0,rgba(186,230,253,0.38)_1px,transparent_1px),linear-gradient(125deg,transparent_45%,rgba(125,211,252,0.18)_50%,transparent_56%)]" />
         </div>
         <div className="p-4">
-          <span className="inline-flex rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700">Aktualności</span>
+          <span className="inline-flex rounded-full bg-[#F5B32E]/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#7a4a00]">Aktualności</span>
           <p className="text-xs text-slate-500">{featured.date}</p>
-          <h3 className="mt-1 text-xl font-semibold text-slate-800">{featured.title}</h3>
+          <h3 className="mt-1 text-xl font-semibold text-[#0A1F44]">{featured.title}</h3>
           <p className="mt-2 text-sm text-slate-600">{featured.summary}</p>
-          <button className="mt-4 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700">Czytaj więcej</button>
+          <button className="mt-4 rounded-lg bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] px-3 py-1.5 text-sm font-medium text-white transition hover:from-[#0f99ff] hover:to-[#4acbff]">Czytaj więcej</button>
         </div>
       </article>
 
@@ -70,7 +70,7 @@ export const NewsHighlights: React.FC<NewsHighlightsProps> = ({ onOpenAll }) => 
       </div>
       <button
         onClick={onOpenAll}
-        className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+        className="rounded-lg border border-[#cde6ff] bg-white px-4 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50"
       >
         Zobacz wszystkie aktualności
       </button>

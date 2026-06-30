@@ -90,7 +90,7 @@ export const TournamentForm: React.FC<TournamentFormProps> = ({
           </div>
         </div>
         <div className="flex gap-2 mt-3">
-          <button onClick={onSubmit} className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 font-semibold text-slate-950 transition hover:from-amber-400 hover:to-orange-400">
+          <button onClick={onSubmit} className="rounded-xl bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] px-4 py-2 font-semibold text-white transition hover:from-[#0f99ff] hover:to-[#4acbff]">
             <Save className="w-4 h-4 inline mr-2" />
             Dodaj turniej
           </button>
