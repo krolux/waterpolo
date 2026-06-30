@@ -170,6 +170,8 @@ export type MatchRosterPdfPayload = {
     fullName: string;
     birthYear: number;
     licenseNumber: string;
+    isCaptain?: boolean;
+    isGoalkeeper?: boolean;
   }>;
 };
 
@@ -189,6 +191,8 @@ export type TournamentRosterPdfPayload = {
     fullName: string;
     birthYear: number;
     licenseNumber: string;
+    isCaptain?: boolean;
+    isGoalkeeper?: boolean;
   }>;
 };
 
@@ -839,6 +843,8 @@ export async function getMatchRosterPdfPayload(matchId: string, clubId: string):
         fullName: `${entry.player.first_name} ${entry.player.last_name}`,
         birthYear: entry.player.birth_year,
         licenseNumber: entry.player.license_number,
+        isCaptain: entry.is_captain,
+        isGoalkeeper: entry.is_goalkeeper,
       })),
   };
 }
@@ -894,6 +900,8 @@ export async function getTournamentRosterPdfPayload(tournamentId: string, clubId
         fullName: `${entry.player.first_name} ${entry.player.last_name}`,
         birthYear: entry.player.birth_year,
         licenseNumber: entry.player.license_number,
+        isCaptain: false,
+        isGoalkeeper: false,
       })),
   };
 }
