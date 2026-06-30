@@ -4,7 +4,17 @@ import { ClubOverview } from "../club/ClubOverview";
 import { PlayerTable } from "../club/PlayerTable";
 import { RosterPanel, type RosterContext } from "../club/RosterPanel";
 import { Section } from "../shared/Section";
-import { createPlayer, deactivatePlayer, listPlayers, updatePlayer, type PlayerRow } from "../../lib/rosters";
+import {
+  createPlayer,
+  deactivatePlayer,
+  getClubLogoSignedUrl,
+  listClubsForLogoManagement,
+  listPlayers,
+  updateClubLogoUrl,
+  updatePlayer,
+  uploadClubLogo,
+  type PlayerRow,
+} from "../../lib/rosters";
 import type { Match, Role } from "../../types/wpolo";
 import type { Player } from "../../types/club";
 import type { SaveRosterPayload } from "../../types/rosters";
@@ -81,7 +91,13 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   const [editingPlayerId, setEditingPlayerId] = React.useState<string>("");
   const [playerForm, setPlayerForm] = React.useState<PlayerFormState>(emptyPlayerFormState);
   const [rosterContext, setRosterContext] = React.useState<RosterContext | null>(null);
+  const [logoOptions, setLogoOptions] = React.useState<Array<{ id: string; name: string; logoUrl: string | null }>>([]);
+  const [selectedLogoClubId, setSelectedLogoClubId] = React.useState<string>(clubId || "");
+  const [logoPreviewUrl, setLogoPreviewUrl] = React.useState<string | null>(null);
+  const [logoError, setLogoError] = React.useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = React.useState(false);
   const maxBirthYearByTournamentId: Record<string, number> = {};
+  const isAdmin = !!effectiveUser?.role && effectiveUser.role.toString().includes("Admin");
 
   const parseMatchDateTime = React.useCallback((match: Match) => new Date(`${match.date}T${match.time || "00:00"}`), []);
 
@@ -108,6 +124,97 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   React.useEffect(() => {
     void loadPlayers();
   }, [loadPlayers]);
+
+  React.useEffect(() => {
+    let isActive = true;
+
+    const loadLogoOptions = async () => {
+      if (!clubId && !isAdmin) {
+        setLogoOptions([]);
+        setSelectedLogoClubId("");
+        setLogoPreviewUrl(null);
+        return;
+      }
+
+      try {
+        const rows = await listClubsForLogoManagement();
+        if (!isActive) return;
+
+        const options = rows.map((row) => ({ id: row.id, name: row.name, logoUrl: row.logo_url || null }));
+        setLogoOptions(options);
+
+        const defaultClubId = isAdmin
+          ? (selectedLogoClubId && options.some((option) => option.id === selectedLogoClubId) ? selectedLogoClubId : options[0]?.id || "")
+          : (clubId || "");
+
+        setSelectedLogoClubId(defaultClubId);
+      } catch {
+        if (!isActive) return;
+        setLogoError("Nie udało się pobrać danych klubu.");
+      }
+    };
+
+    void loadLogoOptions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [clubId, isAdmin, selectedLogoClubId]);
+
+  React.useEffect(() => {
+    let isActive = true;
+
+    const refreshLogoPreview = async () => {
+      const currentOption = logoOptions.find((option) => option.id === selectedLogoClubId) || null;
+      if (!currentOption?.logoUrl) {
+        setLogoPreviewUrl(null);
+        return;
+      }
+
+      try {
+        const signedUrl = await getClubLogoSignedUrl(currentOption.logoUrl, 60 * 10);
+        if (!isActive) return;
+        setLogoPreviewUrl(signedUrl);
+      } catch {
+        if (!isActive) return;
+        setLogoPreviewUrl(null);
+      }
+    };
+
+    void refreshLogoPreview();
+
+    return () => {
+      isActive = false;
+    };
+  }, [logoOptions, selectedLogoClubId]);
+
+  const handleLogoUpload = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const targetClubId = isAdmin ? selectedLogoClubId : clubId;
+    if (!targetClubId) {
+      setLogoError("Brak klubu do aktualizacji logo.");
+      return;
+    }
+
+    setUploadingLogo(true);
+    setLogoError(null);
+
+    try {
+      const storagePath = await uploadClubLogo(targetClubId, file);
+      await updateClubLogoUrl(targetClubId, storagePath);
+
+      const rows = await listClubsForLogoManagement();
+      const options = rows.map((row) => ({ id: row.id, name: row.name, logoUrl: row.logo_url || null }));
+      setLogoOptions(options);
+    } catch {
+      setLogoError("Nie udało się zapisać logo klubu.");
+    } finally {
+      setUploadingLogo(false);
+      event.target.value = "";
+    }
+  }, [clubId, isAdmin, selectedLogoClubId]);
 
   const clubPlayers = React.useMemo(() => playerRows.map(mapPlayerRowToPlayer), [playerRows]);
 
@@ -260,6 +367,49 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
 
   return (
     <div className="space-y-4">
+      <Section title="Logo klubu" icon={<Users className="w-5 h-5" />} className="bg-white/60">
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+          {isAdmin ? (
+            <label className="text-xs text-slate-600">
+              Wybierz klub
+              <select
+                value={selectedLogoClubId}
+                onChange={(event) => setSelectedLogoClubId(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              >
+                {logoOptions.map((clubOption) => (
+                  <option key={clubOption.id} value={clubOption.id}>{clubOption.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <div className="text-sm text-slate-700">Klub: <span className="font-semibold">{myClub || "-"}</span></div>
+          )}
+
+          {logoPreviewUrl ? (
+            <div className="inline-flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <img src={logoPreviewUrl} alt="Logo klubu" className="h-16 w-16 rounded object-contain bg-white" />
+              <span className="text-xs text-slate-600">Aktualne logo klubu</span>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-500">Brak wgranego logo.</div>
+          )}
+
+          <label className="inline-flex cursor-pointer items-center rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
+            {uploadingLogo ? "Wgrywanie logo..." : "Wgraj logo"}
+            <input
+              type="file"
+              accept="image/png,image/jpeg"
+              className="hidden"
+              onChange={handleLogoUpload}
+              disabled={uploadingLogo || (!isAdmin && !clubId)}
+            />
+          </label>
+
+          {logoError ? <div className="text-xs text-red-600">{logoError}</div> : null}
+        </div>
+      </Section>
+
       <ClubOverview effectiveUser={effectiveUser} matches={matches} />
 
       <Section title="Lista startowa" icon={<Users className="w-5 h-5" />} className="bg-white/60">

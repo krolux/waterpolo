@@ -446,6 +446,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                   {formatDateTime(matchRosterPreview.roster.updated_at) ? <span>Ostatnia zmiana: {formatDateTime(matchRosterPreview.roster.updated_at)}</span> : null}
                   {typeof matchRosterPreview.submission?.version === "number" ? <span>Wersja: {matchRosterPreview.submission.version}</span> : null}
                   {matchRosterPreview.submission?.submitted_by_name ? <span>Autor zgłoszenia: {matchRosterPreview.submission.submitted_by_name}</span> : null}
+                  {matchRosterPreview.submission ? <span>Kod wydruku: {matchRosterPreview.submission.verification_code || "-"}</span> : null}
                 </div>
               ) : null}
 
@@ -502,6 +503,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                   </tbody>
                 </table>
               </div>
+
             </div>
           ) : (
             <div className="px-3 py-2 text-xs text-gray-500">Brak zapisanej listy meczowej dla tej drużyny.</div>
@@ -702,6 +704,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                                   {formatDateTime(tournamentRosterPreview.roster.updated_at) ? <span>Ostatnia zmiana: {formatDateTime(tournamentRosterPreview.roster.updated_at)}</span> : null}
                                                   {typeof tournamentRosterPreview.submission?.version === "number" ? <span>Wersja: {tournamentRosterPreview.submission.version}</span> : null}
                                                   {tournamentRosterPreview.submission?.submitted_by_name ? <span>Autor zgłoszenia: {tournamentRosterPreview.submission.submitted_by_name}</span> : null}
+                                                  {tournamentRosterPreview.submission ? <span>Kod wydruku: {tournamentRosterPreview.submission.verification_code || "-"}</span> : null}
                                                 </div>
                                               ) : null}
 
@@ -752,6 +755,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                                   })}
                                                 </tbody>
                                               </table>
+
                                             </>
                                           ) : null}
 

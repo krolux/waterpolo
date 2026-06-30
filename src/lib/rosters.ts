@@ -38,6 +38,7 @@ export type MatchRosterSubmissionRow = {
   submitted_by_name: string | null;
   submitted_at: string;
   version: number;
+  verification_code: string | null;
 };
 
 export type TournamentRosterRow = {
@@ -135,6 +136,60 @@ export type MatchRosterWithPlayers = MatchRosterRow & {
 export type ClubLookupRow = {
   id: string;
   name: string;
+  logo_url?: string | null;
+};
+
+export type MatchRowForPdf = {
+  id: string;
+  home: string;
+  away: string;
+  date: string;
+  time: string | null;
+  location: string;
+  tournament_id: string | null;
+};
+
+export type TournamentRowForPdf = {
+  id: string;
+  name: string;
+};
+
+export type MatchRosterPdfPayload = {
+  clubId: string;
+  clubName: string;
+  clubLogoUrl: string | null;
+  tournamentName: string | null;
+  matchHome: string;
+  matchAway: string;
+  matchDate: string;
+  matchTime: string | null;
+  matchLocation: string;
+  verificationCode: string | null;
+  rosterPlayers: Array<{
+    slot: number;
+    fullName: string;
+    birthYear: number;
+    licenseNumber: string;
+  }>;
+};
+
+export type TournamentRosterPdfPayload = {
+  clubId: string;
+  clubName: string;
+  clubLogoUrl: string | null;
+  tournamentName: string | null;
+  matchHome: string;
+  matchAway: string;
+  matchDate: string;
+  matchTime: string | null;
+  matchLocation: string;
+  verificationCode: string | null;
+  rosterPlayers: Array<{
+    slot: number;
+    fullName: string;
+    birthYear: number;
+    licenseNumber: string;
+  }>;
 };
 
 export type SaveTournamentRosterPlayerInput = {
@@ -178,6 +233,17 @@ export type VerifyPlayerLicensePayload = {
   tournamentId?: string | null;
   notes?: string | null;
 };
+
+export function generateRosterVerificationCode(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let suffix = '';
+
+  for (let i = 0; i < 6; i += 1) {
+    suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+
+  return `WP-${suffix}`;
+}
 
 type PlayerLookup = PlayerRow & {
   club_name?: string | null;
@@ -243,10 +309,54 @@ export async function getClubIdsByNames(clubNames: string[]): Promise<Map<string
   return new Map(rows.map((row) => [row.name, row.id]));
 }
 
+export async function listClubsForLogoManagement(): Promise<ClubLookupRow[]> {
+  const { data, error } = await supabase
+    .from('clubs')
+    .select('id,name,logo_url')
+    .order('name', { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as ClubLookupRow[];
+}
+
+export async function updateClubLogoUrl(clubId: string, logoUrl: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('clubs')
+    .update({ logo_url: logoUrl })
+    .eq('id', clubId);
+
+  if (error) throw error;
+}
+
+export async function uploadClubLogo(clubId: string, file: File): Promise<string> {
+  const extensionMatch = /\.([a-zA-Z0-9]+)$/.exec(file.name || '');
+  const extension = extensionMatch ? extensionMatch[1].toLowerCase() : 'png';
+  const filePath = `${clubId}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extension}`;
+
+  const { data, error } = await supabase.storage.from('club-logos').upload(filePath, file, {
+    upsert: true,
+    contentType: file.type || 'application/octet-stream',
+    cacheControl: '3600',
+  });
+
+  if (error) throw error;
+  return (data?.path as string) || filePath;
+}
+
+export async function getClubLogoSignedUrl(logoUrl: string, expiresInSec = 60 * 60): Promise<string> {
+  if (/^https?:\/\//i.test(logoUrl)) {
+    return logoUrl;
+  }
+
+  const { data, error } = await supabase.storage.from('club-logos').createSignedUrl(logoUrl, expiresInSec);
+  if (error) throw error;
+  return data?.signedUrl || logoUrl;
+}
+
 export async function getLatestMatchRosterSubmission(matchRosterId: string): Promise<MatchRosterSubmissionRow | null> {
   const { data, error } = await supabase
     .from('roster_submissions')
-    .select('id,submitted_by_name,submitted_at,version')
+    .select('id,submitted_by_name,submitted_at,version,verification_code')
     .eq('match_roster_id', matchRosterId)
     .order('version', { ascending: false })
     .limit(1)
@@ -259,7 +369,7 @@ export async function getLatestMatchRosterSubmission(matchRosterId: string): Pro
 export async function getLatestTournamentRosterSubmission(tournamentRosterId: string): Promise<MatchRosterSubmissionRow | null> {
   const { data, error } = await supabase
     .from('roster_submissions')
-    .select('id,submitted_by_name,submitted_at,version')
+    .select('id,submitted_by_name,submitted_at,version,verification_code')
     .eq('tournament_roster_id', tournamentRosterId)
     .order('version', { ascending: false })
     .limit(1)
@@ -509,6 +619,18 @@ export async function saveTournamentRoster(payload: SaveTournamentRosterPayload)
     }
   }
 
+  const { data: priorSubmissions, error: versionError } = await supabase
+    .from('roster_submissions')
+    .select('version')
+    .eq('tournament_roster_id', rosterRow.id)
+    .order('version', { ascending: false })
+    .limit(1);
+
+  if (versionError) throw versionError;
+
+  const nextVersion = (priorSubmissions && priorSubmissions.length > 0 ? Number((priorSubmissions[0] as { version?: number }).version || 0) : 0) + 1;
+  const verificationCode = generateRosterVerificationCode();
+
   const { error: submissionError } = await supabase
     .from('roster_submissions')
     .insert({
@@ -517,6 +639,8 @@ export async function saveTournamentRoster(payload: SaveTournamentRosterPayload)
       submitted_by_profile_id: submittedByProfileId,
       submitted_by_name: submittedByName,
       submitted_at: submittedAt,
+      version: nextVersion,
+      verification_code: verificationCode,
     });
 
   if (submissionError) throw submissionError;
@@ -612,6 +736,7 @@ export async function saveMatchRoster(payload: SaveMatchRosterPayload): Promise<
   if (versionError) throw versionError;
 
   const nextVersion = (priorSubmissions && priorSubmissions.length > 0 ? Number((priorSubmissions[0] as { version?: number }).version || 0) : 0) + 1;
+  const verificationCode = generateRosterVerificationCode();
 
   const { error: submissionError } = await supabase
     .from('roster_submissions')
@@ -622,6 +747,7 @@ export async function saveMatchRoster(payload: SaveMatchRosterPayload): Promise<
       submitted_by_name: submittedByName,
       submitted_at: submittedAt,
       version: nextVersion,
+      verification_code: verificationCode,
     });
 
   if (submissionError) throw submissionError;
@@ -660,6 +786,115 @@ export async function getMatchRoster(matchId: string, clubId: string): Promise<M
   return {
     ...rosterRow,
     players: mergeMatchRosterPlayers(rosterPlayers as MatchRosterPlayerRow[], playersById),
+  };
+}
+
+export async function getMatchRosterPdfPayload(matchId: string, clubId: string): Promise<MatchRosterPdfPayload | null> {
+  const [clubResponse, matchResponse] = await Promise.all([
+    supabase.from('clubs').select('id,name,logo_url').eq('id', clubId).maybeSingle(),
+    supabase.from('matches').select('id,home,away,date,time,location,tournament_id').eq('id', matchId).maybeSingle(),
+  ]);
+
+  if (clubResponse.error) throw clubResponse.error;
+  if (matchResponse.error) throw matchResponse.error;
+
+  const club = clubResponse.data as ClubLookupRow | null;
+  const match = matchResponse.data as MatchRowForPdf | null;
+
+  if (!club || !match) return null;
+
+  const roster = await getMatchRoster(matchId, clubId);
+  if (!roster) return null;
+
+  const latestSubmission = await getLatestMatchRosterSubmission(roster.id);
+
+  let tournamentName: string | null = null;
+  if (match.tournament_id) {
+    const { data: tournament, error: tournamentError } = await supabase
+      .from('tournaments')
+      .select('id,name')
+      .eq('id', match.tournament_id)
+      .maybeSingle();
+
+    if (tournamentError) throw tournamentError;
+    tournamentName = (tournament as TournamentRowForPdf | null)?.name || null;
+  }
+
+  return {
+    clubId,
+    clubName: club.name,
+    clubLogoUrl: club.logo_url || null,
+    tournamentName,
+    matchHome: match.home,
+    matchAway: match.away,
+    matchDate: match.date,
+    matchTime: match.time,
+    matchLocation: match.location,
+    verificationCode: latestSubmission?.verification_code || null,
+    rosterPlayers: roster.players
+      .slice()
+      .sort((a, b) => a.slot - b.slot)
+      .map((entry) => ({
+        slot: entry.slot,
+        fullName: `${entry.player.first_name} ${entry.player.last_name}`,
+        birthYear: entry.player.birth_year,
+        licenseNumber: entry.player.license_number,
+      })),
+  };
+}
+
+export async function getTournamentRosterPdfPayload(tournamentId: string, clubId: string): Promise<TournamentRosterPdfPayload | null> {
+  const [clubResponse, tournamentResponse] = await Promise.all([
+    supabase.from('clubs').select('id,name,logo_url').eq('id', clubId).maybeSingle(),
+    supabase.from('tournaments').select('id,name').eq('id', tournamentId).maybeSingle(),
+  ]);
+
+  if (clubResponse.error) throw clubResponse.error;
+  if (tournamentResponse.error) throw tournamentResponse.error;
+
+  const club = clubResponse.data as ClubLookupRow | null;
+  const tournament = tournamentResponse.data as TournamentRowForPdf | null;
+
+  if (!club || !tournament) return null;
+
+  const roster = await getTournamentRoster(tournamentId, clubId);
+  if (!roster) return null;
+
+  const latestSubmission = await getLatestTournamentRosterSubmission(roster.id);
+
+  const { data: latestTournamentMatch, error: latestTournamentMatchError } = await supabase
+    .from('matches')
+    .select('id,home,away,date,time,location,tournament_id')
+    .eq('tournament_id', tournamentId)
+    .order('date', { ascending: false })
+    .order('time', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestTournamentMatchError) throw latestTournamentMatchError;
+
+  const match = (latestTournamentMatch as MatchRowForPdf | null) || null;
+
+  return {
+    clubId,
+    clubName: club.name,
+    clubLogoUrl: club.logo_url || null,
+    tournamentName: tournament.name,
+    matchHome: match?.home || '-',
+    matchAway: match?.away || '-',
+    matchDate: match?.date || new Date().toISOString().slice(0, 10),
+    matchTime: match?.time || null,
+    matchLocation: match?.location || '-',
+    verificationCode: latestSubmission?.verification_code || null,
+    rosterPlayers: roster.players
+      .slice()
+      .sort((a, b) => a.slot - b.slot)
+      .map((entry) => ({
+        slot: entry.slot,
+        fullName: `${entry.player.first_name} ${entry.player.last_name}`,
+        birthYear: entry.player.birth_year,
+        licenseNumber: entry.player.license_number,
+      })),
   };
 }
 

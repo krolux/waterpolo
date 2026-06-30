@@ -5,13 +5,19 @@ import { RosterSourcePanel } from "./RosterSourcePanel";
 import { TournamentRosterPanel } from "./TournamentRosterPanel";
 import { useRosterPanel } from "../../hooks/useRosterPanel";
 import {
+  getLatestMatchRosterSubmission,
+  getLatestTournamentRosterSubmission,
   getMatchRoster,
+  getMatchRosterPdfPayload,
   getTournamentRoster,
+  getTournamentRosterPdfPayload,
   saveMatchRoster,
   saveTournamentRoster,
+  type MatchRosterSubmissionRow,
   type MatchRosterWithPlayers,
   type TournamentRosterWithPlayers,
 } from "../../lib/rosters";
+import { generateMatchRosterPdf, generateTournamentRosterPdf } from "../../lib/rosterPdf";
 import { supabase } from "../../lib/supabase";
 import type { Player } from "../../types/club";
 import { resolveRosterLicenseStatus, type SaveRosterPayload } from "../../types/rosters";
@@ -84,6 +90,9 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
   });
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [submissionMeta, setSubmissionMeta] = React.useState<MatchRosterSubmissionRow | null>(null);
+  const [generatingPdf, setGeneratingPdf] = React.useState(false);
+  const [pdfError, setPdfError] = React.useState<string | null>(null);
 
   const isTournamentMode = context?.mode === "tournament";
   const isTournamentMatch = context?.mode === "match" && !!context?.tournamentId;
@@ -142,6 +151,40 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
       isActive = false;
     };
   }, [clubId, currentContext?.matchId, currentContext?.mode, currentContext?.tournamentId]);
+
+  React.useEffect(() => {
+    let isActive = true;
+
+    setSubmissionMeta(null);
+
+    if (!currentContext || !clubId) {
+      return;
+    }
+
+    (async () => {
+      try {
+        if (currentContext.mode === "match") {
+          if (!loadedMatchRoster?.id) return;
+          const latest = await getLatestMatchRosterSubmission(loadedMatchRoster.id);
+          if (!isActive) return;
+          setSubmissionMeta(latest);
+          return;
+        }
+
+        if (!loadedTournamentRoster?.id) return;
+        const latest = await getLatestTournamentRosterSubmission(loadedTournamentRoster.id);
+        if (!isActive) return;
+        setSubmissionMeta(latest);
+      } catch {
+        if (!isActive) return;
+        setSubmissionMeta(null);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [clubId, currentContext, loadedMatchRoster?.id, loadedTournamentRoster?.id]);
 
   const handleSave = async () => {
     if (!canSaveRoster) {
@@ -218,6 +261,8 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
         });
 
         setLoadedTournamentRoster(savedRoster);
+        const latest = await getLatestTournamentRosterSubmission(savedRoster.id);
+        setSubmissionMeta(latest);
         onSaveRoster?.(payload);
         setSaveMessage("Lista turniejowa zapisana.");
         return;
@@ -291,6 +336,8 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
         });
 
         setLoadedMatchRoster(savedMatchRoster);
+        const latest = await getLatestMatchRosterSubmission(savedMatchRoster.id);
+        setSubmissionMeta(latest);
         const payload: SaveRosterPayload = {
           mode: currentContext.mode,
           clubName: clubName || "Nieznany klub",
@@ -325,6 +372,43 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
       setSaveError(currentContext.mode === "match" ? "Nie udało się zapisać listy meczowej." : "Nie udało się zapisać listy turniejowej.");
     }
   };
+
+  const handleDownloadPdf = React.useCallback(async () => {
+    if (!currentContext || !clubId || !canSaveRoster) return;
+
+    setPdfError(null);
+    setGeneratingPdf(true);
+
+    try {
+      if (currentContext.mode === "match") {
+        const payload = await getMatchRosterPdfPayload(currentContext.matchId, clubId);
+        if (!payload) {
+          setPdfError("Najpierw zapisz skład");
+          return;
+        }
+        await generateMatchRosterPdf(payload);
+        return;
+      }
+
+      if (!currentContext.tournamentId) {
+        setPdfError("Najpierw zapisz skład");
+        return;
+      }
+
+      const payload = await getTournamentRosterPdfPayload(currentContext.tournamentId, clubId);
+      if (!payload) {
+        setPdfError("Najpierw zapisz skład");
+        return;
+      }
+      await generateTournamentRosterPdf(payload);
+    } catch {
+      setPdfError("Nie udało się wygenerować PDF.");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }, [canSaveRoster, clubId, currentContext]);
+
+  const hasSavedRoster = isTournamentMode ? !!loadedTournamentRoster : !!loadedMatchRoster;
 
   function mapTournamentRosterPlayers(roster: TournamentRosterWithPlayers) {
     return roster.players.map((entry) => ({
@@ -414,6 +498,15 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
       {roster.warning ? <div className="text-sm text-red-600">{roster.warning}</div> : null}
       {saveError ? <div className="text-sm text-red-600">{saveError}</div> : null}
       {saveMessage ? <div className="text-sm text-green-700">{saveMessage}</div> : null}
+      {submissionMeta ? (
+        <div className="flex flex-wrap gap-3 text-xs text-slate-600">
+          {submissionMeta.submitted_at ? <span>Skład wysłano: {new Date(submissionMeta.submitted_at).toLocaleString("pl-PL")}</span> : null}
+          {typeof submissionMeta.version === "number" ? <span>Wersja: {submissionMeta.version}</span> : null}
+          {submissionMeta.submitted_by_name ? <span>Autor zgłoszenia: {submissionMeta.submitted_by_name}</span> : null}
+          <span>Kod wydruku: {submissionMeta.verification_code || "-"}</span>
+        </div>
+      ) : null}
+      {pdfError ? <div className="text-sm text-red-600">{pdfError}</div> : null}
       {(roster.tournamentLimitReached || roster.matchLimitReached) ? <div className="text-sm text-red-600">Osiągnięto maksymalny limit zawodników.</div> : null}
 
       <RosterSearch query={roster.query} sortMode={roster.sortMode} onQueryChange={roster.setQuery} onSortModeChange={roster.setSortMode} />
@@ -458,6 +551,16 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
       )}
 
       <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
+        {canSaveRoster ? (
+          <button
+            type="button"
+            onClick={() => void handleDownloadPdf()}
+            disabled={!hasSavedRoster || generatingPdf}
+            className={!hasSavedRoster || generatingPdf ? "rounded-lg border border-gray-300 bg-gray-100 px-3 py-1.5 text-sm text-gray-400" : "rounded-lg border bg-white px-3 py-1.5 text-sm hover:bg-gray-50"}
+          >
+            {!hasSavedRoster ? "Najpierw zapisz skład" : generatingPdf ? "Generowanie PDF..." : "Pobierz PDF"}
+          </button>
+        ) : null}
         <button onClick={() => onBack?.()} className="rounded-lg border bg-white px-3 py-1.5 text-sm hover:bg-gray-50">
           Anuluj
         </button>
