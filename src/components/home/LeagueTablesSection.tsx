@@ -1,47 +1,114 @@
 import React from "react";
 import { Crown, Shield, Star } from "lucide-react";
+import type { Match } from "../../types/wpolo";
 
-type Row = { club: string; played: number; points: number; balance: string };
+type Row = { club: string; played: number; points: number; goalsFor: number; goalsAgainst: number };
 
-const tables: Array<{ name: string; rows: Row[] }> = [
-  {
-    name: "Ekstraklasa",
-    rows: [
-      { club: "AZS Szczecin", played: 18, points: 42, balance: "89:54" },
-      { club: "KS Warszawa", played: 18, points: 39, balance: "84:60" },
-      { club: "WTS Poznań", played: 18, points: 34, balance: "72:61" },
-      { club: "Legia Waterpolo", played: 18, points: 31, balance: "70:68" },
-      { club: "Neptun Gdańsk", played: 18, points: 26, balance: "61:66" },
-    ],
-  },
-  {
-    name: "I Liga",
-    rows: [
-      { club: "MUKS Łódź", played: 16, points: 37, balance: "78:57" },
-      { club: "Delfin Lublin", played: 16, points: 33, balance: "71:63" },
-      { club: "WOPR Olsztyn", played: 16, points: 30, balance: "68:64" },
-      { club: "Baltic Team", played: 16, points: 27, balance: "64:66" },
-      { club: "Orka Rzeszów", played: 16, points: 24, balance: "59:69" },
-    ],
-  },
-  {
-    name: "Juniorzy U19",
-    rows: [
-      { club: "SMS Warszawa", played: 14, points: 29, balance: "66:43" },
-      { club: "AZS Szczecin U19", played: 14, points: 27, balance: "61:45" },
-      { club: "MKS Kraków", played: 14, points: 24, balance: "55:47" },
-      { club: "Delfin Wrocław", played: 14, points: 22, balance: "53:50" },
-      { club: "Aqua Team Gdynia", played: 14, points: 19, balance: "48:52" },
-    ],
-  },
-];
+type LeagueTablesSectionProps = {
+  matches: Match[];
+  competitionNameById?: Record<string, string>;
+  tournamentNameById?: Record<string, string>;
+  onOpenMore: () => void;
+};
 
-export const LeagueTablesSection: React.FC = () => {
+function parseScore(value?: string | null) {
+  if (!value) return null;
+  const match = String(value).match(/^\s*(\d+)\s*[:\-–—]\s*(\d+)\s*$/);
+  if (!match) return null;
+  return { home: Number(match[1]), away: Number(match[2]) };
+}
+
+export const LeagueTablesSection: React.FC<LeagueTablesSectionProps> = ({
+  matches,
+  competitionNameById,
+  tournamentNameById,
+  onOpenMore,
+}) => {
+  const tables = React.useMemo(() => {
+    const grouped = new Map<string, Match[]>();
+
+    matches.forEach((match) => {
+      const groupName =
+        (match.competitionSeasonId ? competitionNameById?.[match.competitionSeasonId] : null) ||
+        (match.tournamentId ? tournamentNameById?.[match.tournamentId] : null) ||
+        "Pozostałe";
+
+      const bucket = grouped.get(groupName) || [];
+      bucket.push(match);
+      grouped.set(groupName, bucket);
+    });
+
+    return Array.from(grouped.entries())
+      .map(([name, groupedMatches]) => {
+        const stats = new Map<string, Row>();
+
+        groupedMatches.forEach((match) => {
+          const homeName = (match.home || "").trim();
+          const awayName = (match.away || "").trim();
+          if (!homeName || !awayName) return;
+
+          if (!stats.has(homeName)) stats.set(homeName, { club: homeName, played: 0, points: 0, goalsFor: 0, goalsAgainst: 0 });
+          if (!stats.has(awayName)) stats.set(awayName, { club: awayName, played: 0, points: 0, goalsFor: 0, goalsAgainst: 0 });
+
+          const score = parseScore(match.result);
+          if (!score) return;
+
+          const home = stats.get(homeName)!;
+          const away = stats.get(awayName)!;
+
+          home.played += 1;
+          away.played += 1;
+          home.goalsFor += score.home;
+          home.goalsAgainst += score.away;
+          away.goalsFor += score.away;
+          away.goalsAgainst += score.home;
+
+          if (match.shootout) {
+            if (score.home > score.away) {
+              home.points += 2;
+              away.points += 1;
+            } else {
+              away.points += 2;
+              home.points += 1;
+            }
+          } else if (score.home > score.away) {
+            home.points += 3;
+          } else if (score.away > score.home) {
+            away.points += 3;
+          }
+        });
+
+        const rows = Array.from(stats.values())
+          .filter((row) => row.played > 0)
+          .sort((left, right) => {
+            const leftDiff = left.goalsFor - left.goalsAgainst;
+            const rightDiff = right.goalsFor - right.goalsAgainst;
+            return (
+              right.points - left.points ||
+              rightDiff - leftDiff ||
+              right.goalsFor - left.goalsFor ||
+              left.club.localeCompare(right.club)
+            );
+          })
+          .slice(0, 5);
+
+        return { name, rows, playedMatches: groupedMatches.filter((m) => parseScore(m.result)).length };
+      })
+      .filter((group) => group.playedMatches > 0)
+      .sort((left, right) => right.playedMatches - left.playedMatches)
+      .slice(0, 3);
+  }, [competitionNameById, matches, tournamentNameById]);
+
   return (
     <section className="grid gap-4 xl:grid-cols-[1.45fr_0.75fr]">
       <div className="grid gap-4 lg:grid-cols-3">
+        {tables.length === 0 ? (
+          <article className="rounded-2xl border border-[#e9edf2] bg-white p-4 text-sm text-slate-600 lg:col-span-3">
+            Brak rozegranych meczów.
+          </article>
+        ) : null}
         {tables.map((table) => (
-          <article key={table.name} className="rounded-2xl border border-[#e9edf2] bg-white p-4 shadow-[0_8px_20px_rgba(2,32,71,0.06)] transition hover:-translate-y-0.5 hover:shadow-md">
+          <article key={table.name} className="rounded-2xl border border-[#e9edf2] bg-white p-4 shadow-[0_8px_20px_rgba(2,32,71,0.06)] transition hover:-translate-y-0.5 hover:border-[#b8dcff] hover:shadow-md">
             <h3 className="text-base font-semibold text-[#0A1F44]">{table.name}</h3>
             <div className="mt-3 overflow-hidden rounded-xl border border-[#e9edf2]">
               <table className="w-full text-left text-xs">
@@ -55,50 +122,59 @@ export const LeagueTablesSection: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
+                  {table.rows.length === 0 ? (
+                    <tr className="border-t border-[#e9edf2] text-slate-600">
+                      <td className="px-2 py-2" colSpan={5}>Brak rozegranych meczów.</td>
+                    </tr>
+                  ) : null}
                   {table.rows.map((row, idx) => (
                     <tr key={row.club} className="border-t border-[#e9edf2] text-slate-700">
-                      <td className="px-2 py-2">{idx + 1}</td>
+                      <td className="px-2 py-2">
+                        <span className={idx === 0 ? "inline-flex min-w-[18px] justify-center rounded bg-[#F5B32E]/22 px-1 text-[#8a5500]" : "inline-flex min-w-[18px] justify-center text-[#058CFF]"}>{idx + 1}</span>
+                      </td>
                       <td className="px-2 py-2 font-medium">{row.club}</td>
                       <td className="px-2 py-2">{row.played}</td>
-                      <td className="px-2 py-2">{row.points}</td>
-                      <td className="px-2 py-2">{row.balance}</td>
+                      <td className="px-2 py-2 font-semibold text-[#0A1F44]">{row.points}</td>
+                      <td className="px-2 py-2">{row.goalsFor}:{row.goalsAgainst}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <button className="mt-3 rounded-lg border border-[#cde6ff] px-3 py-1.5 text-sm text-[#0A1F44] transition hover:bg-sky-50">
+            <button onClick={onOpenMore} className="mt-3 rounded-lg border border-[#cde6ff] px-3 py-1.5 text-sm text-[#058CFF] transition hover:bg-sky-50">
               Pełna tabela
             </button>
           </article>
         ))}
       </div>
 
-      <article className="rounded-3xl border border-[#0A1F44]/15 bg-gradient-to-br from-[#0A1F44] via-[#0e2a59] to-[#0A1F44] p-5 text-slate-100 shadow-[0_16px_36px_rgba(15,23,42,0.32)]">
+      <article className="rounded-3xl border border-[#0A1F44]/15 bg-gradient-to-br from-[#0A1F44] via-[#10336b] to-[#0A1F44] p-5 text-slate-100 shadow-[0_16px_36px_rgba(15,23,42,0.32)]">
         <h3 className="text-lg font-semibold">Liderzy statystyk</h3>
-        <p className="mt-1 text-xs text-slate-300">Kluczowe nazwiska sezonu 2026</p>
+        <p className="mt-1 text-xs text-slate-300">Statystyki indywidualne</p>
 
         <div className="mt-5 space-y-3">
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
             <div className="inline-flex items-center gap-2 text-amber-300"><Crown className="h-4 w-4" /> Król strzelców</div>
-            <div className="mt-1 text-sm font-semibold">Marek Nowak • AZS Szczecin</div>
-            <div className="text-xs text-slate-300">58 goli</div>
+            <div className="mt-1 text-sm text-slate-200">Statystyki będą dostępne po rozegraniu pierwszych spotkań.</div>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
             <div className="inline-flex items-center gap-2 text-sky-300"><Shield className="h-4 w-4" /> Najlepszy bramkarz</div>
-            <div className="mt-1 text-sm font-semibold">Adam Król • KS Warszawa</div>
-            <div className="text-xs text-slate-300">74% skuteczności</div>
+            <div className="mt-1 text-sm text-slate-200">Statystyki będą dostępne po rozegraniu pierwszych spotkań.</div>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
             <div className="inline-flex items-center gap-2 text-amber-300"><Star className="h-4 w-4" /> MVP sezonu</div>
-            <div className="mt-1 text-sm font-semibold">Kacper Zieliński • WTS Poznań</div>
-            <div className="text-xs text-slate-300">11 wyróżnień MVP</div>
+            <div className="mt-1 text-sm text-slate-200">Statystyki będą dostępne po rozegraniu pierwszych spotkań.</div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div className="inline-flex items-center gap-2 text-sky-300"><Crown className="h-4 w-4" /> Lider asyst</div>
+            <div className="mt-1 text-sm text-slate-200">Statystyki będą dostępne po rozegraniu pierwszych spotkań.</div>
           </div>
         </div>
 
-        <button className="mt-5 rounded-lg bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] px-3 py-1.5 text-sm font-medium text-white transition hover:from-[#0f99ff] hover:to-[#4acbff]">
+        <button disabled className="mt-5 cursor-not-allowed rounded-lg bg-gradient-to-r from-[#7bbcf6] to-[#9adbf4] px-3 py-1.5 text-sm font-medium text-white opacity-80">
           Więcej statystyk
         </button>
       </article>

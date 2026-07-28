@@ -62,9 +62,9 @@ export const ClubsShowcaseSection: React.FC<ClubsShowcaseSectionProps> = ({ onOp
               key={club.id}
               type="button"
               onClick={() => onOpenClubProfile?.(club.name)}
-              className="w-[170px] flex-none rounded-2xl border border-[#e9edf2] bg-white p-3 text-left shadow-[0_8px_20px_rgba(2,32,71,0.06)] transition hover:-translate-y-0.5 hover:shadow-md sm:w-auto"
+              className="w-[170px] flex-none rounded-2xl border border-[#e9edf2] bg-white p-3 text-left shadow-[0_8px_20px_rgba(2,32,71,0.06)] transition hover:-translate-y-0.5 hover:border-[#8fd2ff] hover:shadow-md sm:w-auto"
             >
-              <div className="flex h-24 items-center justify-center overflow-hidden rounded-xl bg-[#f8fcff]">
+              <div className="flex h-24 items-center justify-center overflow-hidden rounded-xl border border-[#d9ebff] bg-[linear-gradient(145deg,#f8fcff_0%,#eff7ff_100%)]">
                 <img src={club.logoUrl || placeholder} alt={club.name} className="h-20 w-20 object-contain" />
               </div>
               <div className="mt-3 line-clamp-2 text-sm font-medium text-slate-700">{club.name}</div>
@@ -75,7 +75,8 @@ export const ClubsShowcaseSection: React.FC<ClubsShowcaseSectionProps> = ({ onOp
 
       <button
         type="button"
-        className="rounded-lg border border-[#cde6ff] bg-white px-4 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50"
+        disabled
+        className="cursor-not-allowed rounded-lg border border-[#cde6ff] bg-white px-4 py-2 text-sm font-medium text-[#0A1F44] opacity-70"
       >
         Zobacz wszystkie kluby
       </button>

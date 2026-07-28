@@ -22,6 +22,7 @@ type HomePortalPageProps = {
   tournamentNameById?: Record<string, string>;
   onOpenMatches: () => void;
   onOpenArticles: () => void;
+  onOpenArticle: (id: string) => void;
   onOpenKtpw: () => void;
   onOpenClubPage?: () => void;
 };
@@ -35,6 +36,7 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
   tournamentNameById,
   onOpenMatches,
   onOpenArticles,
+  onOpenArticle,
   onOpenKtpw,
   onOpenClubPage,
 }) => {
@@ -103,19 +105,29 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
 
       <section className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
         <HomeSectionHeader icon={<Flag className="h-5 w-5" />} title="Aktualności" actionLabel="Zobacz wszystkie" onAction={onOpenArticles} />
-        <NewsHighlights onOpenAll={onOpenArticles} />
+        <NewsHighlights onOpenAll={onOpenArticles} onOpenArticle={onOpenArticle} />
       </section>
 
       <div ref={nationalTeamsRef}>
         <section className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
           <HomeSectionHeader icon={<Users className="h-5 w-5" />} title="Kadra Polski" />
-          <NationalTeamsSection />
+          <NationalTeamsSection
+            matches={matches}
+            competitionNameById={competitionNameById}
+            tournamentNameById={tournamentNameById}
+            onOpenMore={onOpenMatches}
+          />
         </section>
       </div>
 
       <section ref={tablesRef} className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
         <HomeSectionHeader icon={<LayoutList className="h-5 w-5" />} title="Tabele rozgrywek" actionLabel="Zobacz wszystkie tabele" onAction={onOpenMatches} />
-        <LeagueTablesSection />
+        <LeagueTablesSection
+          matches={matches}
+          competitionNameById={competitionNameById}
+          tournamentNameById={tournamentNameById}
+          onOpenMore={onOpenMatches}
+        />
       </section>
 
       <div ref={clubsRef}>

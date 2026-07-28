@@ -1,6 +1,6 @@
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState } from "react";
-import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, UploadCloud, Image, Settings, Table, Check, RefreshCw, X } from "lucide-react";
+import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, UploadCloud, Image, Settings, Table, Check, RefreshCw, X, House, Trophy, CalendarDays } from "lucide-react";
 import { useSupabaseAuth } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
@@ -775,10 +775,10 @@ const formatMatchDate = (iso: string) =>
     .replace(/\./g, "-");
 
 const navPillClass = (isActive: boolean) => clsx(
-  "inline-flex items-center rounded-2xl border px-4 py-2 text-sm font-medium transition",
+  "inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium transition",
   isActive
-    ? "border-[#058CFF] bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white shadow-[0_10px_20px_rgba(5,140,255,0.24)]"
-    : "border-sky-100 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50"
+    ? "border-[#058CFF] bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white shadow-[0_12px_24px_rgba(5,140,255,0.3)]"
+    : "border-sky-100 bg-white/95 text-slate-700 shadow-[0_6px_14px_rgba(2,32,71,0.06)] hover:-translate-y-0.5 hover:border-[#9fd8ff] hover:bg-sky-50 hover:shadow-[0_10px_18px_rgba(5,140,255,0.16)]"
 );
 
   // Load matches from Supabase and merge docs from localStorage
@@ -971,41 +971,44 @@ const delegateCandidateNames = Array.from(new Set([
   }
 }
  return (
-<div className="wp-theme relative min-h-screen overflow-hidden bg-[#f8fbff] px-4 py-4 md:px-8 md:py-6">
-  <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_16%_18%,rgba(56,189,248,0.2),transparent_34%),radial-gradient(circle_at_84%_20%,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,#f5fbff_0%,#eef7ff_55%,#e7f3ff_100%)]" />
+<div className="wp-theme relative min-h-screen overflow-hidden bg-[#f6faff] px-4 py-4 md:px-8 md:py-6">
+  <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_16%_18%,rgba(56,189,248,0.2),transparent_34%),radial-gradient(circle_at_84%_20%,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,#f6faff_0%,#edf6ff_55%,#e9edf2_100%)]" />
+  <div className="pointer-events-none absolute inset-0 -z-10 opacity-25 [background-size:180px_90px] [background-image:linear-gradient(120deg,transparent_45%,rgba(44,192,255,0.14)_50%,transparent_56%)]" />
   <div className="pointer-events-none absolute -top-24 -left-20 h-[360px] w-[360px] rounded-full bg-sky-300/20 blur-3xl" />
   <div className="pointer-events-none absolute -right-16 top-40 h-[320px] w-[320px] rounded-full bg-blue-300/15 blur-3xl" />
- <header className="mx-auto mb-5 flex max-w-[1220px] items-center justify-between rounded-3xl border border-[#dbeafe] bg-white/95 px-4 py-3 text-[#0A1F44] shadow-[0_10px_24px_rgba(2,32,71,0.08)] backdrop-blur-xl sm:px-5 sm:py-3.5">
-  <div className="flex items-center gap-3">
-<img
-  src="/logo.svg"
-  alt="WPOLO.PL"
-  className="
-    shrink-0
-    h-14
-    sm:h-16
-    w-auto
-    object-contain         /* zachowuje proporcje */
-    rounded-none           /* brak zaokrągleń */
-    bg-transparent         /* całkowicie przezroczyste tło */
-    shadow-none            /* usuwa cień */
-  "
-/>
-    <div>
-      <h1 className="text-lg font-bold leading-tight text-[#0A1F44] sm:text-xl md:text-2xl">
+ <header className="mx-auto mb-5 flex max-w-[1220px] flex-col gap-3 rounded-3xl border border-[#dbeafe] bg-[radial-gradient(circle_at_14%_45%,rgba(44,192,255,0.18)_0%,rgba(44,192,255,0.06)_20%,rgba(44,192,255,0)_42%),radial-gradient(circle_at_26%_32%,rgba(5,140,255,0.12)_0%,rgba(5,140,255,0)_36%),linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(246,252,255,0.95)_38%,rgba(233,237,242,0.82)_100%)] px-4 py-3 text-[#0A1F44] shadow-[0_10px_24px_rgba(2,32,71,0.08)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4 lg:py-5">
+  <div className="flex items-center gap-2 sm:min-w-0 sm:flex-1 sm:gap-3">
+    <img
+      src="/logo.png"
+      alt="WPOLO.PL"
+      className="block h-[96px] w-auto shrink-0 object-contain transition-transform duration-[250ms] hover:scale-[1.03] md:h-[140px] lg:h-[178px]"
+    />
+    <div className="min-w-0">
+      <h1 className="text-[1.55rem] font-extrabold leading-[1.03] text-[#0A1F44] sm:text-[1.95rem]">
         WPOLO.PL
       </h1>
-      <p className="text-xs text-slate-500 sm:text-sm">
-        Portal polskiej piłki wodnej
+      <p className="mt-1 truncate text-sm font-medium text-[#5F6F8C] sm:text-[14px]">
+        Portal dla ludzi w czepku urodzonych
       </p>
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.1em] sm:text-[11px] lg:flex-nowrap lg:whitespace-nowrap lg:gap-x-1.5 lg:text-[13px] lg:tracking-[0.04em]">
+        <span className="text-[#058CFF]">Rozgrywki</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-[#9cb6d6]" />
+        <span className="text-[#0A1F44]">Wyniki</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-[#9cb6d6]" />
+        <span className="text-[#0A1F44]">Kluby</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-[#9cb6d6]" />
+        <span className="text-[#F5B32E]">Kadra</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-[#9cb6d6]" />
+        <span className="text-[#0A1F44]">Sędziowie</span>
+      </div>
     </div>
   </div>
 
-   <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+  <div className="flex w-full flex-col gap-1.5 sm:w-auto sm:max-w-[42%] sm:flex-row sm:items-center sm:justify-end">
     
 {/* Zalogowany vs. niezalogowany */}
 {effectiveUser ? (
-  <div className="flex flex-wrap items-center gap-2 justify-end">
+  <div className="flex flex-wrap items-center justify-end gap-1.5">
     <Badge tone="blue">
       {prettyRole(effectiveUser.role)}
       {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
@@ -1069,18 +1072,20 @@ const delegateCandidateNames = Array.from(new Set([
   {/* === [3.3] HOME: pasek 3 najnowszych newsów + dotychczasowa strona === */}
   {page === 'home' && (
     <>
-      <div className="rounded-3xl border border-[#dbeafe] bg-white/95 p-3 shadow-sm">
+      <div className="rounded-3xl border border-[#dbeafe] bg-[linear-gradient(145deg,rgba(255,255,255,0.97)_0%,rgba(242,250,255,0.95)_100%)] p-3 shadow-[0_10px_24px_rgba(2,32,71,0.06)]">
         <div className="flex flex-wrap gap-2.5">
           <button
             className={navPillClass(activePage === 'dashboard')}
             onClick={() => setActivePage('dashboard')}
           >
+            <House className="h-4 w-4" />
             Start
           </button>
           <button
             className={navPillClass(activePage === 'matches')}
             onClick={() => setActivePage('matches')}
           >
+            <Trophy className="h-4 w-4" />
             Rozgrywki
           </button>
           {showMyMatches && (
@@ -1088,6 +1093,7 @@ const delegateCandidateNames = Array.from(new Set([
               className={navPillClass(activePage === 'my-matches')}
               onClick={() => setActivePage('my-matches')}
             >
+              <CalendarDays className="h-4 w-4" />
               Moje mecze
             </button>
           )}
@@ -1096,6 +1102,7 @@ const delegateCandidateNames = Array.from(new Set([
               className={navPillClass(activePage === 'club')}
               onClick={() => setActivePage('club')}
             >
+              <Users className="h-4 w-4" />
               Mój klub
             </button>
           )}
@@ -1104,6 +1111,7 @@ const delegateCandidateNames = Array.from(new Set([
               className={navPillClass(activePage === 'ktpw')}
               onClick={() => setActivePage('ktpw')}
             >
+              <FileText className="h-4 w-4" />
               KTPW
             </button>
           )}
@@ -1112,6 +1120,7 @@ const delegateCandidateNames = Array.from(new Set([
               className={navPillClass(activePage === 'admin')}
               onClick={() => setActivePage('admin')}
             >
+              <Shield className="h-4 w-4" />
               Admin
             </button>
           )}
@@ -1128,6 +1137,7 @@ const delegateCandidateNames = Array.from(new Set([
           tournamentNameById={tournamentNameById}
           onOpenMatches={() => setActivePage('matches')}
           onOpenArticles={openArticles}
+          onOpenArticle={openArticle}
           onOpenKtpw={() => setActivePage('ktpw')}
           onOpenClubPage={showClubTab ? () => setActivePage('club') : undefined}
         />
@@ -1364,10 +1374,6 @@ const delegateCandidateNames = Array.from(new Set([
   <RegisterForm onDone={() => setPage('home')} />
 )}
 </main>
-
-    <footer className="mx-auto mt-7 max-w-[1220px] text-xs text-slate-500">
-      <p>copyright Lukasz Krol 2025</p>
-    </footer>
   </div>)
 }
 
