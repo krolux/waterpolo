@@ -10,10 +10,11 @@ import { uploadDoc } from "./lib/storage";
 import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
 import { setMyAvailability, getMyAvailabilityForMatches, listAvailableReferees } from "./lib/availability";
 import { namesOfAvailableReferees } from "./lib/availability";
-import { listCompetitions, getCompetitionSeason, listTournamentMatches, type Competition, type CompetitionSeason } from "./lib/competitions";
+import { listCompetitions, listTournamentMatches, type Competition, type CompetitionSeason } from "./lib/competitions";
 import { useTournamentManagement } from "./hooks/useTournamentManagement";
 import { ClubDashboard } from "./components/dashboard/ClubDashboard";
 import { MatchesPage } from "./components/pages/MatchesPage";
+import { CompetitionsPageV2 } from "./components/pages/CompetitionsPageV2";
 import { HomePortalPage } from "./components/pages/HomePortalPage";
 import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
@@ -291,10 +292,22 @@ useEffect(() => {
 const [authUser, setAuthUser] = useState<{ id: string; email: string } | null>(null);
 
 useEffect(() => {
-  supabase.auth.getUser().then(({ data }) => {
-    const u = data.user;
+  let cancelled = false;
+
+  (async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      console.warn("[app.auth.getSession] error", error);
+    }
+
+    if (cancelled) return;
+    const u = data.session?.user;
     setAuthUser(u ? { id: u.id, email: u.email ?? "" } : null);
-  });
+  })();
+
+  return () => {
+    cancelled = true;
+  };
 }, [userId]);
 // MÓJ profil (upsert + select)
 const [myProfile, setMyProfile] = useState<ProfileRow | null>(null);
@@ -438,6 +451,59 @@ const [competitions, setCompetitions] = useState<Competition[]>([]);
 const [selectedCompetitionId, setSelectedCompetitionId] = useState<string | null>(null);
 const [selectedCompetitionSeason, setSelectedCompetitionSeason] = useState<CompetitionSeason | null>(null);
 const [loadingCompetitions, setLoadingCompetitions] = useState(false);
+const [loadingCompetitionSeason, setLoadingCompetitionSeason] = useState(false);
+
+const resolveCompetitionBySelection = React.useCallback((competitionId: string) => {
+  if (!competitionId.startsWith("fallback-")) return null;
+
+  const fallback = fallbackCompetitions.find((competition) => competition.id === competitionId);
+  if (!fallback) return null;
+
+  const fallbackShort = (fallback.short_name || "").trim().toLowerCase();
+  const fallbackName = fallback.name.trim().toLowerCase();
+
+  return (
+    competitions.find((competition) => (competition.short_name || "").trim().toLowerCase() === fallbackShort) ||
+    competitions.find((competition) => competition.name.trim().toLowerCase() === fallbackName) ||
+    null
+  );
+}, [competitions, fallbackCompetitions]);
+
+const selectedCompetition = React.useMemo(() => {
+  if (!selectedCompetitionId) return null;
+  return resolveCompetitionBySelection(selectedCompetitionId) ?? null;
+}, [resolveCompetitionBySelection, selectedCompetitionId]);
+
+const isEkstraklasaSelected = React.useMemo(() => {
+  const shortName = (selectedCompetition?.short_name || "").trim().toLowerCase();
+  const name = (selectedCompetition?.name || "").trim().toLowerCase();
+  return shortName === "eks" || name === "ekstraklasa";
+}, [selectedCompetition?.name, selectedCompetition?.short_name]);
+
+const loadLatestCompetitionSeason = React.useCallback(async (competitionId: string) => {
+  const { data, error } = await supabase
+    .from("competition_seasons")
+    .select("*")
+    .eq("competition_id", competitionId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const seasons = (data || []) as CompetitionSeason[];
+  if (seasons.length === 0) {
+    return null;
+  }
+
+  const preferred =
+    seasons.find((season) => season.status === "active") ||
+    seasons.find((season) => season.status === "in_progress") ||
+    seasons.find((season) => season.status === "planned") ||
+    seasons[0];
+
+  return preferred;
+}, []);
 
 const refreshCompetitions = React.useCallback(async () => {
   setLoadingCompetitions(true);
@@ -455,25 +521,6 @@ const refreshCompetitions = React.useCallback(async () => {
       );
       return ekstraklasa?.id || comps[0]?.id || null;
     });
-
-    const ekstraklasa = comps.find((c) => c.name === 'Ekstraklasa');
-    if (ekstraklasa) {
-      // Znajdź sezon 2025/2026 dla Ekstraklasy
-      try {
-        const { data: seasons, error: seErr } = await supabase
-          .from('seasons')
-          .select('id')
-          .eq('name', '2025/2026')
-          .single();
-
-        if (!seErr && seasons) {
-          const compSeason = await getCompetitionSeason(ekstraklasa.id, seasons.id);
-          setSelectedCompetitionSeason(compSeason);
-        }
-      } catch (e) {
-        console.warn('[refreshCompetitions] sezon lookup failed', e);
-      }
-    }
   } catch (e: any) {
     console.warn('[refreshCompetitions] error', e?.message);
   }
@@ -493,28 +540,52 @@ useEffect(() => {
 
 const handleCompetitionChange = async (competitionId: string) => {
   setSelectedCompetitionId(competitionId);
-  setSelectedCompetitionSeason(null);
-
-  if (competitionId.startsWith('fallback-')) {
-    return;
-  }
-
-  // Pobierz sezon 2025/2026
-  try {
-    const { data: seasons, error: seErr } = await supabase
-      .from('seasons')
-      .select('id')
-      .eq('name', '2025/2026')
-      .single();
-
-    if (!seErr && seasons) {
-      const compSeason = await getCompetitionSeason(competitionId, seasons.id);
-      setSelectedCompetitionSeason(compSeason);
-    }
-  } catch (e) {
-    console.warn('[handleCompetitionChange] error', e);
-  }
 };
+
+useEffect(() => {
+  let cancelled = false;
+
+  const loadSeason = async () => {
+    if (!selectedCompetitionId) {
+      setSelectedCompetitionSeason(null);
+      setLoadingCompetitionSeason(false);
+      return;
+    }
+
+    setLoadingCompetitionSeason(true);
+    setSelectedCompetitionSeason(null);
+
+    try {
+      const resolvedCompetition = resolveCompetitionBySelection(selectedCompetitionId);
+      if (!resolvedCompetition) {
+        if (!cancelled) {
+          setSelectedCompetitionSeason(null);
+        }
+        return;
+      }
+
+      const season = await loadLatestCompetitionSeason(resolvedCompetition.id);
+      if (!cancelled) {
+        setSelectedCompetitionSeason(season);
+      }
+    } catch (e) {
+      console.warn("[selectedCompetitionSeason] error", e);
+      if (!cancelled) {
+        setSelectedCompetitionSeason(null);
+      }
+    } finally {
+      if (!cancelled) {
+        setLoadingCompetitionSeason(false);
+      }
+    }
+  };
+
+  void loadSeason();
+
+  return () => {
+    cancelled = true;
+  };
+}, [loadLatestCompetitionSeason, resolveCompetitionBySelection, selectedCompetitionId]);
 
   const {
     stages,
@@ -551,10 +622,57 @@ const handleCompetitionChange = async (competitionId: string) => {
     handleDeleteMatch,
   } = useTournamentManagement({
     selectedCompetitionSeason,
-    competitions,
     refreshMatches,
   });
   
+  const selectedSeasonStageIds = React.useMemo(() => {
+    if (!selectedCompetitionSeason?.id) return new Set<string>();
+    return new Set(stages.filter((stage) => stage.competition_season_id === selectedCompetitionSeason.id).map((stage) => stage.id));
+  }, [selectedCompetitionSeason?.id, stages]);
+
+  const selectedSeasonTournamentIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    selectedSeasonStageIds.forEach((stageId) => {
+      (tournaments.get(stageId) ?? []).forEach((tournament) => ids.add(tournament.id));
+    });
+    return ids;
+  }, [selectedSeasonStageIds, tournaments]);
+
+  const selectedCategoryMatches = React.useMemo(() => {
+    const matches = state.matches.filter((match) => {
+      if (selectedCompetitionSeason?.id && match.competitionSeasonId === selectedCompetitionSeason.id) {
+        return true;
+      }
+
+      if (match.tournamentId && selectedSeasonTournamentIds.has(match.tournamentId)) {
+        return true;
+      }
+
+      if (isEkstraklasaSelected && !selectedCompetitionSeason?.id && !match.competitionSeasonId && !match.tournamentId) {
+        return true;
+      }
+
+      return false;
+    });
+
+    console.log("[competition diagnostic]", {
+      selectedCompetitionId,
+      selectedCompetitionSeason,
+      stages,
+      tournaments,
+    });
+
+    matches.forEach((match) => {
+      console.log("[match mapping]", {
+        id: match.id,
+        competitionSeasonId: match.competitionSeasonId,
+        tournamentId: match.tournamentId,
+      });
+    });
+
+    return matches;
+  }, [isEkstraklasaSelected, selectedCompetitionId, selectedCompetitionSeason, selectedSeasonTournamentIds, stages, state.matches, tournaments]);
+
   // Load profiles (for admin select lists)
   const [profiles,setProfiles]=useState<ProfileRow[]>([])
   const [loadingProfiles,setLoadingProfiles]=useState(false)
@@ -787,7 +905,15 @@ const navPillClass = (isActive: boolean) => clsx(
     async function refreshMatches() {
   setLoadingMatches(true);
   try {
+    console.log("[matches] raw fetch start");
     const rows = await listMatches();
+    console.log("[matches] raw fetch result", {
+      count: rows?.length,
+      matches: rows,
+    });
+    if (typeof window !== "undefined") {
+      (window as any).__wpMatchesCount = rows?.length || 0;
+    }
 
     // zmapuj wiersze z DB na nasz kształt Match
 const matches: Match[] = rows.map((r: any) => ({
@@ -945,6 +1071,7 @@ try {
   alert("Błąd pobierania dokumentów: " + e.message);
 }
   } catch (e: any) {
+    console.error("[matches] raw fetch error", e);
     alert("Błąd pobierania meczów: " + e.message);
   }
   setLoadingMatches(false);
@@ -1149,61 +1276,12 @@ const delegateCandidateNames = Array.from(new Set([
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Rozgrywki</div>
             <h2 className="mt-1 text-xl font-semibold text-[#061a33]">Centrum meczowe</h2>
           </div>
-          <MatchesPage
-            competitions={competitions}
-            fallbackCompetitions={fallbackCompetitions}
-            handleCompetitionChange={handleCompetitionChange}
-            selectedCompetitionId={selectedCompetitionId}
-            selectedCompetitionSeason={selectedCompetitionSeason}
-            state={state}
-            setState={setState}
-            penaltiesByMatch={penaltiesByMatch}
-            effectiveUser={effectiveUser}
+          <CompetitionsPageV2
+            isAdmin={!!effectiveUser && isAdmin(effectiveUser)}
             clubs={clubs}
             refereeNames={refereeNames}
-            delegateNames={delegateNames}
-            delegateCandidateNames={delegateCandidateNames}
-            refreshMatches={refreshMatches}
-            refreshPenalties={refreshPenalties}
-            loadingMatches={loadingMatches}
-            handleRemovePenalty={handleRemovePenalty}
-            handleQuickEdit={handleQuickEdit}
-            handleCancelInlineEdit={handleCancelInlineEdit}
-            editingMatchId={editingMatchId}
-            isAdmin={isAdmin}
-            removeWholeSlot={removeWholeSlot}
-            ExportImport={ExportImport}
-            loadingStages={loadingStages}
-            stages={stages}
-            tournaments={tournaments}
-            handleDeleteStage={handleDeleteStage}
-            handleDeleteTournament={handleDeleteTournament}
-            tournamentClubs={tournamentClubs}
-            showAddTournamentClubForm={showAddTournamentClubForm}
-            setShowAddTournamentClubForm={setShowAddTournamentClubForm}
-            tournamentClubFormData={tournamentClubFormData}
-            setTournamentClubFormData={setTournamentClubFormData}
-            handleAddTournamentClub={handleAddTournamentClub}
-            handleDeleteTournamentClub={handleDeleteTournamentClub}
-            setSelectedTournamentForMatch={setSelectedTournamentForMatch}
-            setShowAddMatchForm={setShowAddMatchForm}
-            showAddStageForm={showAddStageForm}
-            setShowAddStageForm={setShowAddStageForm}
-            stageFormData={stageFormData}
-            setStageFormData={setStageFormData}
-            handleAddStage={handleAddStage}
-            showAddTournamentForm={showAddTournamentForm}
-            setShowAddTournamentForm={setShowAddTournamentForm}
-            selectedStageForTournament={selectedStageForTournament}
-            setSelectedStageForTournament={setSelectedStageForTournament}
-            tournamentFormData={tournamentFormData}
-            setTournamentFormData={setTournamentFormData}
-            handleAddTournament={handleAddTournament}
-            showAddMatchForm={showAddMatchForm}
-            selectedTournamentForMatch={selectedTournamentForMatch}
-            matchFormData={matchFormData}
-            setMatchFormData={setMatchFormData}
-            handleAddMatch={handleAddMatch}
+            delegateNames={delegateCandidateNames}
+            onMatchesChanged={refreshMatches}
           />
         </section>
       )}
@@ -1218,6 +1296,7 @@ const delegateCandidateNames = Array.from(new Set([
         <section className="space-y-4 rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
           <AdminPanel
             state={state}
+            matches={selectedCategoryMatches}
             setState={setState}
             clubs={clubs}
             refereeNames={refereeNames}
@@ -1226,6 +1305,8 @@ const delegateCandidateNames = Array.from(new Set([
             canWrite={true}
             editingMatchId={editingMatchId}
             clearEditing={() => setEditingMatchId(null)}
+            selectedCompetitionSeasonId={selectedCompetitionSeason?.id ?? null}
+            selectedCompetitionIsLegacyEks={isEkstraklasaSelected}
           />
 
           <Section title="Administracja" icon={<Shield className="w-5 h-5" />} className="bg-white/60">
@@ -1376,6 +1457,5 @@ const delegateCandidateNames = Array.from(new Set([
 </main>
   </div>)
 }
-
 
 

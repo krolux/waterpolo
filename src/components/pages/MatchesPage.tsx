@@ -29,6 +29,8 @@ type MatchesPageProps = {
   handleCompetitionChange: (competitionId: string) => void;
   selectedCompetitionId: string | null;
   selectedCompetitionSeason: CompetitionSeason | null;
+  selectedCategoryMatches: Match[];
+  loadingCompetitionSeason: boolean;
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   penaltiesByMatch: any;
@@ -132,6 +134,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
   handleCompetitionChange,
   selectedCompetitionId,
   selectedCompetitionSeason,
+  selectedCategoryMatches,
+  loadingCompetitionSeason,
   state,
   setState,
   penaltiesByMatch,
@@ -192,6 +196,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
   const [matchRosterPreviewError, setMatchRosterPreviewError] = React.useState<string | null>(null);
   const [matchRosterPreview, setMatchRosterPreview] = React.useState<MatchRosterPreviewState | null>(null);
   const [verifyingMatchLicenseIds, setVerifyingMatchLicenseIds] = React.useState<Set<string>>(new Set());
+  const stageFormRef = React.useRef<HTMLDivElement | null>(null);
+  const tournamentFormRef = React.useRef<HTMLDivElement | null>(null);
   const canApprove = !!effectiveUser && ["Referee", "Delegate", "Admin"].includes(effectiveUser.role);
   const canVerifyMatchLicenses = !!effectiveUser && ["Referee", "Delegate", "Admin"].includes(effectiveUser.role);
   const tournamentTargetDateById = React.useMemo(() => {
@@ -513,13 +519,51 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
     );
   }, [canVerifyMatchLicenses, formatDateTime, handleVerifyMatchLicense, loadingMatchRosterPreview, matchRosterPreview, matchRosterPreviewError, openMatchRosterPreview, verifyingMatchLicenseIds]);
 
+  const competitionOptions = React.useMemo(
+    () => (competitions.length ? competitions : fallbackCompetitions),
+    [competitions, fallbackCompetitions]
+  );
+
+  const selectedCompetition = React.useMemo(
+    () => competitionOptions.find((competition) => competition.id === selectedCompetitionId) ?? null,
+    [competitionOptions, selectedCompetitionId]
+  );
+
+  const visibleStages = React.useMemo(() => {
+    if (!selectedCompetitionSeason?.id) return [];
+    return stages.filter((stage) => stage.competition_season_id === selectedCompetitionSeason.id);
+  }, [selectedCompetitionSeason?.id, stages]);
+
+  const visibleTournamentsByStage = React.useMemo(() => {
+    const map = new Map<string, Tournament[]>();
+    visibleStages.forEach((stage) => {
+      map.set(stage.id, tournaments.get(stage.id) ?? []);
+    });
+    return map;
+  }, [tournaments, visibleStages]);
+
+  const selectedCategoryTitle =
+    selectedCompetitionSeason?.name || selectedCompetition?.short_name || selectedCompetition?.name || "Kategoria";
+
+  const competitionRankingClubs = React.useMemo(
+    () => Array.from(new Set(selectedCategoryMatches.flatMap((match) => [match.home, match.away]))),
+    [selectedCategoryMatches]
+  );
+
+  const tournamentFormStages = visibleStages;
+  const tournamentFormStageId = selectedStageForTournament || tournamentFormStages[0]?.id || "";
+  const shouldShowTournamentSection =
+    !!selectedCompetitionSeason?.id &&
+    (loadingCompetitionSeason || loadingStages || visibleStages.length > 0 || (!!effectiveUser && isAdmin(effectiveUser)));
+
+
   return (
     <>
       <div className="mb-4 rounded-3xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
         <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Filtr rozgrywek</div>
         <div className="mb-2 text-base font-semibold text-[#061a33]">Kategoria rozgrywek</div>
         <div className="flex flex-wrap gap-2">
-          {(competitions.length ? competitions : fallbackCompetitions).map(comp => (
+          {competitionOptions.map(comp => (
             <button
               key={comp.id}
               onClick={() => handleCompetitionChange(comp.id)}
@@ -536,99 +580,105 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
         </div>
       </div>
 
-      {selectedCompetitionSeason?.competition_id === competitions.find(c => c.name === "Ekstraklasa")?.id ? (
-        <CompetitionMatchesView
-          mode="competition"
-          competitionSeasonId={selectedCompetitionSeason?.id ?? null}
-          matches={state.matches}
-          penalties={penaltiesByMatch}
-          documents={state.matches}
-          currentUser={effectiveUser}
-          state={state}
-          setState={setState}
-          clubs={clubs}
-          refereeNames={refereeNames}
-          delegateNames={delegateNames}
-          delegateCandidateNames={delegateCandidateNames}
-          onRefreshMatches={() => {
-            refreshMatches();
-            refreshPenalties();
-          }}
-          loadingMatches={loadingMatches}
-          onRemovePenalty={handleRemovePenalty}
-          onQuickEdit={handleQuickEdit}
-          onCancelEdit={handleCancelInlineEdit}
-          editingMatchId={editingMatchId}
-          isAdmin={isAdmin}
-          renderMatchesTable={({ title, variant, sectionClassName, showExport, tableState, currentUser }) => (
-            <MatchesTable
-              title={title}
-              variant={variant}
-              sectionClassName={sectionClassName}
-              showExport={showExport}
-              state={tableState}
-              setState={setState}
-              user={currentUser ?? null}
-              onRefresh={refreshMatches}
-              loading={loadingMatches}
-              penaltyMap={penaltiesByMatch}
-              onRemovePenalty={handleRemovePenalty}
-              onQuickEdit={handleQuickEdit}
-              clubs={clubs}
-              refereeNames={refereeNames}
-              delegateNames={delegateCandidateNames}
-              editingMatchId={editingMatchId}
-              onCancelEdit={handleCancelInlineEdit}
-              removeWholeSlot={removeWholeSlot}
-              renderExportImport={({ state, setState }) => <ExportImport state={state} setState={setState} />}
-              renderMatchActionExtras={variant === "upcoming" ? renderMatchRosterActionExtras : undefined}
-              renderMatchExpandedExtras={variant === "upcoming" ? renderMatchRosterExpandedExtras : undefined}
-              renderAdminPanel={m => (
-                <AdminPanel
-                  state={state}
-                  setState={setState}
-                  clubs={clubs}
-                  refereeNames={refereeNames}
-                  delegateNames={delegateCandidateNames}
-                  onAfterChange={() => {
-                    refreshMatches();
-                    handleCancelInlineEdit();
-                  }}
-                  canWrite={true}
-                  editingMatchId={m.id}
-                  clearEditing={handleCancelInlineEdit}
-                  compact
-                />
-              )}
-            />
-          )}
-          renderRankingTable={({ matches, clubs }) => <RankingTable matches={matches} clubs={clubs as string[]} />}
-          renderCompetitionAdminPanel={() => (
-            <AdminPanel
-              state={state}
-              setState={setState}
-              clubs={clubs}
-              refereeNames={refereeNames}
-              delegateNames={delegateCandidateNames}
-              onAfterChange={() => {
-                refreshMatches();
-              }}
-              canWrite={true}
-              editingMatchId={editingMatchId}
-              clearEditing={handleCancelInlineEdit}
-            />
-          )}
-        />
-      ) : (
+      <CompetitionMatchesView
+        mode="competition"
+        competitionSeasonId={selectedCompetitionSeason?.id ?? null}
+        matches={selectedCategoryMatches}
+        penalties={penaltiesByMatch}
+        documents={selectedCategoryMatches}
+        currentUser={effectiveUser}
+        state={state}
+        setState={setState}
+        clubs={clubs}
+        refereeNames={refereeNames}
+        delegateNames={delegateNames}
+        delegateCandidateNames={delegateCandidateNames}
+        onRefreshMatches={() => {
+          refreshMatches();
+          refreshPenalties();
+        }}
+        loadingMatches={loadingCompetitionSeason || loadingMatches}
+        onRemovePenalty={handleRemovePenalty}
+        onQuickEdit={handleQuickEdit}
+        onCancelEdit={handleCancelInlineEdit}
+        editingMatchId={editingMatchId}
+        isAdmin={isAdmin}
+        renderMatchesTable={({ title, variant, sectionClassName, showExport, tableState, currentUser }) => (
+          <MatchesTable
+            title={title}
+            variant={variant}
+            sectionClassName={sectionClassName}
+            showExport={showExport}
+            state={tableState}
+            setState={setState}
+            user={currentUser ?? null}
+            onRefresh={refreshMatches}
+            loading={loadingMatches}
+            penaltyMap={penaltiesByMatch}
+            onRemovePenalty={handleRemovePenalty}
+            onQuickEdit={handleQuickEdit}
+            clubs={clubs}
+            refereeNames={refereeNames}
+            delegateNames={delegateCandidateNames}
+            editingMatchId={editingMatchId}
+            onCancelEdit={handleCancelInlineEdit}
+            removeWholeSlot={removeWholeSlot}
+            renderExportImport={({ state, setState }) => <ExportImport state={state} setState={setState} />}
+            renderMatchActionExtras={variant === "upcoming" ? renderMatchRosterActionExtras : undefined}
+            renderMatchExpandedExtras={variant === "upcoming" ? renderMatchRosterExpandedExtras : undefined}
+            renderAdminPanel={m => (
+              <AdminPanel
+                state={state}
+                matches={selectedCategoryMatches}
+                setState={setState}
+                clubs={clubs}
+                refereeNames={refereeNames}
+                delegateNames={delegateCandidateNames}
+                onAfterChange={() => {
+                  refreshMatches();
+                  handleCancelInlineEdit();
+                }}
+                canWrite={true}
+                editingMatchId={m.id}
+                clearEditing={handleCancelInlineEdit}
+                compact
+                selectedCompetitionSeasonId={selectedCompetitionSeason?.id ?? null}
+                selectedCompetitionIsLegacyEks={selectedCompetition?.short_name?.toLowerCase() === "eks" || selectedCompetition?.name?.toLowerCase() === "ekstraklasa"}
+              />
+            )}
+          />
+        )}
+        renderRankingTable={({ matches }) => <RankingTable matches={matches} clubs={competitionRankingClubs} />}
+        renderCompetitionAdminPanel={() => (
+          <AdminPanel
+            state={state}
+            matches={selectedCategoryMatches}
+            setState={setState}
+            clubs={clubs}
+            refereeNames={refereeNames}
+            delegateNames={delegateCandidateNames}
+            onAfterChange={() => {
+              refreshMatches();
+            }}
+            canWrite={true}
+            editingMatchId={editingMatchId}
+            clearEditing={handleCancelInlineEdit}
+            selectedCompetitionSeasonId={selectedCompetitionSeason?.id ?? null}
+            selectedCompetitionIsLegacyEks={selectedCompetition?.short_name?.toLowerCase() === "eks" || selectedCompetition?.name?.toLowerCase() === "ekstraklasa"}
+          />
+        )}
+      />
+
+      {shouldShowTournamentSection ? (
         <div className="space-y-4">
-          <Section title={selectedCompetitionSeason?.name || "Kategoria"} icon={<Shield className="w-5 h-5" />}>
-            {loadingStages ? (
+          <Section title={selectedCategoryTitle} icon={<Shield className="w-5 h-5" />}>
+            {loadingCompetitionSeason || loadingStages ? (
               <div className="text-gray-500">Ładowanie etapów...</div>
-            ) : stages.length === 0 ? (
-              <div className="text-gray-500">Brak etapów. {effectiveUser && isAdmin(effectiveUser) && "Dodaj pierwszy etap."}</div>
+            ) : visibleStages.length === 0 ? (
+              <div className="text-gray-500">Brak danych dla wybranej kategorii.</div>
             ) : (
               <div className="space-y-4">
-                {stages.map(stage => (
+                {visibleStages.map(stage => (
                   <div key={stage.id} className="rounded-2xl border border-[#dbeafe] bg-white pl-4 py-3 shadow-sm">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -649,9 +699,9 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                       )}
                     </div>
 
-                    {tournaments.get(stage.id) && tournaments.get(stage.id)!.length > 0 ? (
+                    {visibleTournamentsByStage.get(stage.id) && visibleTournamentsByStage.get(stage.id)!.length > 0 ? (
                       <div className="mt-3 space-y-3 ml-2 border-t pt-2">
-                        {tournaments.get(stage.id)!.map(tournament => (
+                        {visibleTournamentsByStage.get(stage.id)!.map(tournament => (
                           <div key={tournament.id} className="rounded-xl border border-[#dbeafe] bg-white">
                             <div className="flex items-center justify-between border-b border-[#dbeafe] bg-[#f8fbff] p-2">
                               <div>
@@ -833,6 +883,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                   renderAdminPanel={m => (
                                     <AdminPanel
                                       state={state}
+                                      matches={selectedCategoryMatches}
                                       setState={setState}
                                       clubs={clubs}
                                       refereeNames={refereeNames}
@@ -845,6 +896,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                       editingMatchId={m.id}
                                       clearEditing={handleCancelInlineEdit}
                                       compact
+                                      selectedCompetitionSeasonId={selectedCompetitionSeason?.id ?? null}
+                                      selectedCompetitionIsLegacyEks={selectedCompetition?.short_name?.toLowerCase() === "eks" || selectedCompetition?.name?.toLowerCase() === "ekstraklasa"}
                                     />
                                   )}
                                 />
@@ -853,6 +906,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                               renderCompetitionAdminPanel={() => (
                                 <AdminPanel
                                   state={state}
+                                  matches={selectedCategoryMatches}
                                   setState={setState}
                                   clubs={clubs}
                                   refereeNames={refereeNames}
@@ -863,6 +917,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                                   canWrite={true}
                                   editingMatchId={editingMatchId}
                                   clearEditing={handleCancelInlineEdit}
+                                  selectedCompetitionSeasonId={selectedCompetitionSeason?.id ?? null}
+                                  selectedCompetitionIsLegacyEks={selectedCompetition?.short_name?.toLowerCase() === "eks" || selectedCompetition?.name?.toLowerCase() === "ekstraklasa"}
                                 />
                               )}
                             />
@@ -879,6 +935,12 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
                           onClick={() => {
                             setSelectedStageForTournament(stage.id);
                             setShowAddTournamentForm(true);
+                            requestAnimationFrame(() => {
+                              tournamentFormRef.current?.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                              });
+                            });
                           }}
                           className="rounded-lg px-2 py-1 text-sm text-[#058CFF] transition hover:bg-sky-50"
                         >
@@ -894,41 +956,56 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
 
           {effectiveUser && isAdmin(effectiveUser) && (
             <div>
-              {!showAddStageForm ? (
-                <button
-                  onClick={() => setShowAddStageForm(true)}
-                  className="rounded-xl bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] px-4 py-2 font-medium text-white transition hover:from-[#0f99ff] hover:to-[#4acbff]"
-                >
-                  + Dodaj etap
-                </button>
-              ) : (
+              <button
+                onClick={() => {
+                  setShowAddStageForm(true);
+                  requestAnimationFrame(() => {
+                    stageFormRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  });
+                }}
+                className="rounded-xl bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] px-4 py-2 font-medium text-white transition hover:from-[#0f99ff] hover:to-[#4acbff]"
+              >
+                + Dodaj etap
+              </button>
+              <div ref={stageFormRef} className={showAddStageForm ? "mt-2" : "mt-2 hidden"}>
                 <StageForm
                   stageFormData={stageFormData}
                   setStageFormData={setStageFormData}
                   onSubmit={handleAddStage}
+                  onHide={() => {
+                    setShowAddStageForm(false);
+                  }}
                   onCancel={() => {
                     setShowAddStageForm(false);
                     setStageFormData({ name: "", type: "round_robin", startDate: "", endDate: "" });
                   }}
                 />
-              )}
+              </div>
             </div>
           )}
 
-          {effectiveUser && isAdmin(effectiveUser) && showAddTournamentForm && selectedStageForTournament && (
-            <TournamentForm
-              stages={stages}
-              selectedStageForTournament={selectedStageForTournament}
-              setSelectedStageForTournament={setSelectedStageForTournament}
-              tournamentFormData={tournamentFormData}
-              setTournamentFormData={setTournamentFormData}
-              onSubmit={handleAddTournament}
-              onCancel={() => {
-                setShowAddTournamentForm(false);
-                setSelectedStageForTournament(null);
-                setTournamentFormData({ name: "", type: "league", startDate: "", endDate: "" });
-              }}
-            />
+          {effectiveUser && isAdmin(effectiveUser) && selectedStageForTournament && (
+            <div ref={tournamentFormRef} className={showAddTournamentForm ? "" : "hidden"}>
+              <TournamentForm
+                stages={tournamentFormStages}
+                selectedStageForTournament={tournamentFormStageId}
+                setSelectedStageForTournament={setSelectedStageForTournament}
+                tournamentFormData={tournamentFormData}
+                setTournamentFormData={setTournamentFormData}
+                onSubmit={handleAddTournament}
+                onHide={() => {
+                  setShowAddTournamentForm(false);
+                }}
+                onCancel={() => {
+                  setShowAddTournamentForm(false);
+                  setSelectedStageForTournament(null);
+                  setTournamentFormData({ name: "", type: "league", startDate: "", endDate: "" });
+                }}
+              />
+            </div>
           )}
 
           {effectiveUser && isAdmin(effectiveUser) && showAddMatchForm && selectedTournamentForMatch && (
@@ -959,7 +1036,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
             />
           )}
         </div>
-      )}
+      ) : null}
     </>
   );
 };

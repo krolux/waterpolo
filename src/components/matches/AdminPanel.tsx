@@ -31,6 +31,7 @@ function sanitizeUrl(u?: string | null) {
 
 type AdminPanelProps = {
   state: AppState;
+  matches: Match[];
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   clubs: readonly string[];
   refereeNames: string[];
@@ -40,10 +41,13 @@ type AdminPanelProps = {
   editingMatchId?: string | null;
   clearEditing?: () => void;
   compact?: boolean;
+  selectedCompetitionSeasonId?: string | null;
+  selectedCompetitionIsLegacyEks?: boolean;
 };
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   state,
+  matches,
   setState,
   clubs,
   refereeNames,
@@ -53,6 +57,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   editingMatchId,
   clearEditing,
   compact = false,
+  selectedCompetitionSeasonId = null,
+  selectedCompetitionIsLegacyEks = false,
 }) => {
   const blank: Match = {
     id: crypto.randomUUID(),
@@ -121,14 +127,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   useEffect(() => {
     if (!editingMatchId) return;
-    const m = state.matches.find(x => x.id === editingMatchId);
+    const m = matches.find(x => x.id === editingMatchId);
     if (m) {
       setDraft(m);
       setEditId(m.id);
     }
-  }, [editingMatchId, state.matches]);
+  }, [editingMatchId, matches]);
 
   function toDbRow(m: Match) {
+    const resolvedCompetitionSeasonId = m.competitionSeasonId ?? (selectedCompetitionSeasonId && !selectedCompetitionIsLegacyEks ? selectedCompetitionSeasonId : null);
+    const resolvedTournamentId = m.tournamentId ?? null;
+
     return {
       date: m.date,
       time: m.time || null,
@@ -143,6 +152,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       delegate: m.delegate || null,
       notes: m.notes || null,
       stream_url: sanitizeUrl(m.streamUrl) || null,
+      competitionSeasonId: resolvedCompetitionSeasonId,
+      tournamentId: resolvedTournamentId,
+      stageId: m.stageId ?? null,
     };
   }
 
@@ -320,7 +332,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div>
           <div className="font-medium mb-2">Istniejące mecze</div>
           <div className="flex flex-col gap-2">
-            {state.matches.map(m => (
+            {matches.map(m => (
               <div key={m.id} className="flex items-center justify-between rounded-xl border border-[#dbeafe] bg-white p-3 shadow-sm">
                 <div>
                   <div className="font-medium">{m.date} {m.time ? m.time + " • " : ""}{m.home} vs {m.away}</div>
@@ -332,7 +344,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
             ))}
-            {state.matches.length === 0 && <div className="text-sm text-gray-500">Brak meczów w bazie.</div>}
+            {matches.length === 0 && <div className="text-sm text-gray-500">Brak meczów w tej kategorii.</div>}
           </div>
         </div>
       </div>

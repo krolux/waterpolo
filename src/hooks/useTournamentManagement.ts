@@ -47,13 +47,11 @@ type MatchFormData = {
 
 type UseTournamentManagementArgs = {
   selectedCompetitionSeason: CompetitionSeason | null;
-  competitions: Competition[];
   refreshMatches: () => Promise<void> | void;
 };
 
 export function useTournamentManagement({
   selectedCompetitionSeason,
-  competitions,
   refreshMatches,
 }: UseTournamentManagementArgs) {
   const [stages, setStages] = useState<Stage[]>([]);
@@ -129,10 +127,14 @@ export function useTournamentManagement({
   }, [selectedCompetitionSeason, refreshTournamentClubs]);
 
   useEffect(() => {
-    if (selectedCompetitionSeason && selectedCompetitionSeason.competition_id !== competitions.find(c => c.name === "Ekstraklasa")?.id) {
-      refreshStages();
+    if (!selectedCompetitionSeason) {
+      setStages([]);
+      setTournaments(new Map());
+      return;
     }
-  }, [selectedCompetitionSeason, competitions, refreshStages]);
+
+    refreshStages();
+  }, [selectedCompetitionSeason, refreshStages]);
 
   useEffect(() => {
     if (!selectedTournamentForMatch) return;

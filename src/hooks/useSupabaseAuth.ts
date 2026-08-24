@@ -9,30 +9,24 @@ export function useSupabaseAuth() {
   const [role, setRole] = useState<Role>('Guest')
 
   useEffect(() => {
-    (async () => {
-      try {
-        // Wersja supabase-js oczekuje stringa (URL), nie obiektu:
-        await supabase.auth.exchangeCodeForSession(window.location.href).catch(() => {})
-        // Sprzątanie parametrów z URL-a
-        try {
-          const url = new URL(window.location.href)
-          const hasCode = url.searchParams.get('code')
-          const hasTokenInHash =
-            typeof url.hash === 'string' &&
-            (url.hash.includes('access_token') || url.hash.includes('type=recovery'))
-          if (hasCode || hasTokenInHash) {
-            window.history.replaceState({}, '', url.origin + url.pathname)
-          }
-        } catch {}
-      } catch {}
+    let cancelled = false
 
-      // Ustal obecnego usera po ewentualnej wymianie kodu
-      const { data, error } = await supabase.auth.getUser()
-      if (error) console.warn('[auth.getUser] error', error)
-      const u = data?.user
+    ;(async () => {
+      const { data, error } = await supabase.auth.getSession()
+      if (error) {
+        console.warn('[auth.getSession] error', error)
+      }
+
+      const u = data.session?.user
+      if (cancelled) return
+
       if (u?.id) {
         setUserId(u.id)
-        loadProfile(u.id)
+        void loadProfile(u.id)
+      } else {
+        setUserId(null)
+        setUserDisplay('Użytkownik')
+        setRole('Guest')
       }
     })()
 
@@ -41,7 +35,7 @@ export function useSupabaseAuth() {
       console.log('[onAuthStateChange]', evt, u?.id)
       if (u?.id) {
         setUserId(u.id)
-        loadProfile(u.id)
+        void loadProfile(u.id)
       } else {
         setUserId(null)
         setUserDisplay('Użytkownik')
@@ -50,6 +44,7 @@ export function useSupabaseAuth() {
     })
 
     return () => {
+      cancelled = true
       sub?.subscription?.unsubscribe()
     }
   }, [])

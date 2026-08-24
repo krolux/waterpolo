@@ -49,7 +49,6 @@ export const CompetitionMatchesView: React.FC<CompetitionMatchesViewProps> = ({
   mode,
   tournamentId,
   matches,
-  documents,
   currentUser,
   state,
   clubs,
@@ -62,11 +61,12 @@ export const CompetitionMatchesView: React.FC<CompetitionMatchesViewProps> = ({
   setTournamentClubFormData,
   tournamentClubs,
   isAdmin,
+  loadingMatches,
   renderMatchesTable,
   renderRankingTable,
   renderCompetitionAdminPanel,
 }) => {
-  const effectiveMatches = documents ?? matches;
+  const effectiveMatches = matches;
   const isCompetitionView = mode === "competition";
   const isTournamentView = mode === "tournament";
   const currentTournamentClubs = tournamentId ? (tournamentClubs?.get(tournamentId) ?? []) : [];
@@ -74,9 +74,13 @@ export const CompetitionMatchesView: React.FC<CompetitionMatchesViewProps> = ({
   const upcomingViewMatches = effectiveMatches.filter(m => !m.result || m.result.trim() === "");
   const finishedViewMatches = effectiveMatches.filter(m => !!m.result && m.result.trim() !== "");
 
-  const matchesSection = effectiveMatches.length === 0 ? (
+  const matchesSection = loadingMatches ? (
     <div className="p-2">
-      <div className="text-sm text-gray-500 mb-2">Brak meczów w tym turnieju</div>
+      <div className="text-sm text-gray-500 mb-2">Ładowanie meczów...</div>
+    </div>
+  ) : effectiveMatches.length === 0 ? (
+    <div className="p-2">
+      <div className="text-sm text-gray-500 mb-2">{isCompetitionView ? "Brak meczów w tej kategorii." : "Brak meczów w tym turnieju"}</div>
       {isTournamentView && currentUser && isAdmin(currentUser) && onAddMatch && tournamentId && (
         <button
           onClick={() => onAddMatch(tournamentId)}
@@ -118,7 +122,7 @@ export const CompetitionMatchesView: React.FC<CompetitionMatchesViewProps> = ({
   if (isCompetitionView) {
     return (
       <>
-        {renderRankingTable({ matches: state.matches, clubs })}
+        {renderRankingTable({ matches: effectiveMatches, clubs })}
 
         {matchesSection}
 

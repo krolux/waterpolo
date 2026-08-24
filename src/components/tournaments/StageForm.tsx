@@ -1,5 +1,5 @@
 import React from "react";
-import { Save } from "lucide-react";
+import { Save, X } from "lucide-react";
 
 type StageFormData = {
   name: string;
@@ -13,12 +13,23 @@ type StageFormProps = {
   setStageFormData: React.Dispatch<React.SetStateAction<StageFormData>>;
   onSubmit: () => void;
   onCancel: () => void;
+  onHide: () => void;
 };
 
-export const StageForm: React.FC<StageFormProps> = ({ stageFormData, setStageFormData, onSubmit, onCancel }) => {
+export const StageForm: React.FC<StageFormProps> = ({ stageFormData, setStageFormData, onSubmit, onCancel, onHide }) => {
   return (
     <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
-      <h3 className="mb-3 font-semibold text-[#061a33]">Dodaj nowy etap</h3>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <h3 className="font-semibold text-[#061a33]">Dodaj nowy etap</h3>
+        <button
+          type="button"
+          aria-label="Schowaj formularz dodawania etapu"
+          onClick={onHide}
+          className="rounded-lg border border-[#dbeafe] bg-white p-1 text-slate-600 transition hover:bg-sky-50"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
       <div className="space-y-2">
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Nazwa</label>
