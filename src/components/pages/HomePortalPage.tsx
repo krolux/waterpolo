@@ -7,6 +7,7 @@ import { HomeSectionHeader } from "../home/HomeSectionHeader";
 import { HomeHero } from "../home/HomeHero";
 import { CompetitionCenter } from "../home/CompetitionCenter";
 import { NewsHighlights } from "../home/NewsHighlights";
+import { NationalTeamsSection } from "../home/NationalTeamsSection";
 import { LeagueTablesSection } from "../home/LeagueTablesSection";
 import { ClubsShowcaseSection } from "../home/ClubsShowcaseSection";
 import { UserZoneSection } from "../home/UserZoneSection";
@@ -20,6 +21,7 @@ type HomePortalPageProps = {
   competitionNameById?: Record<string, string>;
   tournamentNameById?: Record<string, string>;
   onOpenMatches: () => void;
+  onOpenNationalTeamMatches: () => void;
   onOpenArticles: () => void;
   onOpenArticle: (id: string) => void;
   onOpenKtpw: () => void;
@@ -34,6 +36,7 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
   competitionNameById,
   tournamentNameById,
   onOpenMatches,
+  onOpenNationalTeamMatches,
   onOpenArticles,
   onOpenArticle,
   onOpenKtpw,
@@ -113,6 +116,11 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
         <CompetitionCenter matches={matches} tournaments={tournaments} onOpenMore={onOpenMatches} />
       </section>
 
+      <section className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
+        <HomeSectionHeader icon={<Users className="h-5 w-5 text-red-500" />} title="Kadra Polski" />
+        <NationalTeamsSection matches={matches} competitionNameById={competitionNameById} onOpenMore={onOpenNationalTeamMatches} />
+      </section>
+
       <section ref={tablesRef} className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
         <HomeSectionHeader icon={<LayoutList className="h-5 w-5" />} title="Tabele rozgrywek" actionLabel="Zobacz wszystkie tabele" onAction={onOpenMatches} />
         <LeagueTablesSection
@@ -138,6 +146,7 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
 
       <HomeFooter
         onOpenMatches={onOpenMatches}
+        onOpenNationalTeamMatches={onOpenNationalTeamMatches}
         onOpenResults={onOpenMatches}
         onOpenClubs={scrollToClubs}
         onOpenKtpw={onOpenKtpw}

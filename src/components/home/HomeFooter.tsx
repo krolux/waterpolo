@@ -2,6 +2,7 @@ import React from "react";
 
 type HomeFooterProps = {
   onOpenMatches: () => void;
+  onOpenNationalTeamMatches: () => void;
   onOpenResults: () => void;
   onOpenClubs: () => void;
   onOpenKtpw: () => void;
@@ -10,6 +11,7 @@ type HomeFooterProps = {
 
 export const HomeFooter: React.FC<HomeFooterProps> = ({
   onOpenMatches,
+  onOpenNationalTeamMatches,
   onOpenResults,
   onOpenClubs,
   onOpenKtpw,
@@ -43,7 +45,7 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
             <button onClick={onOpenMatches} className="text-left text-slate-200 transition hover:text-white">Rozgrywki</button>
             <button onClick={onOpenResults} className="text-left text-slate-200 transition hover:text-white">Wyniki</button>
             <button onClick={onOpenClubs} className="text-left text-slate-200 transition hover:text-white">Kluby</button>
-            <button onClick={onOpenMatches} className="text-left text-slate-200 transition hover:text-white">Reprezentacja Polski</button>
+            <button onClick={onOpenNationalTeamMatches} className="text-left text-slate-200 transition hover:text-white">Reprezentacja Polski</button>
             <button onClick={onOpenKtpw} className="text-left text-slate-200 transition hover:text-white">KTPW</button>
             <button onClick={onOpenArticles} className="text-left text-slate-200 transition hover:text-white">Aktualności</button>
             <button onClick={onOpenArticles} className="text-left text-slate-200 transition hover:text-white">Kontakt</button>

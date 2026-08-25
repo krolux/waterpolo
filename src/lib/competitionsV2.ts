@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 import { fromMatchDbRow, type DbMatchRow } from "./matches";
 import type { Competition, CompetitionSeason, Stage, Tournament, TournamentClub } from "./competitions";
 
-export const COMPETITION_CODES = ["EKS", "PP", "POL", "U23", "U19", "U17", "U15", "U13"] as const;
+export const COMPETITION_CODES = ["EKS", "PP", "U23", "U19", "U17", "U15", "U13", "POL"] as const;
 export type CompetitionCode = (typeof COMPETITION_CODES)[number];
 
 export const COMPETITION_LABELS: Record<CompetitionCode, string> = {

@@ -12,6 +12,7 @@ import { PerMatchActions } from "../matches/PerMatchActions";
 import type { AppState, Role } from "../../types/wpolo";
 
 type Props = {
+  initialCode: CompetitionCode;
   isAdmin: boolean;
   clubs: string[];
   refereeNames: string[];
@@ -27,8 +28,8 @@ const emptyContext: CompetitionContextV2 = { competition: null, season: null, st
 const stageBlank = (): StageDraftV2 => ({ name: "", type: "round_robin", startDate: "", endDate: "" });
 const tournamentBlank = (): TournamentDraftV2 => ({ stageId: "", name: "", type: "league", startDate: "", endDate: "", clubs: [] });
 
-export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames, onMatchesChanged, state, setState, effectiveUser, onPenaltiesChange }: Props) {
-  const [code, setCode] = React.useState<CompetitionCode>("EKS");
+export function CompetitionsPageV2({ initialCode, isAdmin, clubs, refereeNames, delegateNames, onMatchesChanged, state, setState, effectiveUser, onPenaltiesChange }: Props) {
+  const [code, setCode] = React.useState<CompetitionCode>(initialCode);
   const [context, setContext] = React.useState<CompetitionContextV2>(emptyContext);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -49,6 +50,7 @@ export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames
   }, [code]);
 
   React.useEffect(() => { void reload(); }, [reload]);
+  React.useEffect(() => { setCode(initialCode); }, [initialCode]);
   React.useEffect(() => { if (form) requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })); }, [form, editingId]);
 
   const tournamentById = React.useMemo(() => new Map(context.tournaments.map(t => [t.id, t])), [context.tournaments]);
@@ -159,7 +161,13 @@ export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames
   };
 
   return <div className="min-w-0 space-y-4">
-    <div className="-mx-1 overflow-x-auto px-1 pb-1"><div className="flex w-max gap-2">{COMPETITION_CODES.map(item => <button key={item} onClick={() => setCode(item)} className={`rounded-xl border px-4 py-2 font-semibold ${code === item ? "border-sky-500 bg-sky-500 text-white" : "border-sky-100 bg-white"}`}>{COMPETITION_LABELS[item]}</button>)}</div></div>
+    <div className="-mx-1 overflow-x-auto px-1 pb-1"><div className="flex w-max gap-2">{COMPETITION_CODES.map(item => {
+      const nationalTeam = item === "POL";
+      const buttonClass = nationalTeam
+        ? `rounded-xl border px-4 py-2 font-semibold text-white transition ${code === item ? "border-red-700 bg-gradient-to-r from-red-700 to-red-500 shadow-[0_8px_18px_rgba(185,28,28,0.3)]" : "border-red-500 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600"}`
+        : `rounded-xl border px-4 py-2 font-semibold ${code === item ? "border-sky-500 bg-sky-500 text-white" : "border-sky-100 bg-white"}`;
+      return <button key={item} onClick={() => setCode(item)} className={buttonClass}>{COMPETITION_LABELS[item]}</button>;
+    })}</div></div>
     <div className="flex items-center justify-between rounded-2xl bg-[#f7fbff] p-4"><div><div className="text-xs uppercase tracking-wider text-slate-500">{context.season?.name || "Rozgrywki"}</div><h2 className="text-xl font-semibold text-[#061a33]">{context.competition?.name || COMPETITION_LABELS[code]}</h2></div><button onClick={() => void reload()} aria-label="Odśwież"><RefreshCw className={`h-5 w-5 ${loading ? "animate-spin" : ""}`} /></button></div>
     {error && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Nie udało się odczytać struktury rozgrywek: {error}</div>}
     {!loading && !error && code === "POL" && !context.competition && isAdmin && (

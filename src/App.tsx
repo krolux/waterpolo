@@ -37,6 +37,7 @@ import { StageForm } from "./components/tournaments/StageForm";
 import { TournamentForm } from "./components/tournaments/TournamentForm";
 import type { Role, StoredFile, UploadLog, Match, AppState, ProfileRow } from "./types/wpolo";
 import type { SaveRosterPayload } from "./types/rosters";
+import type { CompetitionCode } from "./lib/competitionsV2";
 
 
 
@@ -389,6 +390,7 @@ function openEditor(newId?: string | null) {
 }
 
 const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'my-matches' | 'club' | 'ktpw' | 'admin'>('dashboard');
+const [competitionStartCode, setCompetitionStartCode] = useState<CompetitionCode>("EKS");
 const [savedRosters, setSavedRosters] = useState<SaveRosterPayload[]>([]);
 
 const handleSaveRoster = React.useCallback((payload: SaveRosterPayload) => {
@@ -1262,7 +1264,8 @@ const delegateCandidateNames = Array.from(new Set([
           savedRosters={savedRosters}
           competitionNameById={competitionNameById}
           tournamentNameById={tournamentNameById}
-          onOpenMatches={() => setActivePage('matches')}
+          onOpenMatches={() => { setCompetitionStartCode("EKS"); setActivePage('matches'); }}
+          onOpenNationalTeamMatches={() => { setCompetitionStartCode("POL"); setActivePage('matches'); }}
           onOpenArticles={openArticles}
           onOpenArticle={openArticle}
           onOpenKtpw={() => setActivePage('ktpw')}
@@ -1277,6 +1280,7 @@ const delegateCandidateNames = Array.from(new Set([
             <h2 className="mt-1 text-xl font-semibold text-[#061a33]">Centrum meczowe</h2>
           </div>
           <CompetitionsPageV2
+            initialCode={competitionStartCode}
             isAdmin={!!effectiveUser && isAdmin(effectiveUser)}
             clubs={clubs}
             refereeNames={refereeNames}
