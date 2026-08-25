@@ -67,6 +67,18 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
 }) => {
   const [clubLogoByName, setClubLogoByName] = React.useState<Record<string, string>>({});
   const [hoveredMatchId, setHoveredMatchId] = React.useState<string | null>(null);
+  const [supportsHover, setSupportsHover] = React.useState(false);
+
+  React.useEffect(() => {
+    const media = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const update = () => {
+      setSupportsHover(media.matches);
+      if (!media.matches) setHoveredMatchId(null);
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -118,7 +130,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
   };
 
   return (
-    <section className="relative min-h-[620px] overflow-hidden rounded-[28px] border border-[#e9edf2] bg-white shadow-[0_12px_28px_rgba(2,32,71,0.08)] md:min-h-[520px] lg:h-[540px] lg:min-h-0">
+    <section className="relative min-h-[930px] w-full min-w-0 overflow-hidden rounded-[28px] border border-[#e9edf2] bg-white shadow-[0_12px_28px_rgba(2,32,71,0.08)] sm:min-h-[880px] md:min-h-[850px] lg:h-[540px] lg:min-h-0">
       <img
         src="/tlo_head.png"
         alt=""
@@ -130,11 +142,11 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[34%] bg-[linear-gradient(0deg,rgba(5,140,255,0.2)_0%,rgba(44,192,255,0.1)_34%,rgba(255,255,255,0)_100%)]" />
       <div className="pointer-events-none absolute inset-x-0 bottom-4 h-px bg-gradient-to-r from-transparent via-[#F5B32E]/85 to-transparent" />
 
-      <div className="relative z-10 h-full px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+      <div className="relative z-10 h-full min-w-0 px-4 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
         <div className="grid h-full gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div className="self-center text-[#0A1F44]">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#058CFF] sm:text-sm">Portal polskiej piłki wodnej</p>
-            <h1 className="mt-3 text-[2.2rem] font-bold leading-[1.05] sm:text-5xl md:text-6xl">
+            <h1 className="mt-3 text-[2rem] font-bold leading-[1.05] sm:text-5xl md:text-6xl">
               Piłka <span className="bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] bg-clip-text text-transparent">wodna</span>
               <br />
               w <span className="bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] bg-clip-text text-transparent">jednym miejscu</span>
@@ -190,7 +202,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
                         key={match.id}
                         className={`absolute flex cursor-default flex-col overflow-hidden rounded-2xl border bg-[#f7fbff]/95 p-2 transition-[width,height,background-color,border-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${position} ${active ? "border-[#80cbff] bg-[linear-gradient(145deg,#ffffff,#edf8ff)] p-3 shadow-[0_16px_36px_rgba(5,140,255,0.2)]" : "border-[#e0effc] hover:border-[#8fd2ff] hover:bg-white hover:shadow-md"}`}
                         aria-label={`${match.home} – ${match.away}`}
-                        onMouseEnter={() => setHoveredMatchId(match.id)}
+                        onMouseEnter={() => supportsHover && setHoveredMatchId(match.id)}
                         onMouseLeave={() => setHoveredMatchId((current) => current === match.id ? null : current)}
                       >
                         <div className={`flex items-center justify-center transition-all duration-500 ${active ? "gap-3" : "h-full gap-2"}`}>

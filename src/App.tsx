@@ -1098,17 +1098,17 @@ const delegateCandidateNames = Array.from(new Set([
   }
 }
  return (
-<div className="wp-theme relative min-h-screen overflow-hidden bg-[#f6faff] px-4 py-4 md:px-8 md:py-6">
+<div className="wp-theme relative min-h-screen w-full max-w-full overflow-hidden bg-[#f6faff] px-3 py-3 sm:px-4 sm:py-4 md:px-8 md:py-6">
   <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_16%_18%,rgba(56,189,248,0.2),transparent_34%),radial-gradient(circle_at_84%_20%,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,#f6faff_0%,#edf6ff_55%,#e9edf2_100%)]" />
   <div className="pointer-events-none absolute inset-0 -z-10 opacity-25 [background-size:180px_90px] [background-image:linear-gradient(120deg,transparent_45%,rgba(44,192,255,0.14)_50%,transparent_56%)]" />
   <div className="pointer-events-none absolute -top-24 -left-20 h-[360px] w-[360px] rounded-full bg-sky-300/20 blur-3xl" />
   <div className="pointer-events-none absolute -right-16 top-40 h-[320px] w-[320px] rounded-full bg-blue-300/15 blur-3xl" />
- <header className="mx-auto mb-5 flex max-w-[1220px] flex-col gap-3 rounded-3xl border border-[#dbeafe] bg-[radial-gradient(circle_at_14%_45%,rgba(44,192,255,0.18)_0%,rgba(44,192,255,0.06)_20%,rgba(44,192,255,0)_42%),radial-gradient(circle_at_26%_32%,rgba(5,140,255,0.12)_0%,rgba(5,140,255,0)_36%),linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(246,252,255,0.95)_38%,rgba(233,237,242,0.82)_100%)] px-4 py-3 text-[#0A1F44] shadow-[0_10px_24px_rgba(2,32,71,0.08)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4 lg:py-5">
+ <header className="mx-auto mb-5 flex w-full min-w-0 max-w-[1220px] flex-col gap-3 overflow-hidden rounded-3xl border border-[#dbeafe] bg-[radial-gradient(circle_at_14%_45%,rgba(44,192,255,0.18)_0%,rgba(44,192,255,0.06)_20%,rgba(44,192,255,0)_42%),radial-gradient(circle_at_26%_32%,rgba(5,140,255,0.12)_0%,rgba(5,140,255,0)_36%),linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(246,252,255,0.95)_38%,rgba(233,237,242,0.82)_100%)] px-4 py-3 text-[#0A1F44] shadow-[0_10px_24px_rgba(2,32,71,0.08)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4 lg:py-5">
   <div className="flex items-center gap-2 sm:min-w-0 sm:flex-1 sm:gap-3">
     <img
       src="/logo.png"
       alt="WPOLO.PL"
-      className="block h-[96px] w-auto shrink-0 origin-center scale-[1.12] object-contain transition-transform duration-[250ms] hover:scale-[1.16] md:h-[140px] md:scale-[1.2] md:hover:scale-[1.24] lg:h-[178px] lg:scale-[1.3] lg:hover:scale-[1.34]"
+      className="block h-[84px] w-auto shrink-0 origin-center object-contain transition-transform duration-[250ms] hover:scale-[1.03] sm:h-[96px] sm:scale-[1.12] sm:hover:scale-[1.16] md:h-[140px] md:scale-[1.2] md:hover:scale-[1.24] lg:h-[178px] lg:scale-[1.3] lg:hover:scale-[1.34]"
     />
     <div className="min-w-0">
       <h1 className="text-[1.55rem] font-extrabold leading-[1.03] text-[#0A1F44] sm:text-[1.95rem]">
@@ -1194,13 +1194,13 @@ const delegateCandidateNames = Array.from(new Set([
   </div>
 </header>
 
-<main className="mx-auto grid max-w-[1220px] gap-5">
+<main className="mx-auto grid w-full min-w-0 max-w-[1220px] gap-5">
 
   {/* === [3.3] HOME: pasek 3 najnowszych newsów + dotychczasowa strona === */}
   {page === 'home' && (
     <>
-      <div className="rounded-3xl border border-[#dbeafe] bg-[linear-gradient(145deg,rgba(255,255,255,0.97)_0%,rgba(242,250,255,0.95)_100%)] p-3 shadow-[0_10px_24px_rgba(2,32,71,0.06)]">
-        <div className="flex flex-wrap gap-2.5">
+      <div className="min-w-0 overflow-x-auto rounded-3xl border border-[#dbeafe] bg-[linear-gradient(145deg,rgba(255,255,255,0.97)_0%,rgba(242,250,255,0.95)_100%)] p-3 shadow-[0_10px_24px_rgba(2,32,71,0.06)]">
+        <div className="flex w-max min-w-full flex-nowrap gap-2.5 sm:w-auto sm:flex-wrap">
           <button
             className={navPillClass(activePage === 'dashboard')}
             onClick={() => setActivePage('dashboard')}

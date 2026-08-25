@@ -98,7 +98,7 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
   }, []);
 
   return (
-    <div className="space-y-8 bg-transparent pb-6">
+    <div className="w-full min-w-0 space-y-6 bg-transparent pb-6 sm:space-y-8">
       <HomeHero
         nearestRound={nearestRound}
         nearestRoundCategory={nearestRoundCategory}
