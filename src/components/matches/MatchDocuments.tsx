@@ -2,7 +2,7 @@ import React from "react";
 import { FileText } from "lucide-react";
 import { getMatchRosterPdfPayload, listMatchRosterDocuments, type MatchRosterDocument } from "../../lib/rosters";
 import { generateMatchRosterPdf } from "../../lib/rosterPdf";
-import { DocBadge } from "../shared/DocBadge";
+import { DocBadge, type StoredFile } from "../shared/DocBadge";
 import type { Match } from "../../types/wpolo";
 
 export function MatchDocuments({ match }: { match: Match }) {
@@ -25,9 +25,10 @@ export function MatchDocuments({ match }: { match: Match }) {
     await generateMatchRosterPdf(payload);
   };
 
-  const legacyDocuments = [
-    ...Object.entries(match.commsByClub || {}).map(([club, file]) => ({ club, file, kind: "Komunikat" })),
-    ...Object.entries(match.rosterByClub || {}).map(([club, file]) => ({ club, file, kind: "Skład" })),
+  const isStoredFile = (file: unknown): file is StoredFile => !!file && typeof file === "object" && typeof (file as StoredFile).id === "string" && typeof (file as StoredFile).path === "string";
+  const legacyDocuments: Array<{ club: string; file: StoredFile; kind: string }> = [
+    ...Object.entries(match.commsByClub || {}).flatMap(([club, file]) => isStoredFile(file) ? [{ club, file, kind: "Komunikat" }] : []),
+    ...Object.entries(match.rosterByClub || {}).flatMap(([club, file]) => isStoredFile(file) ? [{ club, file, kind: "Skład" }] : []),
     ...(match.matchReport ? [{ club: "Mecz", file: match.matchReport, kind: "Protokół" }] : []),
   ];
 
