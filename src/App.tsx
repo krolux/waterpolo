@@ -843,6 +843,10 @@ const tournamentNameById = useMemo(
   () => Object.fromEntries(Array.from(tournaments.values()).flat().map((tournament) => [tournament.id, tournament.name])),
   [tournaments]
 );
+const tournamentTypeById = useMemo(
+  () => Object.fromEntries(Array.from(tournaments.values()).flat().map((tournament) => [tournament.id, tournament.tournament_type || ""])),
+  [tournaments]
+);
 
 const allTournaments = useMemo(
   () => Array.from(tournaments.values()).flat(),
@@ -1397,8 +1401,10 @@ const delegateCandidateNames = Array.from(new Set([
             competitionSeasonNameById={competitionSeasonNameById}
             stageNameById={stageNameById}
             tournamentNameById={tournamentNameById}
+            tournamentTypeById={tournamentTypeById}
             penaltiesByMatch={penaltiesByMatch}
             onSaveRoster={handleSaveRoster}
+            savedRosters={savedRosters}
           />
         </section>
       )}

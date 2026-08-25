@@ -39,8 +39,10 @@ type ClubDashboardProps = {
   competitionSeasonNameById?: Record<string, string>;
   stageNameById?: Record<string, string>;
   tournamentNameById?: Record<string, string>;
+  tournamentTypeById?: Record<string, string>;
   penaltiesByMatch: Map<string, { home: { id: string; name: string }[]; away: { id: string; name: string }[] }>;
   onSaveRoster?: (payload: SaveRosterPayload) => void;
+  savedRosters?: SaveRosterPayload[];
 };
 
 const emptyPlayerFormState = (): PlayerFormState => ({
@@ -80,8 +82,10 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   competitionSeasonNameById = {},
   stageNameById = {},
   tournamentNameById = {},
+  tournamentTypeById = {},
   penaltiesByMatch: _penaltiesByMatch,
   onSaveRoster,
+  savedRosters = [],
 }) => {
   const myClub = effectiveUser?.club?.trim() || "";
   const [playerRows, setPlayerRows] = React.useState<PlayerRow[]>([]);
@@ -410,7 +414,17 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
         </div>
       </Section>
 
-      <ClubOverview effectiveUser={effectiveUser} matches={matches} />
+      <ClubOverview
+        effectiveUser={effectiveUser}
+        matches={matches}
+        clubId={clubId}
+        savedRosters={savedRosters}
+        onAddRoster={(match) => {
+          const tournamentName = match.tournamentId ? tournamentNameById[match.tournamentId] : undefined;
+          setRosterContext({ mode: "match", matchId: match.id, home: match.home, away: match.away, date: match.date, time: match.time, location: match.location, targetDate: match.date, tournamentId: match.tournamentId || undefined, tournamentName, tournamentType: match.tournamentId ? tournamentTypeById[match.tournamentId] : undefined, maxBirthYear: match.tournamentId ? maxBirthYearByTournamentId[match.tournamentId] : undefined });
+          requestAnimationFrame(() => document.getElementById("club-roster-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+        }}
+      />
 
       <Section title="Lista startowa" icon={<Users className="w-5 h-5" />}>
         <div className="space-y-3">
@@ -462,13 +476,14 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                                 targetDate: match.date,
                                 tournamentId: match.tournamentId || undefined,
                                 tournamentName: tournamentName || undefined,
+                                tournamentType: match.tournamentId ? tournamentTypeById[match.tournamentId] : undefined,
                                 maxBirthYear: match.tournamentId ? maxBirthYearByTournamentId[match.tournamentId] : undefined,
                               })}
                               className="rounded-lg border border-[#dbeafe] bg-white px-2 py-1 text-xs text-[#08284a] hover:bg-sky-50"
                             >
                               {match.tournamentId ? "Skład meczowy" : "Dodaj skład"}
                             </button>
-                            {match.tournamentId ? (
+                            {match.tournamentId && tournamentTypeById[match.tournamentId] !== "league" ? (
                               <button
                                 onClick={() => setRosterContext({
                                   mode: "tournament",
@@ -481,6 +496,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                                   targetDate: getTournamentTargetDate(match),
                                   tournamentId: match.tournamentId || undefined,
                                   tournamentName: tournamentName || undefined,
+                                  tournamentType: tournamentTypeById[match.tournamentId],
                                   maxBirthYear: maxBirthYearByTournamentId[match.tournamentId],
                                 })}
                                 className="rounded-lg border border-[#dbeafe] bg-white px-2 py-1 text-xs text-[#08284a] hover:bg-sky-50"
@@ -498,7 +514,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
             </div>
           )}
 
-          <RosterPanel
+          <div id="club-roster-panel"><RosterPanel
             players={clubPlayers}
             context={rosterContext}
             onBack={() => setRosterContext(null)}
@@ -506,7 +522,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
             clubId={clubId}
             canSaveRoster={effectiveUser?.role === "Club"}
             onSaveRoster={onSaveRoster}
-          />
+          /></div>
         </div>
       </Section>
 

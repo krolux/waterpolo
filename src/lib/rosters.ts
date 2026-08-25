@@ -133,6 +133,14 @@ export type MatchRosterWithPlayers = MatchRosterRow & {
   players: MatchRosterPlayerWithPlayer[];
 };
 
+export type MatchRosterDocument = {
+  rosterId: string;
+  matchId: string;
+  clubId: string;
+  clubName: string;
+  submittedAt: string | null;
+};
+
 export type ClubLookupRow = {
   id: string;
   name: string;
@@ -962,4 +970,30 @@ export async function getPlayerLicenseChecks(playerId: string): Promise<PlayerLi
 
   if (error) throw error;
   return (data || []) as PlayerLicenseCheckRow[];
+}
+
+export async function listMatchRosterDocuments(matchId: string): Promise<MatchRosterDocument[]> {
+  const { data: rosters, error } = await supabase
+    .from('match_rosters')
+    .select('id,match_id,club_id,submitted_at')
+    .eq('match_id', matchId)
+    .eq('status', 'submitted')
+    .order('submitted_at', { ascending: false });
+
+  if (error) throw error;
+  const rows = (rosters || []) as Array<{ id: string; match_id: string; club_id: string; submitted_at: string | null }>;
+  if (!rows.length) return [];
+
+  const clubIds = Array.from(new Set(rows.map(row => row.club_id)));
+  const { data: clubs, error: clubsError } = await supabase.from('clubs').select('id,name').in('id', clubIds);
+  if (clubsError) throw clubsError;
+  const clubNames = new Map((clubs || []).map(club => [String(club.id), String(club.name)]));
+
+  return rows.map(row => ({
+    rosterId: row.id,
+    matchId: row.match_id,
+    clubId: row.club_id,
+    clubName: clubNames.get(row.club_id) || 'Klub',
+    submittedAt: row.submitted_at,
+  }));
 }

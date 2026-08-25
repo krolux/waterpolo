@@ -34,6 +34,7 @@ export type RosterContext =
       targetDate?: string;
       tournamentId?: string;
       tournamentName?: string;
+      tournamentType?: string;
       maxBirthYear?: number;
     }
   | {
@@ -47,6 +48,7 @@ export type RosterContext =
       targetDate?: string;
       tournamentId?: string;
       tournamentName?: string;
+      tournamentType?: string;
       maxBirthYear?: number;
     };
 
@@ -95,7 +97,7 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
   const [pdfError, setPdfError] = React.useState<string | null>(null);
 
   const isTournamentMode = context?.mode === "tournament";
-  const isTournamentMatch = context?.mode === "match" && !!context?.tournamentId;
+  const isTournamentMatch = context?.mode === "match" && !!context?.tournamentId && context.tournamentType !== "league";
   const currentContext = context;
   const targetDate = currentContext?.targetDate || currentContext?.date;
   const headerTitle = !currentContext
@@ -130,7 +132,9 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
     (async () => {
       try {
         const [tournamentRoster, matchRoster] = await Promise.all([
-          currentContext.tournamentId ? getTournamentRoster(currentContext.tournamentId, clubId) : Promise.resolve(null),
+          currentContext.tournamentId && (currentContext.mode === "tournament" || currentContext.tournamentType !== "league")
+            ? getTournamentRoster(currentContext.tournamentId, clubId)
+            : Promise.resolve(null),
           currentContext.mode === "match" ? getMatchRoster(currentContext.matchId, clubId) : Promise.resolve(null),
         ]);
 
@@ -305,7 +309,7 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
           return;
         }
 
-        if (currentContext.tournamentId && (!loadedTournamentRoster || loadedTournamentRoster.players.length === 0)) {
+        if (isTournamentMatch && (!loadedTournamentRoster || loadedTournamentRoster.players.length === 0)) {
           setSaveError("Najpierw wyślij listę turniejową.");
           return;
         }
@@ -324,7 +328,7 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
         const savedMatchRoster = await saveMatchRoster({
           matchId: currentContext.matchId,
           clubId,
-          tournamentRosterId: loadedTournamentRoster?.id || null,
+          tournamentRosterId: isTournamentMatch ? loadedTournamentRoster?.id || null : null,
           submittedByProfileId: authData.user?.id || null,
           submittedByName,
           players: payloadPlayers.map((player) => ({
@@ -510,6 +514,28 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
       {(roster.tournamentLimitReached || roster.matchLimitReached) ? <div className="text-sm text-red-600">Osiągnięto maksymalny limit zawodników.</div> : null}
 
       <RosterSearch query={roster.query} sortMode={roster.sortMode} onQueryChange={roster.setQuery} onSortModeChange={roster.setSortMode} />
+
+      {!isTournamentMode && roster.query.trim() && (
+        <div className="-mt-2 rounded-xl border border-sky-200 bg-white p-2 shadow-sm">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Pasujący zawodnicy — kliknij, aby dodać</div>
+          <div className="flex flex-wrap gap-2">
+            {(isTournamentMatch ? roster.tournamentPlayersForMatch : roster.clubPlayersForMatch).slice(0, 8).map(player => (
+              <button
+                key={player.playerId}
+                type="button"
+                onClick={() => {
+                  if (isTournamentMatch) roster.addTournamentPlayerToMatchRoster(player.playerId);
+                  else roster.addClubPlayerToMatchRoster(player.playerId);
+                  roster.setQuery("");
+                }}
+                className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-[#08284a] hover:bg-sky-100"
+              >
+                {player.firstName} {player.lastName}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isTournamentMode ? (
         <TournamentRosterPanel
