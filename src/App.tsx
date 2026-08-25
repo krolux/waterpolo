@@ -1404,7 +1404,6 @@ const delegateCandidateNames = Array.from(new Set([
             tournamentTypeById={tournamentTypeById}
             penaltiesByMatch={penaltiesByMatch}
             onSaveRoster={handleSaveRoster}
-            savedRosters={savedRosters}
           />
         </section>
       )}

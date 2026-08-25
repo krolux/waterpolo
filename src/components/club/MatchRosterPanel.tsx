@@ -4,6 +4,7 @@ import { RosterCounters } from "./RosterCounters";
 import { RosterPlayerRow } from "./RosterPlayerRow";
 import { RosterToolbar } from "./RosterToolbar";
 import type { RosterSlot } from "../../hooks/useRosterPanel";
+import type { RosterPanelPlayer } from "../../hooks/useRosterPanel";
 
 type MatchRosterPanelProps = {
   slots: RosterSlot[];
@@ -17,6 +18,8 @@ type MatchRosterPanelProps = {
   onMoveMatchPlayer: (playerId: string, direction: "up" | "down") => void;
   onToggleGoalkeeper: (playerId: string, checked: boolean) => void;
   onToggleCaptain: (playerId: string, checked: boolean) => void;
+  availablePlayers: RosterPanelPlayer[];
+  onAddPlayer: (playerId: string) => void;
 };
 
 export const MatchRosterPanel: React.FC<MatchRosterPanelProps> = ({
@@ -31,7 +34,12 @@ export const MatchRosterPanel: React.FC<MatchRosterPanelProps> = ({
   onMoveMatchPlayer,
   onToggleGoalkeeper,
   onToggleCaptain,
+  availablePlayers,
+  onAddPlayer,
 }) => {
+  const firstEmptySlot = slots.findIndex(slot => !slot.player);
+  const playerOption = (player: RosterPanelPlayer) => `${player.firstName} ${player.lastName}`;
+
   return (
     <div className="flex h-full flex-col gap-2">
       <RosterCounters title="Lista meczowa" count={count} limit={15} limitReached={limitReached} />
@@ -66,7 +74,32 @@ export const MatchRosterPanel: React.FC<MatchRosterPanelProps> = ({
                       {(slot.player.loanClub || slot.player.loanFromClub) ? <div className="text-xs text-gray-500">Wypozyczony z: {slot.player.loanClub || slot.player.loanFromClub}</div> : null}
                     </>
                   ) : (
-                    <span className="text-gray-400">— puste —</span>
+                    index === firstEmptySlot && availablePlayers.length ? (
+                      <input
+                        type="text"
+                        list="match-roster-player-options"
+                        placeholder="Wpisz imię lub nazwisko"
+                        className="w-full min-w-[190px] rounded-lg border border-sky-200 bg-white px-2 py-1 text-sm"
+                        onChange={(event) => {
+                          const value = event.currentTarget.value.trim().toLocaleLowerCase("pl-PL");
+                          const player = availablePlayers.find(item => playerOption(item).toLocaleLowerCase("pl-PL") === value);
+                          if (player) {
+                            onAddPlayer(player.playerId);
+                            event.currentTarget.value = "";
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter") return;
+                          const value = event.currentTarget.value.trim().toLocaleLowerCase("pl-PL");
+                          const player = availablePlayers.find(item => playerOption(item).toLocaleLowerCase("pl-PL").includes(value));
+                          if (player) {
+                            event.preventDefault();
+                            onAddPlayer(player.playerId);
+                            event.currentTarget.value = "";
+                          }
+                        }}
+                      />
+                    ) : <span className="text-gray-400">— puste —</span>
                   )}
                 </td>
                 <td className="px-2 py-1.5">
@@ -92,6 +125,9 @@ export const MatchRosterPanel: React.FC<MatchRosterPanelProps> = ({
           </tbody>
         </table>
       </div>
+      <datalist id="match-roster-player-options">
+        {availablePlayers.map(player => <option key={player.playerId} value={playerOption(player)} />)}
+      </datalist>
     </div>
   );
 };

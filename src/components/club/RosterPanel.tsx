@@ -572,6 +572,8 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({
             onMoveMatchPlayer={roster.moveMatchPlayer}
             onToggleGoalkeeper={roster.toggleMatchGoalkeeper}
             onToggleCaptain={roster.toggleMatchCaptain}
+            availablePlayers={isTournamentMatch ? roster.tournamentPlayersForMatch : roster.clubPlayersForMatch}
+            onAddPlayer={isTournamentMatch ? roster.addTournamentPlayerToMatchRoster : roster.addClubPlayerToMatchRoster}
           />
         </div>
       )}

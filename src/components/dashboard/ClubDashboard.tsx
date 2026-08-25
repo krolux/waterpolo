@@ -1,6 +1,5 @@
 import React from "react";
 import { CalendarClock, Users } from "lucide-react";
-import { ClubOverview } from "../club/ClubOverview";
 import { PlayerTable } from "../club/PlayerTable";
 import { RosterPanel, type RosterContext } from "../club/RosterPanel";
 import { Section } from "../shared/Section";
@@ -18,6 +17,7 @@ import {
 import type { Match, Role } from "../../types/wpolo";
 import type { Player } from "../../types/club";
 import type { SaveRosterPayload } from "../../types/rosters";
+import { supabase } from "../../lib/supabase";
 
 type PlayerFormState = {
   firstName: string;
@@ -42,7 +42,6 @@ type ClubDashboardProps = {
   tournamentTypeById?: Record<string, string>;
   penaltiesByMatch: Map<string, { home: { id: string; name: string }[]; away: { id: string; name: string }[] }>;
   onSaveRoster?: (payload: SaveRosterPayload) => void;
-  savedRosters?: SaveRosterPayload[];
 };
 
 const emptyPlayerFormState = (): PlayerFormState => ({
@@ -85,7 +84,6 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   tournamentTypeById = {},
   penaltiesByMatch: _penaltiesByMatch,
   onSaveRoster,
-  savedRosters = [],
 }) => {
   const myClub = effectiveUser?.club?.trim() || "";
   const [playerRows, setPlayerRows] = React.useState<PlayerRow[]>([]);
@@ -95,6 +93,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   const [editingPlayerId, setEditingPlayerId] = React.useState<string>("");
   const [playerForm, setPlayerForm] = React.useState<PlayerFormState>(emptyPlayerFormState);
   const [rosterContext, setRosterContext] = React.useState<RosterContext | null>(null);
+  const [loadedTournamentTypes, setLoadedTournamentTypes] = React.useState<Record<string, string>>({});
   const [logoOptions, setLogoOptions] = React.useState<Array<{ id: string; name: string; logoUrl: string | null }>>([]);
   const [selectedLogoClubId, setSelectedLogoClubId] = React.useState<string>(clubId || "");
   const [logoPreviewUrl, setLogoPreviewUrl] = React.useState<string | null>(null);
@@ -104,6 +103,25 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   const isAdmin = !!effectiveUser?.role && effectiveUser.role.toString().includes("Admin");
 
   const parseMatchDateTime = React.useCallback((match: Match) => new Date(`${match.date}T${match.time || "00:00"}`), []);
+
+  React.useEffect(() => {
+    let active = true;
+    const ids = Array.from(new Set(matches.map(match => match.tournamentId).filter((id): id is string => !!id)));
+    if (!ids.length) {
+      setLoadedTournamentTypes({});
+      return;
+    }
+    supabase.from("tournaments").select("id,tournament_type").in("id", ids)
+      .then(({ data }) => {
+        if (!active) return;
+        setLoadedTournamentTypes(Object.fromEntries((data || []).map(row => [String(row.id), String(row.tournament_type || "")])));
+      });
+    return () => { active = false; };
+  }, [matches]);
+
+  const tournamentTypeFor = React.useCallback((match: Match) => match.tournamentId
+    ? (loadedTournamentTypes[match.tournamentId] || tournamentTypeById[match.tournamentId] || "")
+    : "", [loadedTournamentTypes, tournamentTypeById]);
 
   const loadPlayers = React.useCallback(async () => {
     if (!clubId) {
@@ -414,19 +432,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
         </div>
       </Section>
 
-      <ClubOverview
-        effectiveUser={effectiveUser}
-        matches={matches}
-        clubId={clubId}
-        savedRosters={savedRosters}
-        onAddRoster={(match) => {
-          const tournamentName = match.tournamentId ? tournamentNameById[match.tournamentId] : undefined;
-          setRosterContext({ mode: "match", matchId: match.id, home: match.home, away: match.away, date: match.date, time: match.time, location: match.location, targetDate: match.date, tournamentId: match.tournamentId || undefined, tournamentName, tournamentType: match.tournamentId ? tournamentTypeById[match.tournamentId] : undefined, maxBirthYear: match.tournamentId ? maxBirthYearByTournamentId[match.tournamentId] : undefined });
-          requestAnimationFrame(() => document.getElementById("club-roster-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-        }}
-      />
-
-      <Section title="Lista startowa" icon={<Users className="w-5 h-5" />}>
+      <Section title="Najbliższe mecze" icon={<Users className="w-5 h-5" />}>
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <CalendarClock className="h-4 w-4" />
@@ -476,14 +482,14 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                                 targetDate: match.date,
                                 tournamentId: match.tournamentId || undefined,
                                 tournamentName: tournamentName || undefined,
-                                tournamentType: match.tournamentId ? tournamentTypeById[match.tournamentId] : undefined,
+                                tournamentType: tournamentTypeFor(match),
                                 maxBirthYear: match.tournamentId ? maxBirthYearByTournamentId[match.tournamentId] : undefined,
                               })}
                               className="rounded-lg border border-[#dbeafe] bg-white px-2 py-1 text-xs text-[#08284a] hover:bg-sky-50"
                             >
                               {match.tournamentId ? "Skład meczowy" : "Dodaj skład"}
                             </button>
-                            {match.tournamentId && tournamentTypeById[match.tournamentId] !== "league" ? (
+                            {match.tournamentId && tournamentTypeFor(match) !== "league" ? (
                               <button
                                 onClick={() => setRosterContext({
                                   mode: "tournament",
@@ -496,7 +502,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                                   targetDate: getTournamentTargetDate(match),
                                   tournamentId: match.tournamentId || undefined,
                                   tournamentName: tournamentName || undefined,
-                                  tournamentType: tournamentTypeById[match.tournamentId],
+                                  tournamentType: tournamentTypeFor(match),
                                   maxBirthYear: maxBirthYearByTournamentId[match.tournamentId],
                                 })}
                                 className="rounded-lg border border-[#dbeafe] bg-white px-2 py-1 text-xs text-[#08284a] hover:bg-sky-50"
