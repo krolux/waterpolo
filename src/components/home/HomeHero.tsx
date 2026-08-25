@@ -188,7 +188,31 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
               </div>
 
               {nearestRound.length ? (
-                <div className="relative mt-4 h-[218px]" onMouseLeave={() => setHoveredMatchId(null)}>
+                <>
+                <div className="mt-4 space-y-2 md:hidden">
+                  {nearestRound.map((match) => (
+                    <article key={match.id} className="rounded-2xl border border-[#dbeafe] bg-[#f7fbff]/95 p-3 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <ClubLogo compact name={match.home} logoUrl={clubLogoByName[normalizeClubName(match.home)]} />
+                        <div className="min-w-0 flex-1 text-center text-[11px] font-semibold leading-tight text-[#0A1F44]">
+                          <div>{match.home}</div>
+                          <div className="my-1 text-[9px] font-bold text-[#9c6200]">VS</div>
+                          <div>{match.away}</div>
+                        </div>
+                        <ClubLogo compact name={match.away} logoUrl={clubLogoByName[normalizeClubName(match.away)]} />
+                      </div>
+                      <div className="mt-2 grid grid-cols-[14px_1fr] gap-x-2 gap-y-1 border-t border-[#dbeafe] pt-2 text-[10px] leading-snug text-[#5F6F8C]">
+                        <CalendarDays className="h-3.5 w-3.5 text-[#058CFF]" />
+                        <span>{matchDateLabel(match)}{match.time ? `, godz. ${match.time}` : ""}</span>
+                        <span className="text-center text-[#058CFF]">●</span>
+                        <span>{match.location || "Miejsce do potwierdzenia"}</span>
+                        <span className="text-center text-[#058CFF]">◆</span>
+                        <span>Sędziowie: {match.referees.filter(Boolean).join(", ") || "do wyznaczenia"}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <div className="relative mt-4 hidden h-[218px] md:block" onMouseLeave={() => setHoveredMatchId(null)}>
                   {nearestRound.map((match, index) => {
                     const active = hoveredMatchId === match.id;
                     const column = index % 2;
@@ -229,6 +253,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
                     );
                   })}
                 </div>
+                </>
               ) : null}
 
               <div className="mt-4 text-sm font-medium text-[#0A1F44]">

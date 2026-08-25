@@ -1,5 +1,5 @@
 import React from "react";
-import { CalendarDays, Flag, MapPin, Trophy } from "lucide-react";
+import { CalendarDays, Flag, MapPin, Trophy, UserRoundCheck } from "lucide-react";
 import type { Match } from "../../types/wpolo";
 import type { Tournament } from "../../lib/competitions";
 
@@ -41,10 +41,11 @@ export const CompetitionCenter: React.FC<CompetitionCenterProps> = ({ matches, t
         <ul className="space-y-2.5">
           {upcomingMatches.length === 0 ? <li className="text-sm text-slate-500">Brak danych.</li> : null}
           {upcomingMatches.map((match) => (
-            <li key={match.id} className="rounded-xl border border-[#e9edf2] bg-[linear-gradient(145deg,#f8fcff_0%,#f2f9ff_100%)] px-3 py-2 text-xs text-slate-700">
-              <div className="font-medium text-slate-800">{match.home} vs {match.away}</div>
-              <div className="mt-1 text-[#0A1F44]">{new Date(match.date).toLocaleDateString("pl-PL")} • {match.time || "--:--"}</div>
-              <div className="mt-1 inline-flex items-center gap-1 text-slate-500"><MapPin className="h-3.5 w-3.5" />{match.location}</div>
+            <li key={match.id} className="rounded-2xl border border-[#dbeafe] bg-[linear-gradient(145deg,#f8fcff_0%,#f2f9ff_100%)] px-3 py-3 text-xs text-slate-700">
+              <div className="font-semibold leading-snug text-slate-900">{match.home} <span className="text-[#9c6200]">–</span> {match.away}</div>
+              <div className="mt-2 flex items-start gap-1.5 text-[#0A1F44]"><CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#058CFF]" /><span>{new Date(match.date).toLocaleDateString("pl-PL")} • {match.time || "godzina do potwierdzenia"}</span></div>
+              <div className="mt-1.5 flex items-start gap-1.5 text-slate-600"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#058CFF]" /><span>{match.location || "Miejsce do potwierdzenia"}</span></div>
+              <div className="mt-1.5 flex items-start gap-1.5 text-slate-600"><UserRoundCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#058CFF]" /><span>Sędziowie: {match.referees.filter(Boolean).join(", ") || "do wyznaczenia"}</span></div>
             </li>
           ))}
         </ul>
