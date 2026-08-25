@@ -44,9 +44,9 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
   const nationalTeamsRef = React.useRef<HTMLDivElement>(null);
   const tablesRef = React.useRef<HTMLDivElement>(null);
 
-  const nearestMatch = React.useMemo(() => {
+  const nearestRound = React.useMemo(() => {
     const now = Date.now();
-    return matches
+    const futureMatches = matches
       .filter((match) => {
         const ts = new Date(`${match.date}T${match.time || "00:00"}:00`).getTime();
         return !Number.isNaN(ts) && ts >= now;
@@ -55,19 +55,30 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
         const left = new Date(`${a.date}T${a.time || "00:00"}:00`).getTime();
         const right = new Date(`${b.date}T${b.time || "00:00"}:00`).getTime();
         return left - right;
-      })[0] || null;
+      });
+
+    const firstMatch = futureMatches[0];
+    if (!firstMatch) return [];
+
+    const competitionKey = (match: Match) => match.competitionSeasonId || match.tournamentId || "legacy";
+    return futureMatches.filter((match) => {
+      if (competitionKey(match) !== competitionKey(firstMatch)) return false;
+      if (firstMatch.seriesRound) return match.seriesRound === firstMatch.seriesRound;
+      return match.date === firstMatch.date;
+    });
   }, [matches]);
 
-  const nearestMatchCategory = React.useMemo(() => {
-    if (!nearestMatch) return "Rozgrywki krajowe";
-    if (nearestMatch.competitionSeasonId && competitionNameById?.[nearestMatch.competitionSeasonId]) {
-      return competitionNameById[nearestMatch.competitionSeasonId];
+  const nearestRoundCategory = React.useMemo(() => {
+    const firstMatch = nearestRound[0];
+    if (!firstMatch) return "Ekstraklasa";
+    if (firstMatch.competitionSeasonId && competitionNameById?.[firstMatch.competitionSeasonId]) {
+      return competitionNameById[firstMatch.competitionSeasonId];
     }
-    if (nearestMatch.tournamentId && tournamentNameById?.[nearestMatch.tournamentId]) {
-      return tournamentNameById[nearestMatch.tournamentId];
+    if (firstMatch.tournamentId && tournamentNameById?.[firstMatch.tournamentId]) {
+      return tournamentNameById[firstMatch.tournamentId];
     }
-    return "Rozgrywki krajowe";
-  }, [competitionNameById, nearestMatch, tournamentNameById]);
+    return "Ekstraklasa";
+  }, [competitionNameById, nearestRound, tournamentNameById]);
 
   const scrollToClubs = React.useCallback(() => {
     if (onOpenClubPage && effectiveUser && (String(effectiveUser.role).includes("Club") || String(effectiveUser.role).includes("Admin"))) {
@@ -89,8 +100,8 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
   return (
     <div className="space-y-8 bg-transparent pb-6">
       <HomeHero
-        nearestMatch={nearestMatch}
-        nearestMatchCategory={nearestMatchCategory}
+        nearestRound={nearestRound}
+        nearestRoundCategory={nearestRoundCategory}
         onOpenMatches={onOpenMatches}
         onOpenResults={onOpenMatches}
         onOpenClubs={scrollToClubs}
@@ -99,13 +110,13 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
       />
 
       <section className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
-        <HomeSectionHeader icon={<Trophy className="h-5 w-5" />} title="Centrum rozgrywek" actionLabel="Zobacz wszystkie" onAction={onOpenMatches} />
-        <CompetitionCenter matches={matches} tournaments={tournaments} onOpenMore={onOpenMatches} />
+        <HomeSectionHeader icon={<Flag className="h-5 w-5" />} title="Aktualności" actionLabel="Zobacz wszystkie" onAction={onOpenArticles} />
+        <NewsHighlights onOpenAll={onOpenArticles} onOpenArticle={onOpenArticle} />
       </section>
 
       <section className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
-        <HomeSectionHeader icon={<Flag className="h-5 w-5" />} title="Aktualności" actionLabel="Zobacz wszystkie" onAction={onOpenArticles} />
-        <NewsHighlights onOpenAll={onOpenArticles} onOpenArticle={onOpenArticle} />
+        <HomeSectionHeader icon={<Trophy className="h-5 w-5" />} title="Centrum rozgrywek" actionLabel="Zobacz wszystkie" onAction={onOpenMatches} />
+        <CompetitionCenter matches={matches} tournaments={tournaments} onOpenMore={onOpenMatches} />
       </section>
 
       <div ref={nationalTeamsRef}>

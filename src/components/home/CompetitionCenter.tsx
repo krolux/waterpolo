@@ -50,7 +50,7 @@ export const CompetitionCenter: React.FC<CompetitionCenterProps> = ({ matches, t
         </ul>
       ),
     },
-    {
+    ...(recentResults.length ? [{
       title: "Ostatnie wyniki",
       icon: <Flag className="h-5 w-5 text-[#058CFF]" />,
       content: (
@@ -64,8 +64,8 @@ export const CompetitionCenter: React.FC<CompetitionCenterProps> = ({ matches, t
           ))}
         </ul>
       ),
-    },
-    {
+    }] : []),
+    ...(activeTournaments.length ? [{
       title: "Aktywne turnieje",
       icon: <Trophy className="h-5 w-5 text-[#058CFF]" />,
       content: (
@@ -82,11 +82,17 @@ export const CompetitionCenter: React.FC<CompetitionCenterProps> = ({ matches, t
           ))}
         </ul>
       ),
-    },
+    }] : []),
   ];
 
+  const gridClass = cards.length === 1
+    ? "grid gap-4"
+    : cards.length === 2
+      ? "grid gap-4 md:grid-cols-2"
+      : "grid gap-4 md:grid-cols-3";
+
   return (
-    <section className="grid gap-4 md:grid-cols-3">
+    <section className={gridClass}>
       {cards.map((card) => (
         <article key={card.title} className="rounded-2xl border border-[#e9edf2] bg-white p-4 shadow-[0_8px_20px_rgba(2,32,71,0.06)] transition hover:-translate-y-0.5 hover:border-[#b8dcff] hover:shadow-md">
           <div className="mb-3 flex items-center gap-2">

@@ -1,10 +1,11 @@
 import React from "react";
 import { CalendarDays, Shield, Target, Trophy, Users } from "lucide-react";
 import type { Match } from "../../types/wpolo";
+import { getClubLogoSignedUrl, listClubsForLogoManagement } from "../../lib/rosters";
 
 type HomeHeroProps = {
-  nearestMatch: Match | null;
-  nearestMatchCategory?: string;
+  nearestRound: Match[];
+  nearestRoundCategory?: string;
   onOpenMatches: () => void;
   onOpenResults: () => void;
   onOpenClubs: () => void;
@@ -21,15 +22,80 @@ function teamInitials(name: string) {
     .join("");
 }
 
+function normalizeClubName(name: string) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
+}
+
+function roundWeekendLabel(match: Match | null) {
+  if (!match) return "Termin do potwierdzenia";
+  const noteMatch = match.notes?.match(/Termin kolejki:\s*(.+?)(?:\.|$)/i);
+  if (noteMatch?.[1]) return noteMatch[1].trim();
+  return new Date(`${match.date}T00:00:00`).toLocaleDateString("pl-PL");
+}
+
+function matchDateLabel(match: Match) {
+  if (!match.time) return `Weekend kolejki: ${roundWeekendLabel(match)}`;
+  return new Date(`${match.date}T00:00:00`).toLocaleDateString("pl-PL");
+}
+
+const ClubLogo: React.FC<{ name: string; logoUrl?: string; compact?: boolean; medium?: boolean }> = ({ name, logoUrl, compact = false, medium = false }) => (
+  <div
+    className={`flex shrink-0 items-center justify-center border border-[#dbeafe] bg-white shadow-sm ${compact ? "h-9 w-9 rounded-xl p-1" : medium ? "h-12 w-12 rounded-xl p-1.5" : "h-14 w-14 rounded-2xl p-1.5"}`}
+    role="img"
+    aria-label={name}
+  >
+    {logoUrl ? (
+      <img src={logoUrl} alt={name} className="h-full w-full object-contain" />
+    ) : (
+      <span className="text-xs font-bold text-[#0A1F44]">{teamInitials(name)}</span>
+    )}
+  </div>
+);
+
 export const HomeHero: React.FC<HomeHeroProps> = ({
-  nearestMatch,
-  nearestMatchCategory,
+  nearestRound,
+  nearestRoundCategory,
   onOpenMatches,
   onOpenResults,
   onOpenClubs,
   onOpenNationalTeams,
   onOpenNearestMatch,
 }) => {
+  const [clubLogoByName, setClubLogoByName] = React.useState<Record<string, string>>({});
+  const [hoveredMatchId, setHoveredMatchId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadClubLogos = async () => {
+      try {
+        const clubs = await listClubsForLogoManagement();
+        const entries = await Promise.all(
+          clubs.map(async (club) => {
+            if (!club.logo_url) return null;
+            const logoUrl = await getClubLogoSignedUrl(club.logo_url, 60 * 30);
+            return logoUrl ? [normalizeClubName(club.name), logoUrl] as const : null;
+          }),
+        );
+        if (!cancelled) {
+          setClubLogoByName(Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry))));
+        }
+      } catch {
+        if (!cancelled) setClubLogoByName({});
+      }
+    };
+
+    void loadClubLogos();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const firstMatch = nearestRound[0] || null;
   const cards = [
     { label: "Rozgrywki", icon: <Trophy className="h-4 w-4" />, action: onOpenMatches },
     { label: "Wyniki", icon: <Target className="h-4 w-4" />, action: onOpenResults },
@@ -65,7 +131,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
       <div className="pointer-events-none absolute inset-x-0 bottom-4 h-px bg-gradient-to-r from-transparent via-[#F5B32E]/85 to-transparent" />
 
       <div className="relative z-10 h-full px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
-        <div className="grid h-full gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+        <div className="grid h-full gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div className="self-center text-[#0A1F44]">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#058CFF] sm:text-sm">Portal polskiej piłki wodnej</p>
             <h1 className="mt-3 text-[2.2rem] font-bold leading-[1.05] sm:text-5xl md:text-6xl">
@@ -95,37 +161,66 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
           </div>
 
           <div className="relative min-h-[260px] lg:h-full">
-            <div className="w-full rounded-[26px] border border-[rgba(5,140,255,0.24)] bg-[rgba(255,255,255,0.94)] p-7 text-[#0A1F44] shadow-[0_24px_60px_rgba(10,31,68,0.18)] backdrop-blur-[16px] lg:absolute lg:bottom-5 lg:right-0 lg:w-[360px]">
-              <div className="-mx-7 -mt-7 mb-4 h-1 rounded-t-[26px] bg-gradient-to-r from-[#F5B32E] via-[#ffd27a] to-[#2CC0FF]" />
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#058CFF]">Najbliższy mecz</div>
-              <div className="mt-2 text-sm text-[#5F6F8C]">{nearestMatch ? (nearestMatchCategory || "Rozgrywki krajowe") : "Brak zaplanowanych spotkań."}</div>
-
-              {nearestMatch ? (
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <div className="flex w-24 flex-col items-center gap-2 text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#dbeafe] bg-[#f5fbff] text-sm font-semibold text-[#0A1F44]">
-                      {teamInitials(nearestMatch.home)}
-                    </div>
-                    <div className="text-xs text-[#0A1F44]">{nearestMatch.home}</div>
+            <div className="w-full rounded-[26px] border border-[rgba(5,140,255,0.24)] bg-[rgba(255,255,255,0.94)] p-5 text-[#0A1F44] shadow-[0_24px_60px_rgba(10,31,68,0.18)] backdrop-blur-[16px] lg:absolute lg:bottom-5 lg:right-0 lg:w-[440px]">
+              <div className="-mx-5 -mt-5 mb-4 h-1 rounded-t-[26px] bg-gradient-to-r from-[#F5B32E] via-[#ffd27a] to-[#2CC0FF]" />
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#058CFF]">Najbliższa kolejka</div>
+                  <div className="mt-1 text-sm text-[#5F6F8C]">{firstMatch ? (nearestRoundCategory || "Ekstraklasa") : "Brak zaplanowanych spotkań."}</div>
+                </div>
+                {firstMatch?.seriesRound ? (
+                  <div className="shrink-0 rounded-full border border-[#F5B32E]/40 bg-[#F5B32E]/15 px-3 py-1 text-xs font-semibold text-[#9c6200]">
+                    Kolejka {firstMatch.seriesRound}
                   </div>
+                ) : null}
+              </div>
 
-                  <div className="text-center">
-                    <div className="rounded-full border border-[#F5B32E]/40 bg-[#F5B32E]/20 px-2.5 py-1 text-base font-bold text-[#9c6200]">VS</div>
-                  </div>
+              {nearestRound.length ? (
+                <div className="relative mt-4 h-[218px]" onMouseLeave={() => setHoveredMatchId(null)}>
+                  {nearestRound.map((match, index) => {
+                    const active = hoveredMatchId === match.id;
+                    const column = index % 2;
+                    const row = Math.floor(index / 2);
+                    const position = active
+                      ? `${row === 0 ? "top-0" : "bottom-0"} ${column === 0 ? "left-0" : "right-0"} h-[88%] w-[76%] z-20`
+                      : `${row === 0 ? "top-0" : "bottom-0"} ${column === 0 ? "left-0" : "right-0"} h-[calc(50%-5px)] w-[calc(50%-5px)] z-10`;
 
-                  <div className="flex w-24 flex-col items-center gap-2 text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#dbeafe] bg-[#f5fbff] text-sm font-semibold text-[#0A1F44]">
-                      {teamInitials(nearestMatch.away)}
-                    </div>
-                    <div className="text-xs text-[#0A1F44]">{nearestMatch.away}</div>
-                  </div>
+                    return (
+                      <div
+                        key={match.id}
+                        className={`absolute flex cursor-default flex-col overflow-hidden rounded-2xl border bg-[#f7fbff]/95 p-2 transition-[width,height,background-color,border-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${position} ${active ? "border-[#80cbff] bg-[linear-gradient(145deg,#ffffff,#edf8ff)] p-3 shadow-[0_16px_36px_rgba(5,140,255,0.2)]" : "border-[#e0effc] hover:border-[#8fd2ff] hover:bg-white hover:shadow-md"}`}
+                        aria-label={`${match.home} – ${match.away}`}
+                        onMouseEnter={() => setHoveredMatchId(match.id)}
+                        onMouseLeave={() => setHoveredMatchId((current) => current === match.id ? null : current)}
+                      >
+                        <div className={`flex items-center justify-center transition-all duration-500 ${active ? "gap-3" : "h-full gap-2"}`}>
+                          <div className={`flex min-w-0 items-center transition-all duration-500 ${active ? "flex-1 flex-col gap-1 text-center" : ""}`}>
+                            <ClubLogo medium={active} name={match.home} logoUrl={clubLogoByName[normalizeClubName(match.home)]} />
+                            <div className={`text-[10px] font-semibold leading-tight text-[#0A1F44] transition-all duration-300 ${active ? "mt-1 max-h-8 opacity-100" : "max-h-0 opacity-0"}`}>{match.home}</div>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-[#F5B32E]/12 px-1.5 py-1 text-[10px] font-bold text-[#9c6200]">VS</span>
+                          <div className={`flex min-w-0 items-center transition-all duration-500 ${active ? "flex-1 flex-col gap-1 text-center" : ""}`}>
+                            <ClubLogo medium={active} name={match.away} logoUrl={clubLogoByName[normalizeClubName(match.away)]} />
+                            <div className={`text-[10px] font-semibold leading-tight text-[#0A1F44] transition-all duration-300 ${active ? "mt-1 max-h-8 opacity-100" : "max-h-0 opacity-0"}`}>{match.away}</div>
+                          </div>
+                        </div>
+
+                        <div className={`mt-auto grid grid-cols-[16px_1fr] gap-x-2 gap-y-1.5 rounded-xl bg-white/90 px-2.5 text-[10px] leading-tight text-[#5F6F8C] transition-all duration-300 ${active ? "max-h-28 py-2 opacity-100 delay-150" : "max-h-0 py-0 opacity-0"}`}>
+                          <CalendarDays className="h-3.5 w-3.5 text-[#058CFF]" />
+                          <span>{matchDateLabel(match)}{match.time ? `, godz. ${match.time}` : ""}</span>
+                          <span className="text-center text-[#058CFF]">●</span>
+                          <span>{match.location || "Miejsce do potwierdzenia"}</span>
+                          <span className="text-center text-[#058CFF]">◆</span>
+                          <span>Sędziowie: {match.referees.filter(Boolean).join(", ") || "do wyznaczenia"}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
 
-              <div className="mt-4 space-y-1 text-sm text-[#5F6F8C]">
-                <div className="text-[#0A1F44]">{nearestMatch ? new Date(nearestMatch.date).toLocaleDateString("pl-PL") : "Data do potwierdzenia"}</div>
-                <div className="text-[#058CFF]">{nearestMatch?.time || "Godzina do potwierdzenia"}</div>
-                <div className="line-clamp-1">{nearestMatch?.location || "Miejsce do potwierdzenia"}</div>
+              <div className="mt-4 text-sm font-medium text-[#0A1F44]">
+                {firstMatch ? `Weekend kolejki: ${roundWeekendLabel(firstMatch)}` : "Termin do potwierdzenia"}
               </div>
 
               <button

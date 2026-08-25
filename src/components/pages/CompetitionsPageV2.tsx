@@ -1,11 +1,15 @@
 import React from "react";
-import { Edit, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Check, Edit, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { RankingTable } from "../matches/RankingTable";
 import { MatchFormV2, blankMatchV2, type MatchDraftV2 } from "../competitions-v2/MatchFormV2";
 import { StageFormV2, TournamentFormV2, type StageDraftV2, type TournamentDraftV2 } from "../competitions-v2/StructureFormsV2";
 import { COMPETITION_CODES, loadCompetitionContextV2, type CompetitionCode, type CompetitionContextV2 } from "../../lib/competitionsV2";
 import { createMatch, deleteMatch, updateMatch } from "../../lib/matches";
 import { addStage, addTournament, addTournamentClub, deleteStage, deleteTournament } from "../../lib/competitions";
+import { setMyAvailability } from "../../lib/availability";
+import { AdminAvailableReferees } from "../matches/AdminAvailableReferees";
+import { PerMatchActions } from "../matches/PerMatchActions";
+import type { AppState, Role } from "../../types/wpolo";
 
 type Props = {
   isAdmin: boolean;
@@ -13,13 +17,17 @@ type Props = {
   refereeNames: string[];
   delegateNames: string[];
   onMatchesChanged: () => Promise<void> | void;
+  state: AppState;
+  setState: React.Dispatch<React.SetStateAction<AppState>>;
+  effectiveUser: { name: string; role: Role; club?: string } | null;
+  onPenaltiesChange: () => void;
 };
 
 const emptyContext: CompetitionContextV2 = { competition: null, season: null, stages: [], tournaments: [], tournamentClubs: [], matches: [] };
 const stageBlank = (): StageDraftV2 => ({ name: "", type: "round_robin", startDate: "", endDate: "" });
 const tournamentBlank = (): TournamentDraftV2 => ({ stageId: "", name: "", type: "league", startDate: "", endDate: "", clubs: [] });
 
-export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames, onMatchesChanged }: Props) {
+export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames, onMatchesChanged, state, setState, effectiveUser, onPenaltiesChange }: Props) {
   const [code, setCode] = React.useState<CompetitionCode>("EKS");
   const [context, setContext] = React.useState<CompetitionContextV2>(emptyContext);
   const [loading, setLoading] = React.useState(true);
@@ -29,6 +37,7 @@ export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [stageDraft, setStageDraft] = React.useState<StageDraftV2>(stageBlank);
   const [tournamentDraft, setTournamentDraft] = React.useState<TournamentDraftV2>(tournamentBlank);
+  const [openActionsId, setOpenActionsId] = React.useState<string | null>(null);
   const formRef = React.useRef<HTMLDivElement>(null);
 
   const reload = React.useCallback(async () => {
@@ -39,14 +48,22 @@ export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames
   }, [code]);
 
   React.useEffect(() => { void reload(); }, [reload]);
-  React.useEffect(() => { if (form) requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })); }, [form]);
+  React.useEffect(() => { if (form) requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })); }, [form, editingId]);
 
   const tournamentById = React.useMemo(() => new Map(context.tournaments.map(t => [t.id, t])), [context.tournaments]);
   const stageById = React.useMemo(() => new Map(context.stages.map(s => [s.id, s])), [context.stages]);
   const matchClubs = React.useMemo(() => Array.from(new Set(context.matches.flatMap(m => [m.home, m.away]).filter(Boolean))), [context.matches]);
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = context.matches.filter(m => !m.result || !m.result.trim()).sort((a, b) => a.date.localeCompare(b.date));
+  const upcoming = context.matches.filter(m => m.date >= today && (!m.result || !m.result.trim())).sort((a, b) => a.date.localeCompare(b.date) || Number(a.round || 0) - Number(b.round || 0));
   const finished = context.matches.filter(m => !!m.result?.trim()).sort((a, b) => b.date.localeCompare(a.date));
+  const formClubs = React.useMemo(() => {
+    const tournamentClubs = matchDraft.tournamentId
+      ? context.tournamentClubs.filter(c => c.tournament_id === matchDraft.tournamentId).map(c => c.club_name)
+      : [];
+    const available = tournamentClubs.length ? tournamentClubs : clubs;
+    return Array.from(new Set([...available, matchDraft.home, matchDraft.away].filter(Boolean)));
+  }, [clubs, context.tournamentClubs, matchDraft.away, matchDraft.home, matchDraft.tournamentId]);
+  const isUserReferee = !!effectiveUser && String(effectiveUser.role).split(/[-+,\s]+/).includes("Referee");
 
   const openNew = (kind: "match" | "stage" | "tournament") => { setEditingId(null); setForm(kind); };
   const cancel = () => { setForm(null); setEditingId(null); setMatchDraft(blankMatchV2()); setStageDraft(stageBlank()); setTournamentDraft(tournamentBlank()); };
@@ -79,7 +96,21 @@ export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames
   const removeStage = async (id: string) => { if (!confirm("Usunąć etap wraz z jego strukturą?")) return; try { await deleteStage(id); await reload(); } catch (e) { alert(String(e)); } };
   const removeTournament = async (id: string) => { if (!confirm("Usunąć turniej?")) return; try { await deleteTournament(id); await reload(); } catch (e) { alert(String(e)); } };
 
-  const renderRows = (items: typeof context.matches) => items.length ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-slate-50 text-left"><th className="p-2">Data</th><th className="p-2">Mecz</th><th className="p-2">Wynik</th><th className="p-2">Miejsce</th>{isAdmin && <th className="p-2">Akcje</th>}</tr></thead><tbody>{items.map(m => <tr key={m.id} className="border-b"><td className="p-2 whitespace-nowrap">{m.date}{m.time ? ` ${m.time}` : ""}</td><td className="p-2 font-medium">{m.home} – {m.away}</td><td className="p-2">{m.result || "—"}</td><td className="p-2">{m.location}</td>{isAdmin && <td className="p-2"><div className="flex gap-1"><button aria-label="Edytuj" onClick={() => edit(m.id)} className="rounded-lg border p-1.5"><Edit className="h-4 w-4" /></button><button aria-label="Usuń" onClick={() => void removeMatch(m.id)} className="rounded-lg border p-1.5 text-red-600"><Trash2 className="h-4 w-4" /></button></div></td>}</tr>)}</tbody></table></div> : <p className="p-3 text-sm text-slate-500">Brak meczów.</p>;
+  const renderRows = (items: typeof context.matches) => items.length ? <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead><tr className="border-b bg-slate-50 text-left"><th className="p-2">Data</th><th className="p-2">Mecz</th><th className="p-2">Wynik</th><th className="p-2">Miejsce</th><th className="p-2">Obsada</th>{isUserReferee && <th className="p-2 text-center">Moja dostępność</th>}{isAdmin && <th className="p-2">Dostępni sędziowie</th>}{effectiveUser && <th className="p-2">Akcje</th>}</tr></thead><tbody>{items.map(m => {
+    const actionMatch = state.matches.find(item => item.id === m.id);
+    const colSpan = 5 + (isUserReferee ? 1 : 0) + (isAdmin ? 1 : 0) + (effectiveUser ? 1 : 0);
+    return <React.Fragment key={m.id}><tr className="border-b align-top"><td className="p-2 whitespace-nowrap">{m.date}{m.time ? ` ${m.time}` : ""}</td><td className="p-2 font-medium">{m.home} – {m.away}</td><td className="p-2">{m.result || "—"}</td><td className="p-2">{m.location}</td><td className="p-2"><div className="space-y-0.5 text-xs"><div><span className="text-slate-500">Sędziowie:</span> {[m.referee1, m.referee2].filter(Boolean).join(", ") || "—"}</div><div><span className="text-slate-500">Delegat:</span> {m.delegate || "—"}</div></div></td>{isUserReferee && <td className="p-2"><div className="flex justify-center gap-1"><button aria-label={`Dostępny na ${m.home} – ${m.away}`} title="Jestem dostępny" onClick={async () => { try { await setMyAvailability(m.id, true); setState(old => ({ ...old, matches: old.matches.map(item => item.id === m.id ? { ...item, myAvailable: true, myAvailabilitySet: true } : item) })); } catch (e) { alert("Błąd zapisu dostępności: " + (e instanceof Error ? e.message : String(e))); } }} className={`rounded-lg border p-1.5 ${actionMatch?.myAvailabilitySet && actionMatch.myAvailable ? "border-green-300 bg-green-50 text-green-700" : "text-slate-500"}`}><Check className="h-4 w-4" /></button><button aria-label={`Niedostępny na ${m.home} – ${m.away}`} title="Nie mogę" onClick={async () => { try { await setMyAvailability(m.id, false); setState(old => ({ ...old, matches: old.matches.map(item => item.id === m.id ? { ...item, myAvailable: false, myAvailabilitySet: true } : item) })); } catch (e) { alert("Błąd zapisu dostępności: " + (e instanceof Error ? e.message : String(e))); } }} className={`rounded-lg border p-1.5 ${actionMatch?.myAvailabilitySet && !actionMatch.myAvailable ? "border-red-300 bg-red-50 text-red-700" : "text-slate-500"}`}><X className="h-4 w-4" /></button></div></td>}{isAdmin && <td className="p-2"><AdminAvailableReferees matchId={m.id} /></td>}{effectiveUser && <td className="p-2"><div className="flex flex-wrap gap-1">{isAdmin && <><button aria-label={`Edytuj ${m.home} – ${m.away}`} onClick={() => edit(m.id)} className="rounded-lg border p-1.5"><Edit className="h-4 w-4" /></button><button aria-label={`Usuń ${m.home} – ${m.away}`} onClick={() => void removeMatch(m.id)} className="rounded-lg border p-1.5 text-red-600"><Trash2 className="h-4 w-4" /></button></>}{actionMatch && <button onClick={() => setOpenActionsId(current => current === m.id ? null : m.id)} className="rounded-lg border px-2 py-1 text-xs font-medium text-[#08284a]">{openActionsId === m.id ? "Ukryj" : "Akcje"}</button>}</div></td>}</tr>{editingId === m.id && form === "match" && <tr><td colSpan={colSpan} className="bg-sky-50/50 p-3"><div ref={formRef}><MatchFormV2 draft={matchDraft} setDraft={setMatchDraft} tournaments={context.tournaments} clubs={formClubs} refereeNames={refereeNames} delegateNames={delegateNames} editing onSave={() => void saveMatch()} onHide={cancel} onCancel={cancel} /></div></td></tr>}{openActionsId === m.id && effectiveUser && actionMatch && <tr><td colSpan={colSpan} className="bg-slate-50 p-3"><PerMatchActions state={state} setState={setState} user={effectiveUser} onPenaltiesChange={onPenaltiesChange} fixedMatch={actionMatch} /></td></tr>}</React.Fragment>;
+  })}</tbody></table></div> : <p className="p-3 text-sm text-slate-500">Brak meczów.</p>;
+
+  const renderGroupedMatches = (items: typeof context.matches) => {
+    if (!items.length) return <p className="p-3 text-sm text-slate-500">Brak meczów.</p>;
+    const groups = Array.from(items.reduce((map, match) => {
+      const key = match.series_round || "—";
+      const group = map.get(key) || [];
+      group.push(match); map.set(key, group); return map;
+    }, new Map<string, typeof context.matches>()));
+    return <div className="space-y-3 p-3">{groups.map(([round, matches]) => <section key={round} className="overflow-hidden rounded-xl border border-sky-100 bg-white"><div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-100 bg-sky-50 px-3 py-2"><h4 className="font-semibold text-[#061a33]">Kolejka {round}</h4><span className="text-xs text-slate-500">{Array.from(new Set(matches.map(m => m.date))).join(" · ")}</span></div>{renderRows(matches)}</section>)}</div>;
+  };
 
   return <div className="space-y-4">
     <div className="flex flex-wrap gap-2">{COMPETITION_CODES.map(item => <button key={item} onClick={() => setCode(item)} className={`rounded-xl border px-4 py-2 font-semibold ${code === item ? "border-sky-500 bg-sky-500 text-white" : "border-sky-100 bg-white"}`}>{item}</button>)}</div>
@@ -87,12 +118,12 @@ export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames
     {error && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Nie udało się odczytać struktury rozgrywek: {error}</div>}
     {!loading && !error && !context.season && <div className="rounded-xl bg-slate-50 p-4">Brak aktywnego sezonu dla tej kategorii.</div>}
     {isAdmin && <div className="flex flex-wrap gap-2"><button className="rounded-xl bg-sky-500 px-3 py-2 font-semibold text-white" onClick={() => openNew("match")}><Plus className="mr-1 inline h-4 w-4" />Dodaj mecz</button><button className="rounded-xl border px-3 py-2" onClick={() => openNew("stage")}><Plus className="mr-1 inline h-4 w-4" />Dodaj etap</button><button className="rounded-xl border px-3 py-2" onClick={() => openNew("tournament")}><Plus className="mr-1 inline h-4 w-4" />Dodaj turniej</button></div>}
-    <div ref={formRef}>{form === "match" && <MatchFormV2 draft={matchDraft} setDraft={setMatchDraft} tournaments={context.tournaments} clubs={matchDraft.tournamentId ? context.tournamentClubs.filter(c => c.tournament_id === matchDraft.tournamentId).map(c => c.club_name) : clubs} refereeNames={refereeNames} delegateNames={delegateNames} editing={!!editingId} onSave={() => void saveMatch()} onHide={() => setForm(null)} onCancel={cancel} />}{form === "stage" && <StageFormV2 value={stageDraft} setValue={setStageDraft} onSave={() => void saveStage()} onHide={() => setForm(null)} onCancel={cancel} />}{form === "tournament" && <TournamentFormV2 value={tournamentDraft} setValue={setTournamentDraft} stages={context.stages} allClubs={clubs} onSave={() => void saveTournament()} onHide={() => setForm(null)} onCancel={cancel} />}</div>
+    <div ref={!editingId ? formRef : undefined}>{form === "match" && !editingId && <MatchFormV2 draft={matchDraft} setDraft={setMatchDraft} tournaments={context.tournaments} clubs={formClubs} refereeNames={refereeNames} delegateNames={delegateNames} editing={false} onSave={() => void saveMatch()} onHide={cancel} onCancel={cancel} />}{form === "stage" && <StageFormV2 value={stageDraft} setValue={setStageDraft} onSave={() => void saveStage()} onHide={() => setForm(null)} onCancel={cancel} />}{form === "tournament" && <TournamentFormV2 value={tournamentDraft} setValue={setTournamentDraft} stages={context.stages} allClubs={clubs} onSave={() => void saveTournament()} onHide={() => setForm(null)} onCancel={cancel} />}</div>
     {!loading && context.matches.length === 0 && <div className="rounded-2xl border border-sky-100 bg-white p-5 text-slate-600">Brak meczów w tej kategorii.</div>}
+    {context.matches.length > 0 && <section className="rounded-2xl border border-sky-100 bg-white"><div className="border-b p-3"><div className="text-xs font-semibold uppercase tracking-[0.12em] text-sky-600">Najbliższe terminy</div><h3 className="mt-1 text-lg font-semibold text-[#061a33]">Nadchodzące mecze</h3></div>{renderGroupedMatches(upcoming)}</section>}
     {context.matches.length > 0 && <RankingTable matches={context.matches} clubs={matchClubs} />}
-    {context.stages.map(stage => <section key={stage.id} className="rounded-2xl border border-sky-100 bg-white p-4"><div className="mb-3 flex items-center justify-between"><div><h3 className="font-semibold">{stage.name}</h3><span className="text-xs text-slate-500">{stage.stage_type}</span></div>{isAdmin && <button onClick={() => void removeStage(stage.id)} className="text-red-600"><Trash2 className="h-4 w-4" /></button>}</div>{context.tournaments.filter(t => t.stage_id === stage.id).map(t => <div key={t.id} className="mb-3 rounded-xl bg-slate-50 p-3"><div className="mb-2 flex justify-between"><div><b>{t.name}</b><div className="text-xs text-slate-500">{t.tournament_type} · {context.tournamentClubs.filter(c => c.tournament_id === t.id).map(c => c.club_name).join(", ") || "bez przypisanych klubów"}</div></div>{isAdmin && <button onClick={() => void removeTournament(t.id)} className="text-red-600"><Trash2 className="h-4 w-4" /></button>}</div>{renderRows(context.matches.filter(m => m.tournamentId === t.id))}</div>)}</section>)}
-    <section className="rounded-2xl border border-sky-100 bg-white"><h3 className="border-b p-3 font-semibold">Nadchodzące mecze</h3>{renderRows(upcoming)}</section>
-    <section className="rounded-2xl border border-sky-100 bg-white"><h3 className="border-b p-3 font-semibold">Zakończone mecze</h3>{renderRows(finished)}</section>
+    {isAdmin && context.stages.map(stage => <section key={stage.id} className="rounded-2xl border border-sky-100 bg-white p-4"><div className="mb-3 flex items-center justify-between"><div><h3 className="font-semibold">{stage.name}</h3><span className="text-xs text-slate-500">{stage.stage_type}</span></div><button aria-label={`Usuń etap ${stage.name}`} onClick={() => void removeStage(stage.id)} className="text-red-600"><Trash2 className="h-4 w-4" /></button></div>{context.tournaments.filter(t => t.stage_id === stage.id).map(t => <div key={t.id} className="mb-3 rounded-xl bg-slate-50 p-3"><div className="flex justify-between"><div><b>{t.name}</b><div className="text-xs text-slate-500">{t.tournament_type} · {context.tournamentClubs.filter(c => c.tournament_id === t.id).map(c => c.club_name).join(", ") || "bez przypisanych klubów"}</div></div><button aria-label={`Usuń turniej ${t.name}`} onClick={() => void removeTournament(t.id)} className="text-red-600"><Trash2 className="h-4 w-4" /></button></div></div>)}</section>)}
+    {finished.length > 0 && <section className="rounded-2xl border border-sky-100 bg-white"><h3 className="border-b p-3 font-semibold">Zakończone mecze</h3>{renderGroupedMatches(finished)}</section>}
     <div className="text-xs text-slate-400">Stan na {today}. Rozgrywki V2.</div>
   </div>;
 }

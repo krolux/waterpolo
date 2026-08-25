@@ -18,6 +18,15 @@ function parseScore(value?: string | null) {
   return { home: Number(match[1]), away: Number(match[2]) };
 }
 
+function canonicalClubName(value: string) {
+  const name = value.trim();
+  const aliases: Record<string, string> = {
+    Alfa: "IN-IN Tanie Ubezpieczenia Alfa Gorzów Wlkp.",
+    Arkonia: "Arkonia Szczecin",
+  };
+  return aliases[name] || name;
+}
+
 export const LeagueTablesSection: React.FC<LeagueTablesSectionProps> = ({
   matches,
   competitionNameById,
@@ -31,7 +40,7 @@ export const LeagueTablesSection: React.FC<LeagueTablesSectionProps> = ({
       const groupName =
         (match.competitionSeasonId ? competitionNameById?.[match.competitionSeasonId] : null) ||
         (match.tournamentId ? tournamentNameById?.[match.tournamentId] : null) ||
-        "Pozostałe";
+        (match.competitionSeasonId ? "Ekstraklasa" : "Pozostałe");
 
       const bucket = grouped.get(groupName) || [];
       bucket.push(match);
@@ -43,8 +52,8 @@ export const LeagueTablesSection: React.FC<LeagueTablesSectionProps> = ({
         const stats = new Map<string, Row>();
 
         groupedMatches.forEach((match) => {
-          const homeName = (match.home || "").trim();
-          const awayName = (match.away || "").trim();
+          const homeName = canonicalClubName(match.home || "");
+          const awayName = canonicalClubName(match.away || "");
           if (!homeName || !awayName) return;
 
           if (!stats.has(homeName)) stats.set(homeName, { club: homeName, played: 0, points: 0, goalsFor: 0, goalsAgainst: 0 });
@@ -79,7 +88,6 @@ export const LeagueTablesSection: React.FC<LeagueTablesSectionProps> = ({
         });
 
         const rows = Array.from(stats.values())
-          .filter((row) => row.played > 0)
           .sort((left, right) => {
             const leftDiff = left.goalsFor - left.goalsAgainst;
             const rightDiff = right.goalsFor - right.goalsAgainst;
@@ -89,19 +97,18 @@ export const LeagueTablesSection: React.FC<LeagueTablesSectionProps> = ({
               right.goalsFor - left.goalsFor ||
               left.club.localeCompare(right.club)
             );
-          })
-          .slice(0, 5);
+          });
 
         return { name, rows, playedMatches: groupedMatches.filter((m) => parseScore(m.result)).length };
       })
-      .filter((group) => group.playedMatches > 0)
-      .sort((left, right) => right.playedMatches - left.playedMatches)
+      .filter((group) => group.rows.length > 0 && (group.name !== "Pozostałe" || group.playedMatches > 0))
+      .sort((left, right) => right.playedMatches - left.playedMatches || left.name.localeCompare(right.name))
       .slice(0, 3);
   }, [competitionNameById, matches, tournamentNameById]);
 
   return (
     <section className="grid gap-4 xl:grid-cols-[1.45fr_0.75fr]">
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4">
         {tables.length === 0 ? (
           <article className="rounded-2xl border border-[#e9edf2] bg-white p-4 text-sm text-slate-600 lg:col-span-3">
             Brak rozegranych meczów.
@@ -118,24 +125,45 @@ export const LeagueTablesSection: React.FC<LeagueTablesSectionProps> = ({
                     <th className="px-2 py-2 font-medium">Klub</th>
                     <th className="px-2 py-2 font-medium">M</th>
                     <th className="px-2 py-2 font-medium">Pkt</th>
-                    <th className="px-2 py-2 font-medium">Bilans</th>
                   </tr>
                 </thead>
                 <tbody>
                   {table.rows.length === 0 ? (
                     <tr className="border-t border-[#e9edf2] text-slate-600">
-                      <td className="px-2 py-2" colSpan={5}>Brak rozegranych meczów.</td>
+                      <td className="px-2 py-2" colSpan={4}>Brak rozegranych meczów.</td>
                     </tr>
                   ) : null}
                   {table.rows.map((row, idx) => (
-                    <tr key={row.club} className="border-t border-[#e9edf2] text-slate-700">
+                    <tr
+                      key={row.club}
+                      className={`border-t text-slate-700 ${
+                        idx === 0
+                          ? "border-amber-200 bg-amber-50"
+                          : idx === 1
+                            ? "border-slate-300 bg-slate-100"
+                            : idx === 2
+                              ? "border-orange-200 bg-orange-50"
+                              : idx >= 5
+                                ? "border-rose-100 bg-rose-50/80"
+                                : "border-[#e9edf2] bg-white"
+                      }`}
+                    >
                       <td className="px-2 py-2">
-                        <span className={idx === 0 ? "inline-flex min-w-[18px] justify-center rounded bg-[#F5B32E]/22 px-1 text-[#8a5500]" : "inline-flex min-w-[18px] justify-center text-[#058CFF]"}>{idx + 1}</span>
+                        <span className={`inline-flex min-w-[22px] justify-center rounded-md px-1.5 py-0.5 font-semibold ${
+                          idx === 0
+                            ? "bg-amber-300 text-amber-950"
+                            : idx === 1
+                              ? "bg-slate-300 text-slate-800"
+                              : idx === 2
+                                ? "bg-orange-300 text-orange-950"
+                                : idx >= 5
+                                  ? "bg-rose-200 text-rose-800"
+                                  : "text-[#058CFF]"
+                        }`}>{idx + 1}</span>
                       </td>
                       <td className="px-2 py-2 font-medium">{row.club}</td>
                       <td className="px-2 py-2">{row.played}</td>
                       <td className="px-2 py-2 font-semibold text-[#0A1F44]">{row.points}</td>
-                      <td className="px-2 py-2">{row.goalsFor}:{row.goalsAgainst}</td>
                     </tr>
                   ))}
                 </tbody>

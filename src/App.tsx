@@ -1108,7 +1108,7 @@ const delegateCandidateNames = Array.from(new Set([
     <img
       src="/logo.png"
       alt="WPOLO.PL"
-      className="block h-[96px] w-auto shrink-0 object-contain transition-transform duration-[250ms] hover:scale-[1.03] md:h-[140px] lg:h-[178px]"
+      className="block h-[96px] w-auto shrink-0 origin-center scale-[1.12] object-contain transition-transform duration-[250ms] hover:scale-[1.16] md:h-[140px] md:scale-[1.2] md:hover:scale-[1.24] lg:h-[178px] lg:scale-[1.3] lg:hover:scale-[1.34]"
     />
     <div className="min-w-0">
       <h1 className="text-[1.55rem] font-extrabold leading-[1.03] text-[#0A1F44] sm:text-[1.95rem]">
@@ -1282,6 +1282,10 @@ const delegateCandidateNames = Array.from(new Set([
             refereeNames={refereeNames}
             delegateNames={delegateCandidateNames}
             onMatchesChanged={refreshMatches}
+            state={state}
+            setState={setState}
+            effectiveUser={effectiveUser}
+            onPenaltiesChange={refreshPenalties}
           />
         </section>
       )}
