@@ -3,7 +3,7 @@ import { CalendarDays, Check, Edit, MapPin, Plus, RefreshCw, Trash2, UserRoundCh
 import { RankingTable } from "../matches/RankingTable";
 import { MatchFormV2, blankMatchV2, type MatchDraftV2 } from "../competitions-v2/MatchFormV2";
 import { StageFormV2, TournamentFormV2, type StageDraftV2, type TournamentDraftV2 } from "../competitions-v2/StructureFormsV2";
-import { COMPETITION_CODES, loadCompetitionContextV2, type CompetitionCode, type CompetitionContextV2 } from "../../lib/competitionsV2";
+import { COMPETITION_CODES, COMPETITION_LABELS, createPolishNationalTeamCompetition, loadCompetitionContextV2, type CompetitionCode, type CompetitionContextV2 } from "../../lib/competitionsV2";
 import { createMatch, deleteMatch, updateMatch } from "../../lib/matches";
 import { addStage, addTournament, addTournamentClub, deleteStage, deleteTournament } from "../../lib/competitions";
 import { setMyAvailability } from "../../lib/availability";
@@ -38,6 +38,7 @@ export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames
   const [stageDraft, setStageDraft] = React.useState<StageDraftV2>(stageBlank);
   const [tournamentDraft, setTournamentDraft] = React.useState<TournamentDraftV2>(tournamentBlank);
   const [openActionsId, setOpenActionsId] = React.useState<string | null>(null);
+  const [creatingNationalTeam, setCreatingNationalTeam] = React.useState(false);
   const formRef = React.useRef<HTMLDivElement>(null);
 
   const reload = React.useCallback(async () => {
@@ -66,6 +67,17 @@ export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames
   const isUserReferee = !!effectiveUser && String(effectiveUser.role).split(/[-+,\s]+/).includes("Referee");
 
   const openNew = (kind: "match" | "stage" | "tournament") => { setEditingId(null); setForm(kind); };
+  const createNationalTeamCategory = async () => {
+    setCreatingNationalTeam(true);
+    try {
+      await createPolishNationalTeamCompetition();
+      await reload();
+    } catch (e) {
+      alert("Nie udało się utworzyć kategorii Reprezentacja Polski: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setCreatingNationalTeam(false);
+    }
+  };
   const cancel = () => { setForm(null); setEditingId(null); setMatchDraft(blankMatchV2()); setStageDraft(stageBlank()); setTournamentDraft(tournamentBlank()); };
 
   const saveMatch = async () => {
@@ -147,10 +159,19 @@ export function CompetitionsPageV2({ isAdmin, clubs, refereeNames, delegateNames
   };
 
   return <div className="min-w-0 space-y-4">
-    <div className="-mx-1 overflow-x-auto px-1 pb-1"><div className="flex w-max gap-2">{COMPETITION_CODES.map(item => <button key={item} onClick={() => setCode(item)} className={`rounded-xl border px-4 py-2 font-semibold ${code === item ? "border-sky-500 bg-sky-500 text-white" : "border-sky-100 bg-white"}`}>{item}</button>)}</div></div>
-    <div className="flex items-center justify-between rounded-2xl bg-[#f7fbff] p-4"><div><div className="text-xs uppercase tracking-wider text-slate-500">{context.season?.name || "Rozgrywki"}</div><h2 className="text-xl font-semibold text-[#061a33]">{context.competition?.name || code}</h2></div><button onClick={() => void reload()} aria-label="Odśwież"><RefreshCw className={`h-5 w-5 ${loading ? "animate-spin" : ""}`} /></button></div>
+    <div className="-mx-1 overflow-x-auto px-1 pb-1"><div className="flex w-max gap-2">{COMPETITION_CODES.map(item => <button key={item} onClick={() => setCode(item)} className={`rounded-xl border px-4 py-2 font-semibold ${code === item ? "border-sky-500 bg-sky-500 text-white" : "border-sky-100 bg-white"}`}>{COMPETITION_LABELS[item]}</button>)}</div></div>
+    <div className="flex items-center justify-between rounded-2xl bg-[#f7fbff] p-4"><div><div className="text-xs uppercase tracking-wider text-slate-500">{context.season?.name || "Rozgrywki"}</div><h2 className="text-xl font-semibold text-[#061a33]">{context.competition?.name || COMPETITION_LABELS[code]}</h2></div><button onClick={() => void reload()} aria-label="Odśwież"><RefreshCw className={`h-5 w-5 ${loading ? "animate-spin" : ""}`} /></button></div>
     {error && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Nie udało się odczytać struktury rozgrywek: {error}</div>}
-    {!loading && !error && !context.season && <div className="rounded-xl bg-slate-50 p-4">Brak aktywnego sezonu dla tej kategorii.</div>}
+    {!loading && !error && code === "POL" && !context.competition && isAdmin && (
+      <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+        <div className="font-semibold text-[#061a33]">Przygotuj kalendarz reprezentacji</div>
+        <p className="mt-1 text-sm text-slate-600">Utwórz kategorię i aktywny sezon, aby móc dodawać mecze reprezentacji Polski.</p>
+        <button disabled={creatingNationalTeam} onClick={() => void createNationalTeamCategory()} className="mt-3 rounded-xl bg-sky-500 px-4 py-2 font-semibold text-white disabled:opacity-60">
+          {creatingNationalTeam ? "Tworzenie…" : "Utwórz kategorię Reprezentacja Polski"}
+        </button>
+      </div>
+    )}
+    {!loading && !error && !context.season && <div className="rounded-xl bg-slate-50 p-4">{code === "POL" ? "Kalendarz reprezentacji Polski jest przygotowywany." : "Brak aktywnego sezonu dla tej kategorii."}</div>}
     {isAdmin && <div className="-mx-1 flex overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"><button className="shrink-0 whitespace-nowrap rounded-xl bg-sky-500 px-3 py-2 font-semibold text-white" onClick={() => openNew("match")}><Plus className="mr-1 inline h-4 w-4" />Dodaj mecz</button><button className="shrink-0 whitespace-nowrap rounded-xl border px-3 py-2" onClick={() => openNew("stage")}><Plus className="mr-1 inline h-4 w-4" />Dodaj etap</button><button className="shrink-0 whitespace-nowrap rounded-xl border px-3 py-2" onClick={() => openNew("tournament")}><Plus className="mr-1 inline h-4 w-4" />Dodaj turniej</button></div>}
     <div ref={!editingId ? formRef : undefined}>{form === "match" && !editingId && <MatchFormV2 draft={matchDraft} setDraft={setMatchDraft} tournaments={context.tournaments} clubs={formClubs} refereeNames={refereeNames} delegateNames={delegateNames} editing={false} onSave={() => void saveMatch()} onHide={cancel} onCancel={cancel} />}{form === "stage" && <StageFormV2 value={stageDraft} setValue={setStageDraft} onSave={() => void saveStage()} onHide={() => setForm(null)} onCancel={cancel} />}{form === "tournament" && <TournamentFormV2 value={tournamentDraft} setValue={setTournamentDraft} stages={context.stages} allClubs={clubs} onSave={() => void saveTournament()} onHide={() => setForm(null)} onCancel={cancel} />}</div>
     {!loading && context.matches.length === 0 && <div className="rounded-2xl border border-sky-100 bg-white p-5 text-slate-600">Brak meczów w tej kategorii.</div>}

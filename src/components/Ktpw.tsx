@@ -23,6 +23,7 @@ const STORAGE_KEY = "wpolo_ktpw_documents";
 
 const CATEGORIES = [
   "Przepisy",
+  "Regulaminy",
   "Uchwały",
   "Interpretacje",
   "Komunikaty",

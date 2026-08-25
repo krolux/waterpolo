@@ -730,7 +730,7 @@ const effectiveUser = useMemo(() => {
 
 const showMyMatches = !!effectiveUser && (isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser));
 const showClubTab = !!effectiveUser && isClub(effectiveUser);
-const showKtpwTab = !!effectiveUser;
+const showKtpwTab = true;
 const showAdminTab = !!effectiveUser && isAdmin(effectiveUser);
 
 useEffect(() => {

@@ -7,7 +7,6 @@ import { HomeSectionHeader } from "../home/HomeSectionHeader";
 import { HomeHero } from "../home/HomeHero";
 import { CompetitionCenter } from "../home/CompetitionCenter";
 import { NewsHighlights } from "../home/NewsHighlights";
-import { NationalTeamsSection } from "../home/NationalTeamsSection";
 import { LeagueTablesSection } from "../home/LeagueTablesSection";
 import { ClubsShowcaseSection } from "../home/ClubsShowcaseSection";
 import { UserZoneSection } from "../home/UserZoneSection";
@@ -41,7 +40,6 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
   onOpenClubPage,
 }) => {
   const clubsRef = React.useRef<HTMLDivElement>(null);
-  const nationalTeamsRef = React.useRef<HTMLDivElement>(null);
   const tablesRef = React.useRef<HTMLDivElement>(null);
 
   const nearestRound = React.useMemo(() => {
@@ -89,10 +87,6 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
     clubsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [effectiveUser, onOpenClubPage]);
 
-  const scrollToNationalTeams = React.useCallback(() => {
-    nationalTeamsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
-
   const scrollToTables = React.useCallback(() => {
     tablesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
@@ -105,7 +99,7 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
         onOpenMatches={onOpenMatches}
         onOpenResults={onOpenMatches}
         onOpenClubs={scrollToClubs}
-        onOpenNationalTeams={scrollToNationalTeams}
+        onOpenKtpw={onOpenKtpw}
         onOpenNearestMatch={onOpenMatches}
       />
 
@@ -118,18 +112,6 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
         <HomeSectionHeader icon={<Trophy className="h-5 w-5" />} title="Centrum rozgrywek" actionLabel="Zobacz wszystkie" onAction={onOpenMatches} />
         <CompetitionCenter matches={matches} tournaments={tournaments} onOpenMore={onOpenMatches} />
       </section>
-
-      <div ref={nationalTeamsRef}>
-        <section className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
-          <HomeSectionHeader icon={<Users className="h-5 w-5" />} title="Kadra Polski" />
-          <NationalTeamsSection
-            matches={matches}
-            competitionNameById={competitionNameById}
-            tournamentNameById={tournamentNameById}
-            onOpenMore={onOpenMatches}
-          />
-        </section>
-      </div>
 
       <section ref={tablesRef} className="rounded-3xl border border-[#e9edf2] bg-white p-4 shadow-[0_10px_24px_rgba(2,32,71,0.06)] sm:p-5">
         <HomeSectionHeader icon={<LayoutList className="h-5 w-5" />} title="Tabele rozgrywek" actionLabel="Zobacz wszystkie tabele" onAction={onOpenMatches} />
@@ -158,7 +140,6 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
         onOpenMatches={onOpenMatches}
         onOpenResults={onOpenMatches}
         onOpenClubs={scrollToClubs}
-        onOpenNationalTeams={scrollToNationalTeams}
         onOpenKtpw={onOpenKtpw}
         onOpenArticles={onOpenArticles}
       />

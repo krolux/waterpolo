@@ -1,5 +1,5 @@
 import React from "react";
-import { CalendarDays, Shield, Target, Trophy, Users } from "lucide-react";
+import { CalendarDays, FileText, Target, Trophy, Users } from "lucide-react";
 import type { Match } from "../../types/wpolo";
 import { getClubLogoSignedUrl, listClubsForLogoManagement } from "../../lib/rosters";
 
@@ -9,7 +9,7 @@ type HomeHeroProps = {
   onOpenMatches: () => void;
   onOpenResults: () => void;
   onOpenClubs: () => void;
-  onOpenNationalTeams: () => void;
+  onOpenKtpw: () => void;
   onOpenNearestMatch: () => void;
 };
 
@@ -62,7 +62,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
   onOpenMatches,
   onOpenResults,
   onOpenClubs,
-  onOpenNationalTeams,
+  onOpenKtpw,
   onOpenNearestMatch,
 }) => {
   const [clubLogoByName, setClubLogoByName] = React.useState<Record<string, string>>({});
@@ -112,21 +112,21 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
     { label: "Rozgrywki", icon: <Trophy className="h-4 w-4" />, action: onOpenMatches },
     { label: "Wyniki", icon: <Target className="h-4 w-4" />, action: onOpenResults },
     { label: "Kluby", icon: <Users className="h-4 w-4" />, action: onOpenClubs },
-    { label: "Kadra Polski", icon: <Shield className="h-4 w-4" />, action: onOpenNationalTeams },
+    { label: "KTPW", icon: <FileText className="h-4 w-4" />, action: onOpenKtpw },
   ];
 
   const cardClassByLabel: Record<string, string> = {
     Rozgrywki: "flex items-center gap-2 rounded-2xl border border-transparent bg-[linear-gradient(135deg,#058CFF,#2CC0FF)] px-4 py-3 text-left text-sm font-semibold text-white shadow-[0_18px_34px_rgba(5,140,255,0.42)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_38px_rgba(5,140,255,0.5)]",
     Wyniki: "flex items-center gap-2 rounded-2xl border border-[rgba(5,140,255,0.22)] bg-[rgba(255,255,255,0.96)] px-4 py-3 text-left text-sm font-medium text-[#0A1F44] shadow-[0_8px_18px_rgba(2,32,71,0.12)] backdrop-blur-[8px] transition hover:-translate-y-0.5 hover:border-[rgba(5,140,255,0.42)] hover:shadow-[0_12px_22px_rgba(2,32,71,0.16)]",
     Kluby: "flex items-center gap-2 rounded-2xl border border-[#8fd2ff] bg-[linear-gradient(135deg,rgba(236,249,255,0.96),rgba(226,245,255,0.96))] px-4 py-3 text-left text-sm font-medium text-[#0A1F44] shadow-[0_8px_16px_rgba(2,32,71,0.1)] backdrop-blur-[8px] transition hover:-translate-y-0.5 hover:border-[#5fc4ff] hover:shadow-[0_12px_22px_rgba(2,32,71,0.14)]",
-    "Kadra Polski": "flex items-center gap-2 rounded-2xl border border-[#F5B32E]/45 bg-[#0A1F44] px-4 py-3 text-left text-sm font-medium text-white shadow-[0_10px_18px_rgba(10,31,68,0.34)] transition hover:-translate-y-0.5 hover:border-[#F5B32E]/70 hover:shadow-[0_14px_22px_rgba(10,31,68,0.4)]",
+    KTPW: "flex items-center gap-2 rounded-2xl border border-[#F5B32E]/45 bg-[#0A1F44] px-4 py-3 text-left text-sm font-medium text-white shadow-[0_10px_18px_rgba(10,31,68,0.34)] transition hover:-translate-y-0.5 hover:border-[#F5B32E]/70 hover:shadow-[0_14px_22px_rgba(10,31,68,0.4)]",
   };
 
   const iconClassByLabel: Record<string, string> = {
     Rozgrywki: "inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/20 text-white",
     Wyniki: "inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#cde6ff] bg-[#e8f4ff] text-[#058CFF]",
     Kluby: "inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#9fd8ff] bg-white text-[#058CFF]",
-    "Kadra Polski": "inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#F5B32E]/55 bg-[#123063] text-[#F5B32E]",
+    KTPW: "inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#F5B32E]/55 bg-[#123063] text-[#F5B32E]",
   };
 
   return (

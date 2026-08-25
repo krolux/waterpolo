@@ -4,7 +4,6 @@ type HomeFooterProps = {
   onOpenMatches: () => void;
   onOpenResults: () => void;
   onOpenClubs: () => void;
-  onOpenNationalTeams: () => void;
   onOpenKtpw: () => void;
   onOpenArticles: () => void;
 };
@@ -13,7 +12,6 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
   onOpenMatches,
   onOpenResults,
   onOpenClubs,
-  onOpenNationalTeams,
   onOpenKtpw,
   onOpenArticles,
 }) => {
@@ -45,8 +43,8 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
             <button onClick={onOpenMatches} className="text-left text-slate-200 transition hover:text-white">Rozgrywki</button>
             <button onClick={onOpenResults} className="text-left text-slate-200 transition hover:text-white">Wyniki</button>
             <button onClick={onOpenClubs} className="text-left text-slate-200 transition hover:text-white">Kluby</button>
-            <button onClick={onOpenNationalTeams} className="text-left text-slate-200 transition hover:text-white">Kadra Polski</button>
-            <button onClick={onOpenKtpw} className="text-left text-slate-200 transition hover:text-white">Sędziowie</button>
+            <button onClick={onOpenMatches} className="text-left text-slate-200 transition hover:text-white">Reprezentacja Polski</button>
+            <button onClick={onOpenKtpw} className="text-left text-slate-200 transition hover:text-white">KTPW</button>
             <button onClick={onOpenArticles} className="text-left text-slate-200 transition hover:text-white">Aktualności</button>
             <button onClick={onOpenArticles} className="text-left text-slate-200 transition hover:text-white">Kontakt</button>
           </div>

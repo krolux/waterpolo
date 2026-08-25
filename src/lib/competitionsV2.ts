@@ -2,8 +2,19 @@ import { supabase } from "./supabase";
 import { fromMatchDbRow, type DbMatchRow } from "./matches";
 import type { Competition, CompetitionSeason, Stage, Tournament, TournamentClub } from "./competitions";
 
-export const COMPETITION_CODES = ["EKS", "PP", "U23", "U19", "U17", "U15", "U13"] as const;
+export const COMPETITION_CODES = ["EKS", "PP", "POL", "U23", "U19", "U17", "U15", "U13"] as const;
 export type CompetitionCode = (typeof COMPETITION_CODES)[number];
+
+export const COMPETITION_LABELS: Record<CompetitionCode, string> = {
+  EKS: "EKS",
+  PP: "PP",
+  POL: "Reprezentacja Polski",
+  U23: "U23",
+  U19: "U19",
+  U17: "U17",
+  U15: "U15",
+  U13: "U13",
+};
 
 export type CompetitionContextV2 = {
   competition: Competition | null;
@@ -14,8 +25,10 @@ export type CompetitionContextV2 = {
   matches: DbMatchRow[];
 };
 
-const codeOf = (competition: Competition) =>
-  (competition.short_name || (competition.name === "Ekstraklasa" ? "EKS" : competition.name)).toUpperCase();
+const codeOf = (competition: Competition) => {
+  if (/reprezentacja polski|kadra polski/i.test(competition.name)) return "POL";
+  return (competition.short_name || (competition.name === "Ekstraklasa" ? "EKS" : competition.name)).toUpperCase();
+};
 
 export async function loadCompetitionsV2(): Promise<Competition[]> {
   const { data, error } = await supabase.from("competitions").select("*").eq("active", true);
@@ -78,4 +91,63 @@ export async function loadCompetitionContextV2(code: CompetitionCode): Promise<C
   }
 
   return { competition, season, stages, tournaments, tournamentClubs, matches };
+}
+
+export async function createPolishNationalTeamCompetition(): Promise<void> {
+  const { data: existing, error: existingError } = await supabase
+    .from("competitions")
+    .select("id")
+    .or("short_name.eq.POL,name.ilike.Reprezentacja Polski")
+    .maybeSingle();
+  if (existingError) throw existingError;
+  let competitionId = existing?.id as string | undefined;
+  if (!competitionId) {
+    const { data: competition, error: competitionError } = await supabase
+      .from("competitions")
+      .insert({
+        name: "Reprezentacja Polski",
+        short_name: "POL",
+        type: "national_team",
+        level: "senior",
+        gender: "mixed",
+        country: "PL",
+        active: true,
+        description: "Kalendarz meczów reprezentacji Polski",
+      })
+      .select("id")
+      .single();
+    if (competitionError) throw competitionError;
+    competitionId = competition.id;
+  }
+
+  const { data: currentSeason, error: currentSeasonError } = await supabase
+    .from("competition_seasons")
+    .select("id")
+    .eq("competition_id", competitionId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (currentSeasonError) throw currentSeasonError;
+  if (currentSeason?.id) return;
+
+  const { data: referenceSeason, error: seasonLookupError } = await supabase
+    .from("competition_seasons")
+    .select("season_id,start_date,end_date")
+    .eq("status", "active")
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (seasonLookupError) throw seasonLookupError;
+  if (!referenceSeason?.season_id) return;
+
+  const startYear = new Date(referenceSeason.start_date).getFullYear();
+  const endYear = new Date(referenceSeason.end_date).getFullYear();
+  const { error: seasonError } = await supabase.from("competition_seasons").insert({
+    competition_id: competitionId,
+    season_id: referenceSeason.season_id,
+    name: `Reprezentacja Polski ${startYear}/${endYear}`,
+    status: "active",
+    start_date: referenceSeason.start_date,
+    end_date: referenceSeason.end_date,
+  });
+  if (seasonError) throw seasonError;
 }
