@@ -26,8 +26,8 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
   doc.setFont(PDF_FONT, "normal"); doc.setFontSize(8);
   autoTable(doc, { startY: 16, theme: "grid", styles: { font: PDF_FONT, fontSize: 7, cellPadding: 1 }, body: [
     ["Miejsce", match.location || "-", "Data", match.date, "Wynik", `${score.home}:${score.away}`],
-    ["Zawody", match.round || "Rozgrywki", "Godzina", match.time || "-", "Delegat", match.delegate || "-"],
-    ["Arbiter I", match.referees[0] || "-", "Arbiter II", match.referees[1] || "-", "Koniec", protocol.finishedAt || "-"],
+    ["Zawody", match.round || "Rozgrywki", "Godzina", match.time || "-", "Delegat", protocol.delegateName || match.delegate || "-"],
+    ["Arbiter I", protocol.referee1 || match.referees[0] || "-", "Arbiter II", protocol.referee2 || match.referees[1] || "-", "Koniec", protocol.finishedAt || "-"],
   ] });
   const y = (doc as any).lastAutoTable.finalY + 3;
   const teamWidth = 91;
@@ -41,6 +41,8 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
   const disciplinaryNotes = protocol.events.filter(event => requiresDisciplinaryDecision(event.kind)).map((event, index) => `${index + 1}. ${event.clock}, ${eventSymbol(event.kind)}: ${event.reason || "-"} [rażące zachowanie: ${event.grossUnsporting ? "TAK" : "NIE"}]`).join("; ");
   const notes = [disciplinaryNotes, protocol.refereeNotes].filter(Boolean).join("; ") || "-";
   doc.setFont(PDF_FONT, "normal"); doc.setFontSize(7); doc.text(`Uwagi sędziowskie: ${notes}`, 12, footerY, { maxWidth: 186 });
-  doc.text(`Protest: ${protocol.protest ? "TAK" : "NIE"}   Zamknął: ${protocol.closedBy || "-"}`, 12, footerY + 8);
+  doc.text(`Protokolant: ${protocol.protocolSecretary || "-"}   Sędziowie czasu: ${[protocol.timeSecretary1, protocol.timeSecretary2].filter(Boolean).join(", ") || "-"}`, 12, footerY + 8);
+  doc.text(`Sędziowie bramkowi: ${[protocol.goalSecretary1, protocol.goalSecretary2].filter(Boolean).join(", ") || "-"}   Protest: ${protocol.protest ? "TAK" : "NIE"}`, 12, footerY + 13);
+  doc.text(`Zamknął: ${protocol.closedBy || "-"}   Zatwierdził: ${protocol.approvedBy || "-"}`, 12, footerY + 18);
   doc.save(`protokol-${match.home}-${match.away}-${match.date}.pdf`.replace(/[^a-zA-Z0-9.-]+/g, "_"));
 }

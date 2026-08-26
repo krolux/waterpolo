@@ -31,11 +31,17 @@ export type ProtocolEvent = {
 };
 
 export type MatchProtocolDraft = {
-  version: 1;
+  version: 2;
   matchId: string;
-  status: "draft" | "closed";
+  status: "setup" | "live" | "submitted" | "approved";
+  homePlayers: ProtocolPlayer[];
+  awayPlayers: ProtocolPlayer[];
   homeCoach: string;
   awayCoach: string;
+  referee1: string;
+  referee2: string;
+  delegateName: string;
+  protocolSecretary: string;
   secretary1: string;
   secretary2: string;
   timeSecretary1: string;
@@ -51,21 +57,27 @@ export type MatchProtocolDraft = {
   currentPeriod: 1 | 2 | 3 | 4 | "PS";
   closedAt?: string;
   closedBy?: string;
+  approvedAt?: string;
+  approvedBy?: string;
 };
 
 export type ProtocolContext = { homeRoster: MatchRosterWithPlayers | null; awayRoster: MatchRosterWithPlayers | null; homePlayers: ProtocolPlayer[]; awayPlayers: ProtocolPlayer[] };
 
 const key = (matchId: string) => `wpolo:private-match-protocol:${matchId}`;
-export const blankProtocol = (matchId: string): MatchProtocolDraft => ({ version: 1, matchId, status: "draft", homeCoach: "", awayCoach: "", secretary1: "", secretary2: "", timeSecretary1: "", timeSecretary2: "", goalSecretary1: "", goalSecretary2: "", homeCaps: "jasne", awayCaps: "ciemne", events: [], refereeNotes: "", protest: false, finishedAt: "", currentPeriod: 1 });
+export const blankProtocol = (matchId: string): MatchProtocolDraft => ({ version: 2, matchId, status: "setup", homePlayers: [], awayPlayers: [], homeCoach: "", awayCoach: "", referee1: "", referee2: "", delegateName: "", protocolSecretary: "", secretary1: "", secretary2: "", timeSecretary1: "", timeSecretary2: "", goalSecretary1: "", goalSecretary2: "", homeCaps: "jasne", awayCaps: "ciemne", events: [], refereeNotes: "", protest: false, finishedAt: "", currentPeriod: 1 });
 export function loadProtocol(matchId: string): MatchProtocolDraft {
   try {
     const raw = localStorage.getItem(key(matchId));
     if (!raw) return blankProtocol(matchId);
-    const parsed = JSON.parse(raw) as Partial<MatchProtocolDraft>;
+    const parsed = JSON.parse(raw) as Partial<MatchProtocolDraft> & { status?: string; version?: number };
     const allowed = new Set(PROTOCOL_EVENT_OPTIONS.map(option => option.value));
+    const storedStatus = String(parsed.status || "");
+    const migratedStatus: MatchProtocolDraft["status"] = storedStatus === "closed" ? "approved" : storedStatus === "draft" ? ((parsed.events?.length || 0) > 0 ? "live" : "setup") : (["setup", "live", "submitted", "approved"].includes(storedStatus) ? storedStatus as MatchProtocolDraft["status"] : "setup");
     return {
       ...blankProtocol(matchId),
       ...parsed,
+      version: 2,
+      status: migratedStatus,
       events: (parsed.events || []).filter(event => allowed.has(event.kind)).map(event => ({ ...event, clock: normalizeProtocolClock(event.clock) })),
     };
   } catch { return blankProtocol(matchId); }
