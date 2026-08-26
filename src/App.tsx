@@ -231,14 +231,18 @@ const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = (
 // Diagnostics
 function runDiagnostics(state:AppState){
   type Test={name:string; pass:boolean; details?:string}; const tests:Test[]=[]; const sample=state.matches[0];
-  if(sample){ const uHome={role:"Club" as Role, club:sample.home} as any; const uOther={role:"Club" as Role, club:"Inny Klub"} as any; const uDel={role:"Delegate" as Role, name:sample.delegate||""} as any; const uGuest={role:"Guest" as Role} as any;
+  if(sample){ const uHome={role:"Club" as Role, club:sample.home} as any; const uOther={role:"Club" as Role, club:"Inny Klub"} as any; const uGuest={role:"Guest" as Role} as any;
     tests.push({name:"Gospodarz może dodać komunikat", pass: canUploadComms(uHome,sample)===true});
     tests.push({name:"Gość nie może dodać komunikatu", pass: canUploadComms(uGuest,sample)===false});
     tests.push({name:"Gospodarz może dodać skład", pass: canUploadRoster(uHome,sample)===true});
     tests.push({name:"Klub spoza meczu nie może dodać składu", pass: canUploadRoster(uOther,sample)===false});
-    tests.push({name:"Delegat może dodać protokół", pass: canUploadReport(uDel, sample)===true});
     const canDownload=(u:{role:Role}|null)=>!!u && u.role!=='Guest'; tests.push({name:"Gość nie pobiera plików", pass: canDownload({role:'Guest' as Role})===false});
-    tests.push({name:"Tylko delegat tego meczu może ustawić wynik", pass: canEditResult(uDel,sample)===true && canEditResult({role:'Delegate' as Role, name:'Inny Delegat'} as any,sample)===false });
+    const delegatedMatch=state.matches.find(match => !!match.delegate?.trim());
+    if(delegatedMatch){
+      const assignedDelegate={role:"Delegate" as Role, name:delegatedMatch.delegate!.trim()} as any;
+      tests.push({name:"Delegat może dodać protokół", pass: canUploadReport(assignedDelegate, delegatedMatch)===true});
+      tests.push({name:"Tylko delegat tego meczu może ustawić wynik", pass: canEditResult(assignedDelegate,delegatedMatch)===true && canEditResult({role:'Delegate' as Role, name:'Inny Delegat'} as any,delegatedMatch)===false });
+    }
   } else { tests.push({name:"Dane (z bazy) istnieją", pass:false, details:"Brak meczów do testu"}) }
   const selectedIdInitial:string=""; tests.push({name:"selectedId jest stringiem na starcie", pass: typeof selectedIdInitial==="string"}); return tests;
 }
