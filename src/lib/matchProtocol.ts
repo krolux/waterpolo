@@ -87,7 +87,8 @@ export async function loadProtocolContext(match: Match): Promise<ProtocolContext
 
 export function protocolScore(events: ProtocolEvent[]) { return events.reduce((score, event) => { if (event.kind === "goal") score[event.team] += 1; return score; }, { home: 0, away: 0 }); }
 export function playerGoals(events: ProtocolEvent[], playerId: string) { return events.filter(event => event.kind === "goal" && event.playerId === playerId).length; }
-export function playerMajorFouls(events: ProtocolEvent[], playerId: string) { return events.filter(event => ["exclusion", "exclusion_substitution", "brutality", "double_exclusion"].includes(event.kind) && event.playerId === playerId).length; }
+export function playerMajorFouls(events: ProtocolEvent[], playerId: string) { return playerMajorFoulEvents(events, playerId).length; }
+export function playerMajorFoulEvents(events: ProtocolEvent[], playerId: string) { return events.filter(event => ["exclusion", "penalty", "exclusion_substitution", "brutality", "double_exclusion"].includes(event.kind) && event.playerId === playerId); }
 export function eventSymbol(kind: ProtocolEventKind) { return PROTOCOL_EVENT_OPTIONS.find(option => option.value === kind)?.symbol ?? ""; }
 
 export function normalizeProtocolClock(value: string) {
