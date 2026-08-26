@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Match } from "../types/wpolo";
-import { eventSymbol, playerGoals, playerMajorFouls, protocolScore, type MatchProtocolDraft, type ProtocolPlayer } from "./matchProtocol";
+import { eventSymbol, playerGoals, playerMajorFouls, protocolScore, requiresDisciplinaryDecision, type MatchProtocolDraft, type ProtocolPlayer } from "./matchProtocol";
 
 const PDF_FONT = "NotoSans";
 function binary(buffer: ArrayBuffer) { const bytes = new Uint8Array(buffer); let value = ""; for (let i = 0; i < bytes.length; i += 0x8000) value += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return value; }
@@ -38,7 +38,9 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
   autoTable(doc, { startY: gameY + 2, theme: "grid", styles: { font: PDF_FONT, fontSize: 6.2, cellPadding: .65 }, head: [["Lp.", "Kwarta", "Czas", "B/N", "Zawodnik", "Symbol", "Wynik"]], body: protocol.events.slice(0, 45).map((event, index) => { const running = protocolScore(protocol.events.slice(0, index + 1)); const players = event.team === "home" ? homePlayers : awayPlayers; return [index + 1, event.period, event.clock, event.team === "home" ? "B" : "N", players.find(player => player.id === event.playerId)?.capNumber || "-", eventSymbol(event.kind), `${running.home}:${running.away}`]; }) });
   let footerY = (doc as any).lastAutoTable.finalY + 4;
   if (footerY > 265) { doc.addPage(); footerY = 16; }
-  doc.setFont(PDF_FONT, "normal"); doc.setFontSize(7); doc.text(`Uwagi sędziowskie: ${protocol.refereeNotes || "-"}`, 12, footerY, { maxWidth: 186 });
+  const disciplinaryNotes = protocol.events.filter(event => requiresDisciplinaryDecision(event.kind)).map((event, index) => `${index + 1}. ${event.clock}, ${eventSymbol(event.kind)}: ${event.reason || "-"} [rażące zachowanie: ${event.grossUnsporting ? "TAK" : "NIE"}]`).join("; ");
+  const notes = [disciplinaryNotes, protocol.refereeNotes].filter(Boolean).join("; ") || "-";
+  doc.setFont(PDF_FONT, "normal"); doc.setFontSize(7); doc.text(`Uwagi sędziowskie: ${notes}`, 12, footerY, { maxWidth: 186 });
   doc.text(`Protest: ${protocol.protest ? "TAK" : "NIE"}   Zamknął: ${protocol.closedBy || "-"}`, 12, footerY + 8);
   doc.save(`protokol-${match.home}-${match.away}-${match.date}.pdf`.replace(/[^a-zA-Z0-9.-]+/g, "_"));
 }
