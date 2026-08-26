@@ -17,6 +17,14 @@ const rows = (players: ProtocolPlayer[], protocol: MatchProtocolDraft) => Array.
   const fouls = player ? playerMajorFouls(protocol.events, player.id) : 0;
   return [String(index + 1), player?.name || "", player ? String(playerGoals(protocol.events, player.id)) : "", fouls > 0 ? "X" : "", fouls > 1 ? "X" : "", fouls > 2 ? "X" : ""];
 });
+const participant = (playerId: string | null, team: "home" | "away", players: ProtocolPlayer[], protocol: MatchProtocolDraft) => {
+  const player = players.find(item => item.id === playerId);
+  if (player) return String(player.capNumber);
+  const role = playerId?.split(":")[2];
+  if (!role) return "-";
+  const names = team === "home" ? { coach: protocol.homeCoach, official1: protocol.homeOfficial1, official2: protocol.homeOfficial2 } : { coach: protocol.awayCoach, official1: protocol.awayOfficial1, official2: protocol.awayOfficial2 };
+  return ({ coach: "T", official1: "O1", official2: "O2" }[role as "coach" | "official1" | "official2"] || "O") + (names[role as keyof typeof names] ? ` ${names[role as keyof typeof names]}` : "");
+};
 
 export async function generateMatchProtocolPdf(match: Match, protocol: MatchProtocolDraft, homePlayers: ProtocolPlayer[], awayPlayers: ProtocolPlayer[]) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -35,7 +43,7 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
   autoTable(doc, { startY: y, margin: { left: 107, right: 12 }, theme: "grid", styles: { font: PDF_FONT, fontSize: 6.5, cellPadding: .8, fillColor: [224, 242, 254] }, head: [[match.away, "", "", "", "", ""], ["Nr", "Nazwisko i imię", "Bramki", "1", "2", "3"]], body: rows(awayPlayers, protocol), foot: [["", `Trener: ${protocol.awayCoach || "-"}; Oficjele: ${[protocol.awayOfficial1, protocol.awayOfficial2].filter(Boolean).join(", ") || "-"}`, "", "", "", ""]], columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 54 }, 2: { cellWidth: 12 }, 3: { cellWidth: 5.5 }, 4: { cellWidth: 5.5 }, 5: { cellWidth: 5.5 } }, tableWidth: teamWidth });
   const gameY = Math.max((doc as any).lastAutoTable.finalY, y + 94) + 4;
   doc.setFont(PDF_FONT, "bold"); doc.setFontSize(11); doc.text("PRZEBIEG GRY", 105, gameY, { align: "center" });
-  autoTable(doc, { startY: gameY + 2, theme: "grid", styles: { font: PDF_FONT, fontSize: 6.2, cellPadding: .65 }, head: [["Lp.", "Kwarta", "Czas", "B/N", "Zawodnik", "Symbol", "Wynik"]], body: protocol.events.slice(0, 45).map((event, index) => { const running = protocolScore(protocol.events.slice(0, index + 1)); const players = event.team === "home" ? homePlayers : awayPlayers; return [index + 1, event.period, event.period === "PS" ? "-" : event.clock, event.team === "home" ? "B" : "N", players.find(player => player.id === event.playerId)?.capNumber || "-", eventSymbol(event.kind), `${running.home}:${running.away}`]; }) });
+  autoTable(doc, { startY: gameY + 2, theme: "grid", styles: { font: PDF_FONT, fontSize: 6.2, cellPadding: .65 }, head: [["Lp.", "Kwarta", "Czas", "B/N", "Zawodnik / oficjel", "Symbol", "Wynik"]], body: protocol.events.slice(0, 45).map((event, index) => { const running = protocolScore(protocol.events.slice(0, index + 1)); const players = event.team === "home" ? homePlayers : awayPlayers; return [index + 1, event.period, event.period === "PS" ? "-" : event.clock, event.team === "home" ? "B" : "N", participant(event.playerId, event.team, players, protocol), eventSymbol(event.kind), `${running.home}:${running.away}`]; }) });
   let footerY = (doc as any).lastAutoTable.finalY + 4;
   if (footerY > 265) { doc.addPage(); footerY = 16; }
   const disciplinaryNotes = protocol.events.filter(event => requiresDisciplinaryDecision(event.kind)).map((event, index) => `${index + 1}. ${event.clock}, ${eventSymbol(event.kind)}: ${event.reason || "-"} [rażące zachowanie: ${event.grossUnsporting ? "TAK" : "NIE"}]`).join("; ");
