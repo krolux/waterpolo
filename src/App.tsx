@@ -454,6 +454,7 @@ useEffect(() => {
     { id: 'fallback-u13', name: 'U13', short_name: 'U13', type: 'league', level: 'U13', gender: 'men', country: 'PL', active: true, description: null, created_at: new Date().toISOString() },
   ];
 const [competitions, setCompetitions] = useState<Competition[]>([]);
+const [competitionNameBySeasonId, setCompetitionNameBySeasonId] = useState<Record<string, string>>({});
 const [selectedCompetitionId, setSelectedCompetitionId] = useState<string | null>(null);
 const [selectedCompetitionSeason, setSelectedCompetitionSeason] = useState<CompetitionSeason | null>(null);
 const [loadingCompetitions, setLoadingCompetitions] = useState(false);
@@ -536,6 +537,27 @@ const refreshCompetitions = React.useCallback(async () => {
 useEffect(() => {
   refreshCompetitions();
 }, [refreshCompetitions]);
+
+useEffect(() => {
+  let cancelled = false;
+  const competitionIds = competitions.map((competition) => competition.id);
+  if (!competitionIds.length) {
+    setCompetitionNameBySeasonId({});
+    return;
+  }
+
+  void supabase
+    .from("competition_seasons")
+    .select("id,competition_id")
+    .in("competition_id", competitionIds)
+    .then(({ data, error }) => {
+      if (cancelled || error) return;
+      const nameByCompetitionId = Object.fromEntries(competitions.map((competition) => [competition.id, competition.name]));
+      setCompetitionNameBySeasonId(Object.fromEntries((data || []).map((season) => [season.id, nameByCompetitionId[season.competition_id] || ""])));
+    });
+
+  return () => { cancelled = true; };
+}, [competitions]);
 
 useEffect(() => {
   if (!selectedCompetitionId) {
@@ -824,8 +846,11 @@ function buildPenaltyMap(penalties: Penalty[], matches: Match[]) {
 );
 
 const competitionNameById = useMemo(
-  () => Object.fromEntries((competitions || []).map((competition) => [competition.id, competition.name])),
-  [competitions]
+  () => ({
+    ...Object.fromEntries((competitions || []).map((competition) => [competition.id, competition.name])),
+    ...competitionNameBySeasonId,
+  }),
+  [competitionNameBySeasonId, competitions]
 );
 
 const competitionSeasonNameById = useMemo(() => {

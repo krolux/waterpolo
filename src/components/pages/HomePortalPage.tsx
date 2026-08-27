@@ -47,7 +47,12 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
 
   const nearestRound = React.useMemo(() => {
     const now = Date.now();
-    const futureMatches = matches
+    const leagueMatches = matches.filter((match) => {
+      const category = match.competitionSeasonId ? competitionNameById?.[match.competitionSeasonId] : "";
+      return /ekstraklasa/i.test(category || "");
+    });
+    const candidates = leagueMatches.length ? leagueMatches : matches;
+    const futureMatches = candidates
       .filter((match) => {
         const ts = new Date(`${match.date}T${match.time || "00:00"}:00`).getTime();
         return !Number.isNaN(ts) && ts >= now;
@@ -67,7 +72,7 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
       if (firstMatch.seriesRound) return match.seriesRound === firstMatch.seriesRound;
       return match.date === firstMatch.date;
     });
-  }, [matches]);
+  }, [competitionNameById, matches]);
 
   const nearestRoundCategory = React.useMemo(() => {
     const firstMatch = nearestRound[0];
