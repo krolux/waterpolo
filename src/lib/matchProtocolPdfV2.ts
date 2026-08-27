@@ -43,7 +43,21 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
   await registerFonts(doc);
   const finalScore = protocolScore(protocol.events);
   const pageCount = Math.max(1, Math.ceil(protocol.events.length / PAGE_EVENT_LIMIT));
-  const disciplinaryNotes = protocol.events.filter(event => requiresDisciplinaryDecision(event.kind)).map((event, index) => `${index + 1}. ${event.clock}, ${eventSymbol(event.kind)}: ${event.reason || "-"} [rażące: ${event.grossUnsporting ? "TAK" : "NIE"}]`).join("; ");
+  const fullDisciplinaryNote = (event: ProtocolEvent) => {
+    if (event.reason?.trim()) return event.reason.trim();
+    const players = event.team === "home" ? homePlayers : awayPlayers;
+    const club = event.team === "home" ? match.home : match.away;
+    const player = players.find(item => item.id === event.playerId);
+    let subject = player ? `zawodnik nr ${player.capNumber}` : "osoba funkcyjna";
+    if (event.playerId?.startsWith("staff:")) {
+      const role = event.playerId.split(":")[2];
+      const staff = event.team === "home" ? { coach: protocol.homeCoach, official1: protocol.homeOfficial1, official2: protocol.homeOfficial2 } : { coach: protocol.awayCoach, official1: protocol.awayOfficial1, official2: protocol.awayOfficial2 };
+      const label = role === "coach" ? "trener" : role === "official1" ? "oficjel 1" : role === "official2" ? "oficjel 2" : "oficjel";
+      subject = `${label}${staff[role as keyof typeof staff] ? ` ${staff[role as keyof typeof staff]}` : ""}`;
+    }
+    return `${event.period} ${event.clock} ${subject} drużyny ${club} został ukarany ${eventSymbol(event.kind)} za —`;
+  };
+  const disciplinaryNotes = protocol.events.filter(event => requiresDisciplinaryDecision(event.kind)).map(event => `${fullDisciplinaryNote(event)} [rażące niesportowe zachowanie: ${event.grossUnsporting ? "TAK" : "NIE"}]`).join("; ");
   const notes = [disciplinaryNotes, protocol.refereeNotes].filter(Boolean).join("; ") || "-";
 
   const drawCell = (x: number, y: number, width: number, height: number, value: string, options?: { bold?: boolean; fill?: number; invert?: boolean; size?: number }) => {

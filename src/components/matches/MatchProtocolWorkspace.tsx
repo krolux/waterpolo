@@ -118,6 +118,19 @@ export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged
     const names = { coach: "Trener", official1: "Oficjel 1", official2: "Oficjel 2" };
     return `${names[role as keyof typeof names]}${values[role as keyof typeof values] ? ` — ${values[role as keyof typeof values]}` : ""}`;
   };
+  const disciplinaryReasonPrefix = (eventTeam: ProtocolTeam, eventPlayerId: string | null, eventKind: ProtocolEventKind, period: ProtocolEvent["period"], eventClock: string) => {
+    const roster = eventTeam === "home" ? homePlayers : awayPlayers;
+    const club = eventTeam === "home" ? match.home : match.away;
+    const player = roster.find(item => item.id === eventPlayerId);
+    let subject = player ? `zawodnik nr ${player.capNumber}` : "osoba funkcyjna";
+    if (eventPlayerId?.startsWith("staff:")) {
+      const role = eventPlayerId.split(":")[2];
+      const staff = eventTeam === "home" ? { coach: protocol.homeCoach, official1: protocol.homeOfficial1, official2: protocol.homeOfficial2 } : { coach: protocol.awayCoach, official1: protocol.awayOfficial1, official2: protocol.awayOfficial2 };
+      const roleLabel = role === "coach" ? "trener" : role === "official1" ? "oficjel 1" : role === "official2" ? "oficjel 2" : "oficjel";
+      subject = `${roleLabel}${staff[role as keyof typeof staff] ? ` ${staff[role as keyof typeof staff]}` : ""}`;
+    }
+    return `${period} ${eventClock} ${subject} drużyny ${club} został ukarany ${eventSymbol(eventKind)} za `;
+  };
 
   const openNew = (side: ProtocolTeam) => { setEditingId(null); setTeam(side); setKind("goal"); setPlayerId(""); setClock(""); setEditorOpen(true); };
   const openEdit = (event: ProtocolEvent) => { if (event.period === "PS") return alert("Próbę w serii rzutów karnych można poprawić przez usunięcie i ponowne dodanie."); setEditingId(event.id); setTeam(event.team); setKind(event.kind); setPlayerId(event.playerId || ""); setClock(event.clock); setEditorOpen(true); };
@@ -136,7 +149,10 @@ export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged
     const next = samePeriodAfter[0];
     if (prior && clockSeconds(formatted) > clockSeconds(prior.clock)) return alert(`Czas musi być równy lub mniejszy od poprzedniego zdarzenia (${prior.clock}).`);
     if (next && clockSeconds(formatted) < clockSeconds(next.clock)) return alert(`Czas nie może być mniejszy od następnego zdarzenia (${next.clock}).`);
-    const event: ProtocolEvent = { id: editingId || crypto.randomUUID(), period: previous?.period || protocol.currentPeriod, clock: formatted, team, playerId: playerId || null, kind, reason: previous?.reason, grossUnsporting: previous?.grossUnsporting, createdAt: previous?.createdAt || new Date().toISOString() };
+    const eventPeriod = previous?.period || protocol.currentPeriod;
+    const previousReasonTail = previous?.reason?.includes(" za ") ? previous.reason.split(" za ").slice(1).join(" za ") : previous?.reason || "";
+    const reason = requiresDisciplinaryDecision(kind) ? `${disciplinaryReasonPrefix(team, playerId || null, kind, eventPeriod, formatted)}${previousReasonTail}` : previous?.reason;
+    const event: ProtocolEvent = { id: editingId || crypto.randomUUID(), period: eventPeriod, clock: formatted, team, playerId: playerId || null, kind, reason, grossUnsporting: previous?.grossUnsporting, createdAt: previous?.createdAt || new Date().toISOString() };
     const withoutEdited = protocol.events.filter(e => e.id !== editingId);
     const becomesThirdMajor = playerId && ["exclusion","penalty","exclusion_substitution","brutality","double_exclusion"].includes(kind) && playerMajorFouls(withoutEdited, playerId) === 2;
     setProtocol(p => ({ ...p, events: editingId ? p.events.map(e => e.id === editingId ? event : e) : [...p.events, event] }));
@@ -182,7 +198,11 @@ export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged
     if (!canSubmit) return alert("Protokół może zamknąć gospodarz, delegat lub administrator.");
     if (!protocol.finishedAt) return alert("Wpisz godzinę zakończenia spotkania.");
     if (!protocol.homeMvpPlayerId || !protocol.awayMvpPlayerId) return alert("Wybierz MVP obu drużyn.");
-    if (protocol.events.some(e => requiresDisciplinaryDecision(e.kind) && (!e.reason?.trim() || typeof e.grossUnsporting !== "boolean"))) return alert("Uzupełnij uwagi i decyzję o rażącym niesportowym zachowaniu przy wszystkich oznaczonych zdarzeniach.");
+    if (protocol.events.some(e => {
+      if (!requiresDisciplinaryDecision(e.kind)) return false;
+      const reasonText = e.reason?.includes(" za ") ? e.reason.split(" za ").slice(1).join(" za ").trim() : e.reason?.trim();
+      return !reasonText || typeof e.grossUnsporting !== "boolean";
+    })) return alert("Uzupełnij powód kary i decyzję o rażącym niesportowym zachowaniu przy wszystkich oznaczonych zdarzeniach.");
     const submitted = { ...protocol, status: "submitted" as const, closedAt: new Date().toISOString(), closedBy: user.name, updatedAt: new Date().toISOString() };
     try {
       await saveRemoteProtocol(submitted);
