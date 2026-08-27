@@ -19,7 +19,8 @@ export type CompetitionAdminAssignment = {
 };
 
 const parsePermissions = (value?: string | null): CompetitionPermission[] => {
-  if (!value || value === "admin") return [...COMPETITION_PERMISSION_KEYS];
+  if (!value) return [];
+  if (value === "admin") return [...COMPETITION_PERMISSION_KEYS];
   return value.split(",").filter((item): item is CompetitionPermission => COMPETITION_PERMISSION_KEYS.includes(item as CompetitionPermission));
 };
 

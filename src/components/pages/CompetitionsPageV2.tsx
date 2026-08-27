@@ -62,7 +62,12 @@ export function CompetitionsPageV2({ initialCode, isAdmin, clubs, refereeNames, 
   React.useEffect(() => { if (form) requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })); }, [form, editingId]);
   React.useEffect(() => {
     if (!context.competition?.id || isAdmin) { setDelegatedPermissions(new Set()); return; }
-    getMyCompetitionPermissions(context.competition.id).then(setDelegatedPermissions).catch(() => setDelegatedPermissions(new Set()));
+    let cancelled = false;
+    setDelegatedPermissions(new Set());
+    getMyCompetitionPermissions(context.competition.id)
+      .then((permissions) => { if (!cancelled) setDelegatedPermissions(permissions); })
+      .catch(() => { if (!cancelled) setDelegatedPermissions(new Set()); });
+    return () => { cancelled = true; };
   }, [context.competition?.id, isAdmin]);
 
   const can = React.useCallback((permission: CompetitionPermission) => isAdmin || delegatedPermissions.has(permission), [delegatedPermissions, isAdmin]);
