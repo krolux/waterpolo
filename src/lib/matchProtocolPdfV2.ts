@@ -51,8 +51,10 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
     doc.setDrawColor(140); doc.setLineWidth(.15); doc.rect(x, y, width, height);
     const ink = options?.invert ? 255 : 0; doc.setTextColor(ink, ink, ink);
     doc.setFont(PDF_FONT, options?.bold ? "bold" : "normal"); doc.setFontSize(options?.size || 5.8);
-    const lines = doc.splitTextToSize(value || "", Math.max(2, width - 2));
-    doc.text(lines.slice(0, 2), x + 1, y + 2.8, { baseline: "middle" });
+    const lines = doc.splitTextToSize(value || "", Math.max(2, width - 2)).slice(0, 2);
+    const lineHeight = (options?.size || 5.8) * 0.3528;
+    const firstLineCenter = y + height / 2 - ((lines.length - 1) * lineHeight) / 2;
+    doc.text(lines, x + 1, firstLineCenter, { baseline: "middle", lineHeightFactor: 1 });
     doc.setTextColor(0, 0, 0);
   };
 
