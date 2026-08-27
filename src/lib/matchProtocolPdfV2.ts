@@ -20,10 +20,11 @@ async function registerFonts(doc: jsPDF) {
   doc.addFileToVFS("NotoSans-Bold.ttf", binary(await bold.arrayBuffer())); doc.addFont("NotoSans-Bold.ttf", PDF_FONT, "bold");
 }
 
-const rosterRows = (players: ProtocolPlayer[], protocol: MatchProtocolDraft) => Array.from({ length: 15 }, (_, index) => {
+const rosterRows = (players: ProtocolPlayer[], protocol: MatchProtocolDraft, mvpPlayerId: string) => Array.from({ length: 15 }, (_, index) => {
   const player = players.find(item => item.slot === index + 1);
   const fouls = player ? playerMajorFoulEvents(protocol.events, player.id) : [];
-  return [String(index + 1), player?.name || "", player ? String(playerGoals(protocol.events, player.id)) : "", eventSymbol(fouls[0]?.kind) || "", eventSymbol(fouls[1]?.kind) || "", eventSymbol(fouls[2]?.kind) || ""];
+  const marks = player ? [player.isCaptain ? "C" : "", player.isGoalkeeper ? "GK" : "", player.id === mvpPlayerId ? "MVP" : ""].filter(Boolean).map(mark => `(${mark})`).join(" ") : "";
+  return [String(index + 1), player ? `${player.name}${marks ? ` ${marks}` : ""}` : "", player ? String(playerGoals(protocol.events, player.id)) : "", eventSymbol(fouls[0]?.kind) || "", eventSymbol(fouls[1]?.kind) || "", eventSymbol(fouls[2]?.kind) || ""];
 });
 
 const participant = (event: ProtocolEvent, players: ProtocolPlayer[], protocol: MatchProtocolDraft) => {
@@ -58,7 +59,7 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
     doc.setTextColor(0, 0, 0);
   };
 
-  const drawRoster = (left: number, top: number, width: number, title: string, players: ProtocolPlayer[], dark: boolean, coach: string, officials: string[], timeouts: number) => {
+  const drawRoster = (left: number, top: number, width: number, title: string, players: ProtocolPlayer[], dark: boolean, coach: string, officials: string[], timeouts: number, mvpPlayerId: string) => {
     const widths = [7, width - 29, 10, 4, 4, 4];
     const rowHeight = 3.9;
     drawCell(left, top, width, 7, title, { bold: true, fill: dark ? 85 : 230, invert: dark, size: 7 });
@@ -72,7 +73,7 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
       drawCell(x, y, widths[column], rowHeight, value, { bold: true, fill: dark ? 115 : 205, invert: dark, size: 5.5 });
     });
     y += rowHeight;
-    rosterRows(players, protocol).forEach(row => {
+    rosterRows(players, protocol, mvpPlayerId).forEach(row => {
       row.forEach((value, column) => {
         const x = left + widths.slice(0, column).reduce((sum, item) => sum + item, 0);
         drawCell(x, y, widths[column], rowHeight, value, { fill: dark ? 225 : 255, size: 5.4 });
@@ -114,8 +115,8 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
     const rosterY = 37;
     const homeTimeouts = protocol.events.filter(event => event.kind === "timeout" && event.team === "home").length;
     const awayTimeouts = protocol.events.filter(event => event.kind === "timeout" && event.team === "away").length;
-    drawRoster(10, rosterY, 93, match.home, homePlayers, false, protocol.homeCoach, [protocol.homeOfficial1, protocol.homeOfficial2], homeTimeouts);
-    drawRoster(107, rosterY, 93, match.away, awayPlayers, true, protocol.awayCoach, [protocol.awayOfficial1, protocol.awayOfficial2], awayTimeouts);
+    drawRoster(10, rosterY, 93, match.home, homePlayers, false, protocol.homeCoach, [protocol.homeOfficial1, protocol.homeOfficial2], homeTimeouts, protocol.homeMvpPlayerId);
+    drawRoster(107, rosterY, 93, match.away, awayPlayers, true, protocol.awayCoach, [protocol.awayOfficial1, protocol.awayOfficial2], awayTimeouts, protocol.awayMvpPlayerId);
     const flowY = rosterY + 86;
     doc.setFont(PDF_FONT, "bold"); doc.setFontSize(10); doc.text("PRZEBIEG GRY", 105, flowY, { align: "center" });
     const pageEvents = protocol.events.slice(pageIndex * PAGE_EVENT_LIMIT, (pageIndex + 1) * PAGE_EVENT_LIMIT);
