@@ -3,8 +3,8 @@ import type { Match } from "../types/wpolo";
 import type { MatchProtocolDraft, ProtocolEvent, ProtocolEventKind, ProtocolPlayer } from "./matchProtocol";
 
 const PDF_FONT = "NotoSans";
-const PAGE_EVENT_LIMIT = 45;
-const TABLE_EVENT_LIMIT = 15;
+const PAGE_EVENT_LIMIT = 75;
+const TABLE_EVENT_LIMIT = 25;
 const SYMBOLS: Partial<Record<ProtocolEventKind, string>> = { goal: "G", exclusion: "W", exclusion_substitution: "WZ", brutality: "WB", penalty: "K", timeout: "To", yellow_card: "ŻK", red_card: "CZK", official_penalty: "Kof", shootout_goal: "G", shootout_miss: "G /" };
 const eventSymbol = (kind?: ProtocolEventKind) => kind ? SYMBOLS[kind] || "" : "";
 const protocolScore = (events: ProtocolEvent[]) => events.reduce((score, event) => { if (event.kind === "goal" || event.kind === "shootout_goal") score[event.team] += 1; return score; }, { home: 0, away: 0 });
@@ -56,11 +56,15 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
     doc.setTextColor(0, 0, 0);
   };
 
-  const drawRoster = (left: number, top: number, width: number, title: string, capLabel: string, players: ProtocolPlayer[], dark: boolean, coach: string, officials: string[]) => {
+  const drawRoster = (left: number, top: number, width: number, title: string, players: ProtocolPlayer[], dark: boolean, coach: string, officials: string[], timeouts: number) => {
     const widths = [7, width - 29, 10, 4, 4, 4];
     const rowHeight = 3.9;
-    drawCell(left, top, width, 7, `${capLabel}: ${title}`, { bold: true, fill: dark ? 85 : 230, invert: dark, size: 7 });
+    drawCell(left, top, width, 7, title, { bold: true, fill: dark ? 85 : 230, invert: dark, size: 7 });
     let y = top + 7;
+    const foulHeaderHeight = 5.4;
+    drawCell(left, y, widths[0] + widths[1] + widths[2], foulHeaderHeight, "", { fill: dark ? 115 : 205, invert: dark });
+    drawCell(left + widths[0] + widths[1] + widths[2], y, widths[3] + widths[4] + widths[5], foulHeaderHeight, "Przewinienia\ngłówne", { bold: true, fill: dark ? 115 : 205, invert: dark, size: 4 });
+    y += foulHeaderHeight;
     ["Nr", "Nazwisko i imię", "Bramki", "1", "2", "3"].forEach((value, column) => {
       const x = left + widths.slice(0, column).reduce((sum, item) => sum + item, 0);
       drawCell(x, y, widths[column], rowHeight, value, { bold: true, fill: dark ? 115 : 205, invert: dark, size: 5.5 });
@@ -75,6 +79,8 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
     });
     drawCell(left, y, 7, rowHeight, "", { fill: dark ? 115 : 225, invert: dark });
     drawCell(left + 7, y, width - 7, rowHeight, `Trener: ${coach || "-"}; Oficjele: ${officials.filter(Boolean).join(", ") || "-"}`, { bold: true, fill: dark ? 115 : 225, invert: dark, size: 5.4 });
+    y += rowHeight;
+    drawCell(left, y, width, rowHeight, `Time-out: ${timeouts > 0 ? "[X]" : "[ ]"}  ${timeouts > 1 ? "[X]" : "[ ]"}`, { bold: true, fill: dark ? 225 : 255, size: 5.5 });
   };
 
   const drawPage = (pageIndex: number) => {
@@ -82,10 +88,10 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
     doc.setTextColor(0); doc.setFont(PDF_FONT, "bold"); doc.setFontSize(14); doc.text("PROTOKÓŁ MECZU PIŁKI WODNEJ", 105, 10, { align: "center" });
     const infoRows = [
       ["Miejsce", match.location || "-", "Data", match.date, "Wynik", `${finalScore.home}:${finalScore.away}`],
-      ["Zawody", match.round || "Rozgrywki", "Godzina", match.time || "-", "Koniec", protocol.finishedAt || "-"],
+      ["Zawody", match.round || "Rozgrywki", "Godzina", match.time || "-", "Status", protocol.status === "approved" ? "Zatwierdzony" : protocol.status === "submitted" ? "Przekazany" : "Roboczy"],
       ["Sędzia I", protocol.referee1 || match.referees[0] || "-", "Sędzia II", protocol.referee2 || match.referees[1] || "-", "Delegat", protocol.delegateName || match.delegate || "-"],
       ["Protokolant", protocol.protocolSecretary || "-", "Sędzia czasu I", protocol.timeSecretary1 || "-", "Sędzia czasu II", protocol.timeSecretary2 || "-"],
-      ["Sędzia bramkowy I", protocol.goalSecretary1 || "-", "Sędzia bramkowy II", protocol.goalSecretary2 || "-", "Protest", protocol.protest ? "TAK" : "NIE"],
+      ["Sędzia bramkowy I", protocol.goalSecretary1 || "-", "Sędzia bramkowy II", protocol.goalSecretary2 || "-", "Wynik", `${finalScore.home}:${finalScore.away}`],
     ];
     const infoWidths = [32, 38, 32, 38, 28, 32];
     infoRows.forEach((row, rowIndex) => row.forEach((value, column) => {
@@ -93,9 +99,11 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
       drawCell(x, 14 + rowIndex * 4, infoWidths[column], 4, value, { bold: column % 2 === 0, fill: column % 2 === 0 ? 235 : 255, size: 5.7 });
     }));
     const rosterY = 37;
-    drawRoster(10, rosterY, 93, match.home, "CZEPKI JASNE", homePlayers, false, protocol.homeCoach, [protocol.homeOfficial1, protocol.homeOfficial2]);
-    drawRoster(107, rosterY, 93, match.away, "CZEPKI CIEMNE", awayPlayers, true, protocol.awayCoach, [protocol.awayOfficial1, protocol.awayOfficial2]);
-    const flowY = rosterY + 78;
+    const homeTimeouts = protocol.events.filter(event => event.kind === "timeout" && event.team === "home").length;
+    const awayTimeouts = protocol.events.filter(event => event.kind === "timeout" && event.team === "away").length;
+    drawRoster(10, rosterY, 93, match.home, homePlayers, false, protocol.homeCoach, [protocol.homeOfficial1, protocol.homeOfficial2], homeTimeouts);
+    drawRoster(107, rosterY, 93, match.away, awayPlayers, true, protocol.awayCoach, [protocol.awayOfficial1, protocol.awayOfficial2], awayTimeouts);
+    const flowY = rosterY + 86;
     doc.setFont(PDF_FONT, "bold"); doc.setFontSize(10); doc.text("PRZEBIEG GRY", 105, flowY, { align: "center" });
     const pageEvents = protocol.events.slice(pageIndex * PAGE_EVENT_LIMIT, (pageIndex + 1) * PAGE_EVENT_LIMIT);
     for (let tableIndex = 0; tableIndex < 3; tableIndex += 1) {
@@ -106,28 +114,38 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
         if (!event) return ["", "", "", "", "", "", ""];
         const absoluteIndex = offset + rowIndex;
         const running = protocolScore(protocol.events.slice(0, absoluteIndex + 1));
-        return [String(absoluteIndex + 1), String(event.period), event.period === "PS" ? "-" : event.clock, event.team === "home" ? "J" : "C", participant(event, event.team === "home" ? homePlayers : awayPlayers, protocol), flowSymbol(event), `${running.home}:${running.away}`];
+        const player = participant(event, event.team === "home" ? homePlayers : awayPlayers, protocol);
+        return [String(absoluteIndex + 1), String(event.period), event.period === "PS" ? "-" : event.clock, event.team === "home" ? player : "", event.team === "away" ? player : "", flowSymbol(event), `${running.home}:${running.away}`];
       });
       const x = 10 + tableIndex * 63;
-      const widths = [6, 5, 10, 6, 11, 10, 12];
-      const rowHeight = 4;
-      ["Lp.", "K", "Czas", "J/C", "Zaw.", "Sym.", "Wynik"].forEach((value, column) => {
+      const widths = [5, 5, 10, 8, 8, 11, 13];
+      const rowHeight = 3.25;
+      ["Lp.", "K", "Czas", "Jasne", "Ciemne", "Sym.", "Wynik"].forEach((value, column) => {
         const cellX = x + widths.slice(0, column).reduce((sum, item) => sum + item, 0);
-        drawCell(cellX, flowY + 2, widths[column], rowHeight, value, { bold: true, fill: 75, invert: true, size: 5.2 });
+        const fill = column === 3 ? 210 : column === 4 ? 95 : 75;
+        drawCell(cellX, flowY + 2, widths[column], rowHeight, value, { bold: true, fill, invert: column !== 3, size: 4.8 });
       });
       body.forEach((row, rowIndex) => {
         const y = flowY + 2 + rowHeight * (rowIndex + 1);
         const event = events[rowIndex];
         row.forEach((value, column) => {
           const cellX = x + widths.slice(0, column).reduce((sum, item) => sum + item, 0);
-          drawCell(cellX, y, widths[column], rowHeight, value, { fill: event?.team === "away" ? 225 : 255, size: 5.1 });
+          drawCell(cellX, y, widths[column], rowHeight, value, { fill: column === 4 ? 225 : 255, size: 4.8 });
         });
         if (event && (rowIndex === 0 || events[rowIndex - 1]?.period !== event.period)) {
           doc.setDrawColor(25); doc.setLineWidth(.6); doc.line(x, y, x + 60, y);
         }
       });
     }
-    if (pageIndex === pageCount - 1) { doc.setFont(PDF_FONT, "normal"); doc.setFontSize(6.2); doc.text(`Uwagi sędziowskie: ${notes}`, 10, 245, { maxWidth: 190 }); }
+    const lowerY = flowY + 2 + 26 * 3.25 + 4;
+    doc.setFont(PDF_FONT, "normal"); doc.setFontSize(5.4);
+    doc.text("Legenda: G - gol; W - wykluczenie 20 s; K - rzut karny; WZ - wykluczenie z prawem zamiany; WB - brutalność; To - time-out; ŻK - żółta kartka; CZK - czerwona kartka; Kof - karny za działanie oficjela.", 10, lowerY, { maxWidth: 190 });
+    if (pageIndex === pageCount - 1) {
+      doc.setFont(PDF_FONT, "bold"); doc.text("Uwagi sędziowskie:", 10, lowerY + 7);
+      doc.setFont(PDF_FONT, "normal"); doc.text(notes, 10, lowerY + 11, { maxWidth: 125 });
+      doc.setFont(PDF_FONT, "bold"); doc.text(`Godzina zakończenia: ${protocol.finishedAt || "-"}`, 142, lowerY + 7);
+      doc.text(`Protest: ${protocol.protest ? "TAK" : "NIE"}`, 142, lowerY + 12);
+    }
     doc.setDrawColor(0); doc.setLineWidth(.2); doc.setFont(PDF_FONT, "normal"); doc.setFontSize(6.2);
     const signatures = [["Sędzia I", protocol.referee1 || match.referees[0] || ""], ["Sędzia II", protocol.referee2 || match.referees[1] || ""], ["Protokolant", protocol.protocolSecretary || ""], ["Delegat", protocol.delegateName || match.delegate || ""]];
     signatures.forEach(([label, name], index) => { const x = 10 + index * 48; doc.line(x, 276, x + 42, 276); doc.text(`${label}${name ? `: ${name}` : ""}`, x + 21, 280, { align: "center", maxWidth: 42 }); });
