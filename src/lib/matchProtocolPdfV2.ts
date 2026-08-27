@@ -1,0 +1,142 @@
+import { jsPDF } from "jspdf";
+import type { Match } from "../types/wpolo";
+import type { MatchProtocolDraft, ProtocolEvent, ProtocolEventKind, ProtocolPlayer } from "./matchProtocol";
+
+const PDF_FONT = "NotoSans";
+const PAGE_EVENT_LIMIT = 45;
+const TABLE_EVENT_LIMIT = 15;
+const SYMBOLS: Partial<Record<ProtocolEventKind, string>> = { goal: "G", exclusion: "W", exclusion_substitution: "WZ", brutality: "WB", penalty: "K", timeout: "To", yellow_card: "ŻK", red_card: "CZK", official_penalty: "Kof", shootout_goal: "G", shootout_miss: "G /" };
+const eventSymbol = (kind?: ProtocolEventKind) => kind ? SYMBOLS[kind] || "" : "";
+const protocolScore = (events: ProtocolEvent[]) => events.reduce((score, event) => { if (event.kind === "goal" || event.kind === "shootout_goal") score[event.team] += 1; return score; }, { home: 0, away: 0 });
+const playerGoals = (events: ProtocolEvent[], playerId: string) => events.filter(event => event.kind === "goal" && event.playerId === playerId).length;
+const playerMajorFoulEvents = (events: ProtocolEvent[], playerId: string) => events.filter(event => ["exclusion", "penalty", "exclusion_substitution", "brutality", "double_exclusion"].includes(event.kind) && event.playerId === playerId);
+const requiresDisciplinaryDecision = (kind: ProtocolEventKind) => ["yellow_card", "red_card", "exclusion_substitution", "brutality"].includes(kind);
+
+function binary(buffer: ArrayBuffer) { const bytes = new Uint8Array(buffer); let value = ""; for (let i = 0; i < bytes.length; i += 0x8000) value += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return value; }
+async function registerFonts(doc: jsPDF) {
+  const [regular, bold] = await Promise.all([fetch("/fonts/NotoSans-Regular.ttf"), fetch("/fonts/NotoSans-Bold.ttf")]);
+  if (!regular.ok || !bold.ok) throw new Error("Nie udało się załadować fontów protokołu PDF.");
+  doc.addFileToVFS("NotoSans-Regular.ttf", binary(await regular.arrayBuffer())); doc.addFont("NotoSans-Regular.ttf", PDF_FONT, "normal");
+  doc.addFileToVFS("NotoSans-Bold.ttf", binary(await bold.arrayBuffer())); doc.addFont("NotoSans-Bold.ttf", PDF_FONT, "bold");
+}
+
+const rosterRows = (players: ProtocolPlayer[], protocol: MatchProtocolDraft) => Array.from({ length: 15 }, (_, index) => {
+  const player = players.find(item => item.slot === index + 1);
+  const fouls = player ? playerMajorFoulEvents(protocol.events, player.id) : [];
+  return [String(index + 1), player?.name || "", player ? String(playerGoals(protocol.events, player.id)) : "", eventSymbol(fouls[0]?.kind) || "", eventSymbol(fouls[1]?.kind) || "", eventSymbol(fouls[2]?.kind) || ""];
+});
+
+const participant = (event: ProtocolEvent, players: ProtocolPlayer[], protocol: MatchProtocolDraft) => {
+  const player = players.find(item => item.id === event.playerId);
+  if (player) return String(player.capNumber);
+  const role = event.playerId?.split(":")[2];
+  if (!role) return "-";
+  const names = event.team === "home" ? { coach: protocol.homeCoach, official1: protocol.homeOfficial1, official2: protocol.homeOfficial2 } : { coach: protocol.awayCoach, official1: protocol.awayOfficial1, official2: protocol.awayOfficial2 };
+  return ({ coach: "T", official1: "O1", official2: "O2" }[role as "coach" | "official1" | "official2"] || "O") + (names[role as keyof typeof names] ? ` ${names[role as keyof typeof names]}` : "");
+};
+
+const flowSymbol = (event: ProtocolEvent) => event.kind === "shootout_miss" ? "G /" : eventSymbol(event.kind) || "W (obie)";
+
+export async function generateMatchProtocolPdf(match: Match, protocol: MatchProtocolDraft, homePlayers: ProtocolPlayer[], awayPlayers: ProtocolPlayer[]) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  await registerFonts(doc);
+  const finalScore = protocolScore(protocol.events);
+  const pageCount = Math.max(1, Math.ceil(protocol.events.length / PAGE_EVENT_LIMIT));
+  const disciplinaryNotes = protocol.events.filter(event => requiresDisciplinaryDecision(event.kind)).map((event, index) => `${index + 1}. ${event.clock}, ${eventSymbol(event.kind)}: ${event.reason || "-"} [rażące: ${event.grossUnsporting ? "TAK" : "NIE"}]`).join("; ");
+  const notes = [disciplinaryNotes, protocol.refereeNotes].filter(Boolean).join("; ") || "-";
+
+  const drawCell = (x: number, y: number, width: number, height: number, value: string, options?: { bold?: boolean; fill?: number; invert?: boolean; size?: number }) => {
+    const fill = options?.fill;
+    if (fill !== undefined) { doc.setFillColor(fill, fill, fill); doc.rect(x, y, width, height, "F"); }
+    doc.setDrawColor(140); doc.setLineWidth(.15); doc.rect(x, y, width, height);
+    const ink = options?.invert ? 255 : 0; doc.setTextColor(ink, ink, ink);
+    doc.setFont(PDF_FONT, options?.bold ? "bold" : "normal"); doc.setFontSize(options?.size || 5.8);
+    const lines = doc.splitTextToSize(value || "", Math.max(2, width - 2));
+    doc.text(lines.slice(0, 2), x + 1, y + 2.8, { baseline: "middle" });
+    doc.setTextColor(0, 0, 0);
+  };
+
+  const drawRoster = (left: number, top: number, width: number, title: string, capLabel: string, players: ProtocolPlayer[], dark: boolean, coach: string, officials: string[]) => {
+    const widths = [7, width - 29, 10, 4, 4, 4];
+    const rowHeight = 3.9;
+    drawCell(left, top, width, 7, `${capLabel}: ${title}`, { bold: true, fill: dark ? 85 : 230, invert: dark, size: 7 });
+    let y = top + 7;
+    ["Nr", "Nazwisko i imię", "Bramki", "1", "2", "3"].forEach((value, column) => {
+      const x = left + widths.slice(0, column).reduce((sum, item) => sum + item, 0);
+      drawCell(x, y, widths[column], rowHeight, value, { bold: true, fill: dark ? 115 : 205, invert: dark, size: 5.5 });
+    });
+    y += rowHeight;
+    rosterRows(players, protocol).forEach(row => {
+      row.forEach((value, column) => {
+        const x = left + widths.slice(0, column).reduce((sum, item) => sum + item, 0);
+        drawCell(x, y, widths[column], rowHeight, value, { fill: dark ? 225 : 255, size: 5.4 });
+      });
+      y += rowHeight;
+    });
+    drawCell(left, y, 7, rowHeight, "", { fill: dark ? 115 : 225, invert: dark });
+    drawCell(left + 7, y, width - 7, rowHeight, `Trener: ${coach || "-"}; Oficjele: ${officials.filter(Boolean).join(", ") || "-"}`, { bold: true, fill: dark ? 115 : 225, invert: dark, size: 5.4 });
+  };
+
+  const drawPage = (pageIndex: number) => {
+    const pageNumber = pageIndex + 1;
+    doc.setTextColor(0); doc.setFont(PDF_FONT, "bold"); doc.setFontSize(14); doc.text("PROTOKÓŁ MECZU PIŁKI WODNEJ", 105, 10, { align: "center" });
+    const infoRows = [
+      ["Miejsce", match.location || "-", "Data", match.date, "Wynik", `${finalScore.home}:${finalScore.away}`],
+      ["Zawody", match.round || "Rozgrywki", "Godzina", match.time || "-", "Koniec", protocol.finishedAt || "-"],
+      ["Sędzia I", protocol.referee1 || match.referees[0] || "-", "Sędzia II", protocol.referee2 || match.referees[1] || "-", "Delegat", protocol.delegateName || match.delegate || "-"],
+      ["Protokolant", protocol.protocolSecretary || "-", "Sędzia czasu I", protocol.timeSecretary1 || "-", "Sędzia czasu II", protocol.timeSecretary2 || "-"],
+      ["Sędzia bramkowy I", protocol.goalSecretary1 || "-", "Sędzia bramkowy II", protocol.goalSecretary2 || "-", "Protest", protocol.protest ? "TAK" : "NIE"],
+    ];
+    const infoWidths = [32, 38, 32, 38, 28, 32];
+    infoRows.forEach((row, rowIndex) => row.forEach((value, column) => {
+      const x = 5 + infoWidths.slice(0, column).reduce((sum, item) => sum + item, 0);
+      drawCell(x, 14 + rowIndex * 4, infoWidths[column], 4, value, { bold: column % 2 === 0, fill: column % 2 === 0 ? 235 : 255, size: 5.7 });
+    }));
+    const rosterY = 37;
+    drawRoster(10, rosterY, 93, match.home, "CZEPKI JASNE", homePlayers, false, protocol.homeCoach, [protocol.homeOfficial1, protocol.homeOfficial2]);
+    drawRoster(107, rosterY, 93, match.away, "CZEPKI CIEMNE", awayPlayers, true, protocol.awayCoach, [protocol.awayOfficial1, protocol.awayOfficial2]);
+    const flowY = rosterY + 78;
+    doc.setFont(PDF_FONT, "bold"); doc.setFontSize(10); doc.text("PRZEBIEG GRY", 105, flowY, { align: "center" });
+    const pageEvents = protocol.events.slice(pageIndex * PAGE_EVENT_LIMIT, (pageIndex + 1) * PAGE_EVENT_LIMIT);
+    for (let tableIndex = 0; tableIndex < 3; tableIndex += 1) {
+      const offset = pageIndex * PAGE_EVENT_LIMIT + tableIndex * TABLE_EVENT_LIMIT;
+      const events = pageEvents.slice(tableIndex * TABLE_EVENT_LIMIT, (tableIndex + 1) * TABLE_EVENT_LIMIT);
+      const body = Array.from({ length: TABLE_EVENT_LIMIT }, (_, rowIndex) => {
+        const event = events[rowIndex];
+        if (!event) return ["", "", "", "", "", "", ""];
+        const absoluteIndex = offset + rowIndex;
+        const running = protocolScore(protocol.events.slice(0, absoluteIndex + 1));
+        return [String(absoluteIndex + 1), String(event.period), event.period === "PS" ? "-" : event.clock, event.team === "home" ? "J" : "C", participant(event, event.team === "home" ? homePlayers : awayPlayers, protocol), flowSymbol(event), `${running.home}:${running.away}`];
+      });
+      const x = 10 + tableIndex * 63;
+      const widths = [6, 5, 10, 6, 11, 10, 12];
+      const rowHeight = 4;
+      ["Lp.", "K", "Czas", "J/C", "Zaw.", "Sym.", "Wynik"].forEach((value, column) => {
+        const cellX = x + widths.slice(0, column).reduce((sum, item) => sum + item, 0);
+        drawCell(cellX, flowY + 2, widths[column], rowHeight, value, { bold: true, fill: 75, invert: true, size: 5.2 });
+      });
+      body.forEach((row, rowIndex) => {
+        const y = flowY + 2 + rowHeight * (rowIndex + 1);
+        const event = events[rowIndex];
+        row.forEach((value, column) => {
+          const cellX = x + widths.slice(0, column).reduce((sum, item) => sum + item, 0);
+          drawCell(cellX, y, widths[column], rowHeight, value, { fill: event?.team === "away" ? 225 : 255, size: 5.1 });
+        });
+        if (event && (rowIndex === 0 || events[rowIndex - 1]?.period !== event.period)) {
+          doc.setDrawColor(25); doc.setLineWidth(.6); doc.line(x, y, x + 60, y);
+        }
+      });
+    }
+    if (pageIndex === pageCount - 1) { doc.setFont(PDF_FONT, "normal"); doc.setFontSize(6.2); doc.text(`Uwagi sędziowskie: ${notes}`, 10, 245, { maxWidth: 190 }); }
+    doc.setDrawColor(0); doc.setLineWidth(.2); doc.setFont(PDF_FONT, "normal"); doc.setFontSize(6.2);
+    const signatures = [["Sędzia I", protocol.referee1 || match.referees[0] || ""], ["Sędzia II", protocol.referee2 || match.referees[1] || ""], ["Protokolant", protocol.protocolSecretary || ""], ["Delegat", protocol.delegateName || match.delegate || ""]];
+    signatures.forEach(([label, name], index) => { const x = 10 + index * 48; doc.line(x, 276, x + 42, 276); doc.text(`${label}${name ? `: ${name}` : ""}`, x + 21, 280, { align: "center", maxWidth: 42 }); });
+    doc.setFontSize(5.5); doc.text(`Strona ${pageIndex + 1} z ${pageCount}`, 200, 290, { align: "right" });
+  };
+
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    if (pageIndex > 0) doc.addPage();
+    drawPage(pageIndex);
+  }
+  doc.save(`protokol-${match.home}-${match.away}-${match.date}.pdf`.replace(/[^a-zA-Z0-9.-]+/g, "_"));
+}
