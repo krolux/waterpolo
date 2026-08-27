@@ -1,8 +1,8 @@
 import React from "react";
-import { Check, ChevronDown, ChevronUp, FileCheck2, FileDown, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Cloud, CloudOff, Download, FileCheck2, FileDown, Pencil, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import type { Match, Role } from "../../types/wpolo";
 import { generateMatchProtocolPdf } from "../../lib/matchProtocolPdfV2";
-import { PROTOCOL_EVENT_OPTIONS, eventLabel, eventSymbol, loadProtocol, loadProtocolContext, normalizeProtocolClock, playerGoals, playerMajorFoulEvents, playerMajorFouls, protocolScore, requiresDisciplinaryDecision, saveProtocol, type MatchProtocolDraft, type ProtocolContext, type ProtocolEvent, type ProtocolEventKind, type ProtocolPlayer, type ProtocolTeam } from "../../lib/matchProtocol";
+import { PROTOCOL_EVENT_OPTIONS, eventLabel, eventSymbol, exportProtocolFile, importProtocolFile, loadProtocol, loadProtocolContext, loadRemoteProtocol, normalizeProtocolClock, playerGoals, playerMajorFoulEvents, playerMajorFouls, protocolScore, requiresDisciplinaryDecision, saveProtocol, saveRemoteProtocol, type MatchProtocolDraft, type ProtocolContext, type ProtocolEvent, type ProtocolEventKind, type ProtocolPlayer, type ProtocolTeam } from "../../lib/matchProtocol";
 
 type User = { name: string; role: Role; club?: string };
 const input = "w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm outline-none focus:border-sky-400";
@@ -30,10 +30,56 @@ export function MatchProtocolWorkspace({ match, user, onClose }: { match: Match;
   const [eventMenu, setEventMenu] = React.useState<"foul" | "other" | null>(null);
   const [shootoutTeam, setShootoutTeam] = React.useState<ProtocolTeam>("home");
   const [shootoutPlayerId, setShootoutPlayerId] = React.useState("");
+  const [syncReady, setSyncReady] = React.useState(false);
+  const [syncStatus, setSyncStatus] = React.useState<"loading" | "saved" | "offline" | "syncing" | "error">("loading");
+  const [lastSavedAt, setLastSavedAt] = React.useState<string | null>(null);
   const menuCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const protocolRef = React.useRef(protocol);
+  const importRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => { let active = true; setLoading(true); loadProtocolContext(match).then(v => { if (!active) return; setContext(v); setProtocol(p => ({ ...p, homePlayers: p.homePlayers.length ? p.homePlayers : v.homePlayers, awayPlayers: p.awayPlayers.length ? p.awayPlayers : v.awayPlayers, referee1: p.referee1 || match.referees[0] || "", referee2: p.referee2 || match.referees[1] || "", delegateName: p.delegateName || match.delegate || "" })); }).finally(() => active && setLoading(false)); return () => { active = false; }; }, [match]);
-  React.useEffect(() => { saveProtocol(protocol); }, [protocol]);
+  React.useEffect(() => { protocolRef.current = protocol; }, [protocol]);
+  React.useEffect(() => {
+    let active = true;
+    const local = loadProtocol(match.id);
+    setSyncReady(false); setSyncStatus("loading");
+    loadRemoteProtocol(match.id).then(remote => {
+      if (!active) return;
+      const localTime = Date.parse(local.updatedAt || "") || 0;
+      const remoteTime = Date.parse(remote?.updatedAt || "") || 0;
+      const selected = remote && remoteTime > localTime ? remote.protocol : local;
+      setProtocol({ ...selected, homePlayers: fixedCapNumbers(selected.homePlayers), awayPlayers: fixedCapNumbers(selected.awayPlayers) });
+      setLastSavedAt(remoteTime > localTime ? remote!.updatedAt : local.updatedAt || null);
+      setSyncStatus(navigator.onLine ? "saved" : "offline");
+    }).catch(() => {
+      if (!active) return;
+      setProtocol(local); setLastSavedAt(local.updatedAt || null); setSyncStatus(navigator.onLine ? "error" : "offline");
+    }).finally(() => { if (active) setSyncReady(true); });
+    return () => { active = false; };
+  }, [match.id]);
+  const syncProtocol = React.useCallback(async (source = protocolRef.current) => {
+    const next = { ...source, updatedAt: source.updatedAt || new Date().toISOString() };
+    saveProtocol(next); setLastSavedAt(next.updatedAt || null);
+    if (!navigator.onLine) { setSyncStatus("offline"); return; }
+    setSyncStatus("syncing");
+    try { await saveRemoteProtocol(next); setSyncStatus("saved"); }
+    catch { setSyncStatus(navigator.onLine ? "error" : "offline"); }
+  }, []);
+  React.useEffect(() => {
+    if (!syncReady) return;
+    const next = { ...protocol, updatedAt: new Date().toISOString() };
+    saveProtocol(next); setLastSavedAt(next.updatedAt || null);
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => void syncProtocol(next), 900);
+    return () => { if (syncTimer.current) clearTimeout(syncTimer.current); };
+  }, [protocol, syncReady, syncProtocol]);
+  React.useEffect(() => {
+    const online = () => void syncProtocol({ ...protocolRef.current, updatedAt: new Date().toISOString() });
+    const offline = () => setSyncStatus("offline");
+    window.addEventListener("online", online); window.addEventListener("offline", offline);
+    return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
+  }, [syncProtocol]);
   const homePlayers = protocol.homePlayers.length ? protocol.homePlayers : context?.homePlayers || [], awayPlayers = protocol.awayPlayers.length ? protocol.awayPlayers : context?.awayPlayers || [];
   const players = team === "home" ? homePlayers : awayPlayers;
   const canApprove = isDelegate(user, match);
@@ -165,6 +211,22 @@ export function MatchProtocolWorkspace({ match, user, onClose }: { match: Match;
     return { ...p, [key]: [...unchanged, moved, ...(swapped ? [swapped] : [])].sort((a, b) => a.slot - b.slot) };
   });
 
+  const importOfflineProtocol = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!confirm("Zaimportowany plik zastąpi aktualną wersję protokołu tego meczu. Kontynuować?")) return;
+    try {
+      const imported = await importProtocolFile(file, match.id);
+      setProtocol({ ...imported, homePlayers: fixedCapNumbers(imported.homePlayers), awayPlayers: fixedCapNumbers(imported.awayPlayers) });
+      setSyncStatus(navigator.onLine ? "syncing" : "offline");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Nie udało się odczytać pliku protokołu.");
+    }
+  };
+
+  const syncLabel = syncStatus === "loading" ? "Pobieranie wersji" : syncStatus === "syncing" ? "Synchronizacja" : syncStatus === "saved" ? "Zapisano na urządzeniu i serwerze" : syncStatus === "offline" ? "Offline - zapisano na urządzeniu" : "Zapisano na urządzeniu - serwer niedostępny";
+
   const timeoutBoxes = (side: ProtocolTeam) => <div className="flex items-center gap-2 text-sm"><b>Time-out:</b>{[0,1].map(i => <span key={i} className={`grid h-7 w-7 place-items-center rounded border-2 font-black ${timeouts(side) > i ? "border-red-400 bg-red-50 text-red-600" : "border-slate-300 text-transparent"}`}>×</span>)}</div>;
   const teamCard = (side: ProtocolTeam, title: string, roster: typeof homePlayers) => <section className={`rounded-xl border ${side === "away" ? "border-sky-200 bg-sky-50" : "border-slate-200 bg-white"}`}>
     <div className="border-b p-3"><b>{title}</b><div className="mt-2 grid gap-2 sm:grid-cols-3"><input disabled={!setup} className={input} placeholder="Trener" value={side === "home" ? protocol.homeCoach : protocol.awayCoach} onChange={e => setProtocol(p => ({ ...p, [side === "home" ? "homeCoach" : "awayCoach"]: e.target.value }))}/><input disabled={!setup} className={input} placeholder="Oficjel 1" value={side === "home" ? protocol.homeOfficial1 : protocol.awayOfficial1} onChange={e => setProtocol(p => ({ ...p, [side === "home" ? "homeOfficial1" : "awayOfficial1"]: e.target.value }))}/><input disabled={!setup} className={input} placeholder="Oficjel 2" value={side === "home" ? protocol.homeOfficial2 : protocol.awayOfficial2} onChange={e => setProtocol(p => ({ ...p, [side === "home" ? "homeOfficial2" : "awayOfficial2"]: e.target.value }))}/></div></div>
@@ -173,7 +235,7 @@ export function MatchProtocolWorkspace({ match, user, onClose }: { match: Match;
   </section>;
 
   return <div className="fixed inset-0 z-[120] overflow-y-auto bg-slate-950/60 p-2 sm:p-5"><div className="mx-auto min-h-full max-w-7xl rounded-2xl bg-slate-50 shadow-2xl">
-    <header className="sticky top-0 z-10 flex justify-between gap-3 rounded-t-2xl border-b bg-white p-4"><div><div className="text-xs font-bold uppercase tracking-widest text-amber-600">Prywatny prototyp — tylko localhost</div><h2 className="text-xl font-bold">Protokół: {match.home} — {match.away}</h2><p className="text-sm text-slate-600">{match.date} • {match.location} • Sędziowie: {[protocol.referee1,protocol.referee2].filter(Boolean).join(", ")||"—"} • Delegat: {protocol.delegateName||"—"}</p></div><button onClick={onClose} className="rounded-lg border p-2"><X/></button></header>
+    <header className="sticky top-0 z-10 flex justify-between gap-3 rounded-t-2xl border-b bg-white p-4"><div><div className="text-xs font-bold uppercase tracking-widest text-amber-600">Elektroniczny protokół meczu</div><h2 className="text-xl font-bold">Protokół: {match.home} — {match.away}</h2><p className="text-sm text-slate-600">{match.date} • {match.location} • Sędziowie: {[protocol.referee1,protocol.referee2].filter(Boolean).join(", ")||"—"} • Delegat: {protocol.delegateName||"—"}</p><div className={`mt-2 inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ${syncStatus === "saved" ? "bg-green-50 text-green-700" : syncStatus === "offline" || syncStatus === "error" ? "bg-amber-50 text-amber-800" : "bg-sky-50 text-sky-700"}`}>{syncStatus === "offline" || syncStatus === "error" ? <CloudOff className="h-3.5 w-3.5"/> : <Cloud className="h-3.5 w-3.5"/>}{syncLabel}{lastSavedAt ? ` • ${new Date(lastSavedAt).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</div></div><button onClick={onClose} className="rounded-lg border p-2"><X/></button></header>
     <main className="space-y-4 p-3 sm:p-5">{loading?<div className="rounded-xl bg-white p-4">Pobieranie składów…</div>:null}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-3"><div><small className="uppercase text-slate-500">Status protokołu</small><div className="text-xl font-bold">{setup?"Przygotowanie":live?periodLabel(protocol.currentPeriod):protocol.status==="submitted"?"Oczekuje na zatwierdzenie":"Zatwierdzony"}</div></div><div className="rounded-xl bg-[#061a33] px-4 py-2 text-xl font-bold text-white">{score.home} : {score.away}</div></div>
       <section className="rounded-xl border bg-white p-3"><h3 className="font-bold">Obsada stolika i meczu</h3><div className="mt-3 grid gap-2 md:grid-cols-3"><input disabled={!setup} className={input} placeholder="Arbiter I" value={protocol.referee1} onChange={e=>setProtocol(p=>({...p,referee1:e.target.value}))}/><input disabled={!setup} className={input} placeholder="Arbiter II" value={protocol.referee2} onChange={e=>setProtocol(p=>({...p,referee2:e.target.value}))}/><input disabled={!setup} className={input} placeholder="Delegat" value={protocol.delegateName} onChange={e=>setProtocol(p=>({...p,delegateName:e.target.value}))}/><input disabled={!setup} className={input} placeholder="Protokolant (opcjonalnie)" value={protocol.protocolSecretary} onChange={e=>setProtocol(p=>({...p,protocolSecretary:e.target.value}))}/><input disabled={!setup} className={input} placeholder="Sędzia czasu I (opcjonalnie)" value={protocol.timeSecretary1} onChange={e=>setProtocol(p=>({...p,timeSecretary1:e.target.value}))}/><input disabled={!setup} className={input} placeholder="Sędzia czasu II (opcjonalnie)" value={protocol.timeSecretary2} onChange={e=>setProtocol(p=>({...p,timeSecretary2:e.target.value}))}/><input disabled={!setup} className={input} placeholder="Sędzia bramkowy I (opcjonalnie)" value={protocol.goalSecretary1} onChange={e=>setProtocol(p=>({...p,goalSecretary1:e.target.value}))}/><input disabled={!setup} className={input} placeholder="Sędzia bramkowy II (opcjonalnie)" value={protocol.goalSecretary2} onChange={e=>setProtocol(p=>({...p,goalSecretary2:e.target.value}))}/></div></section>
@@ -188,6 +250,6 @@ export function MatchProtocolWorkspace({ match, user, onClose }: { match: Match;
       {thirdFoulPlayer?<div className="fixed inset-0 z-[160] grid place-items-center bg-red-950/80 p-4"><section role="alertdialog" className="w-full max-w-xl rounded-2xl border-4 border-red-600 bg-white p-7 text-center shadow-2xl"><div className="text-sm font-black uppercase tracking-[0.2em] text-red-600">Zawodnik nie może dalej uczestniczyć w meczu</div><h3 className="mt-3 text-4xl font-black text-red-700">3. PRZEWINIENIE GŁÓWNE</h3><p className="mt-4 text-xl font-bold">#{thirdFoulPlayer.capNumber} {thirdFoulPlayer.name}</p><button autoFocus onClick={()=>setThirdFoulPlayer(null)} className="mt-6 rounded-xl bg-red-600 px-8 py-3 text-lg font-black uppercase text-white">Potwierdzam</button></section></div>:null}
       <section className="rounded-2xl border bg-white"><h3 className="border-b p-3 text-lg font-bold">Przebieg gry</h3><div className="overflow-x-auto"><table className="w-full min-w-[820px] text-sm"><thead><tr className="bg-slate-50 text-left">{["Lp.","Kwarta","Czas","Drużyna","Zawodnik / oficjel","Symbol","Wynik","Akcje"].map(x=><th key={x} className="p-2">{x}</th>)}</tr></thead><tbody>{setup&&!protocol.events.length?<tr><td colSpan={8} className="p-5 text-center text-slate-500">Przebieg gry będzie dostępny po rozpoczęciu meczu.</td></tr>:visiblePeriods.map(period=>{const periodEvents=protocol.events.filter(event=>event.period===period);return <React.Fragment key={period}><tr><td colSpan={8} className="border-y border-amber-300 bg-gradient-to-r from-amber-100 to-orange-100 px-4 py-2 text-center font-black uppercase tracking-[0.14em] text-amber-900">{periodLabel(period)}</td></tr>{periodEvents.length?periodEvents.map(event=>{const index=protocol.events.indexOf(event),roster=event.team==="home"?homePlayers:awayPlayers,running=protocolScore(protocol.events.slice(0,index+1)),goalHit=highlightPlayer&&event.kind==="goal"&&event.playerId===highlightPlayer,foulHit=highlightFoulPlayer&&["exclusion","penalty","exclusion_substitution","brutality","double_exclusion"].includes(event.kind)&&event.playerId===highlightFoulPlayer,isHovered=hoveredEventId===event.id,rowTone=isHovered?(event.team==="home"?"bg-slate-200 text-[#061a33]":"bg-sky-500 text-white"):(event.team==="home"?"bg-white text-[#061a33]":"bg-sky-100 text-[#061a33]");return <React.Fragment key={event.id}><tr onMouseEnter={()=>setHoveredEventId(event.id)} onMouseLeave={()=>setHoveredEventId(null)} style={isHovered&&!goalHit&&!foulHit?{backgroundColor:event.team==="home"?"#e2e8f0":"#0ea5e9",color:event.team==="home"?"#061a33":"#ffffff"}:undefined} className={`border-t transition-colors ${goalHit?"bg-amber-200 text-[#061a33]":foulHit?"bg-red-200 text-[#061a33]":rowTone}`}><td className="p-2">{index+1}</td><td className="p-2 font-bold">{event.period}</td><td className="p-2 tabular-nums">{event.period==="PS"?"—":event.clock}</td><td className="p-2">{event.team==="home"?match.home:match.away}</td><td className="p-2">{participantLabel(event,roster)}</td><td title={eventLabel(event.kind)} className="p-2 font-bold">{event.kind==="shootout_miss"?<ShootoutMissMark/>:eventSymbol(event.kind)||"W (obie)"}</td><td className="p-2 font-bold">{running.home}:{running.away}</td><td className="p-2">{live?<div className="flex gap-2"><button onClick={()=>openEdit(event)} className={isHovered&&event.team==="away"?"text-white":"text-sky-600"}><Pencil className="h-4 w-4"/></button><button onClick={()=>removeEvent(event)} className={isHovered&&event.team==="away"?"text-red-100":"text-red-600"}><Trash2 className="h-4 w-4"/></button></div>:null}</td></tr>{requiresDisciplinaryDecision(event.kind)&&live?<tr className="bg-red-50"><td colSpan={8} className="p-3"><div className="grid gap-2 md:grid-cols-[1fr_auto]"><textarea className={input} placeholder="Uwagi sędziego — wymagane przed zamknięciem" value={event.reason||""} onChange={e=>setDecision(event.id,"reason",e.target.value)}/><div className="rounded-lg border bg-white p-2 text-sm"><b>Rażące zachowanie?</b><label className="ml-3"><input type="radio" name={`g-${event.id}`} checked={event.grossUnsporting===true} onChange={()=>setDecision(event.id,"grossUnsporting",true)}/> Tak</label><label className="ml-3"><input type="radio" name={`g-${event.id}`} checked={event.grossUnsporting===false} onChange={()=>setDecision(event.id,"grossUnsporting",false)}/> Nie</label></div></div></td></tr>:null}</React.Fragment>}):<tr><td colSpan={8} className="bg-slate-50 px-4 py-3 text-center text-sm italic text-slate-500">Brak wydarzeń w tej kwarcie.</td></tr>}</React.Fragment>})}</tbody></table></div></section>
       <section className="grid gap-3 rounded-2xl border bg-white p-3 md:grid-cols-2"><label className="text-sm font-bold">Pozostałe uwagi sędziowskie<textarea disabled={!live} className={`${input} mt-1 min-h-28`} value={protocol.refereeNotes} onChange={e=>setProtocol(p=>({...p,refereeNotes:e.target.value}))}/></label><div className="space-y-3"><label className="block text-sm font-bold">Godzina zakończenia<input disabled={!live} type="time" className={`${input} mt-1`} value={protocol.finishedAt} onChange={e=>setProtocol(p=>({...p,finishedAt:e.target.value}))}/></label><label><input disabled={!live} type="checkbox" checked={protocol.protest} onChange={e=>setProtocol(p=>({...p,protest:e.target.checked}))}/> Protest</label></div></section>
-      <div className="flex flex-wrap justify-end gap-2 pb-3"><button onClick={()=>{saveProtocol(protocol);alert("Wersja robocza zapisana lokalnie.")}} className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 font-bold"><Save className="h-4 w-4"/>Zapisz roboczo</button>{live?<button onClick={submitProtocol} disabled={!canSubmit} className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 font-bold text-white disabled:opacity-40"><FileCheck2 className="h-4 w-4"/>Zamknij i przekaż delegatowi</button>:null}{protocol.status==="submitted"&&canApprove?<><button onClick={reopenProtocol} className="rounded-xl border border-amber-400 bg-amber-50 px-4 py-2 font-bold text-amber-800">Edytuj protokół</button><button onClick={approveProtocol} className="rounded-xl bg-green-700 px-4 py-2 font-bold text-white">Zatwierdź ostatecznie</button></>:null}{protocol.status==="approved"&&canApprove?<button onClick={reopenProtocol} className="rounded-xl border border-amber-400 bg-amber-50 px-4 py-2 font-bold text-amber-800">Edytuj zatwierdzony protokół</button>:null}{protocol.status==="approved"?<button onClick={()=>context&&void generateMatchProtocolPdf(match,protocol,homePlayers,awayPlayers)} className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2 font-bold text-white"><FileDown className="h-4 w-4"/>Pobierz PDF</button>:null}</div>
+      <div className="flex flex-wrap justify-end gap-2 pb-3"><button onClick={()=>void syncProtocol({ ...protocol, updatedAt: new Date().toISOString() })} className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 font-bold"><Save className="h-4 w-4"/>Zapisz teraz</button><button onClick={()=>exportProtocolFile({ ...protocol, updatedAt: new Date().toISOString() })} className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 font-bold"><Download className="h-4 w-4"/>Eksport offline</button><button onClick={()=>importRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 font-bold"><Upload className="h-4 w-4"/>Import offline</button><input ref={importRef} type="file" accept=".json,.wpolo.json,application/json" className="hidden" onChange={event=>void importOfflineProtocol(event)}/>{live?<button onClick={submitProtocol} disabled={!canSubmit} className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 font-bold text-white disabled:opacity-40"><FileCheck2 className="h-4 w-4"/>Zamknij i przekaż delegatowi</button>:null}{protocol.status==="submitted"&&canApprove?<><button onClick={reopenProtocol} className="rounded-xl border border-amber-400 bg-amber-50 px-4 py-2 font-bold text-amber-800">Edytuj protokół</button><button onClick={approveProtocol} className="rounded-xl bg-green-700 px-4 py-2 font-bold text-white">Zatwierdź ostatecznie</button></>:null}{protocol.status==="approved"&&canApprove?<button onClick={reopenProtocol} className="rounded-xl border border-amber-400 bg-amber-50 px-4 py-2 font-bold text-amber-800">Edytuj zatwierdzony protokół</button>:null}{protocol.status==="approved"?<button onClick={()=>context&&void generateMatchProtocolPdf(match,protocol,homePlayers,awayPlayers)} className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2 font-bold text-white"><FileDown className="h-4 w-4"/>Pobierz PDF</button>:null}</div>
     </main></div></div>;
 }

@@ -46,7 +46,7 @@ export function CompetitionsPageV2({ initialCode, isAdmin, clubs, refereeNames, 
   const [creatingNationalTeam, setCreatingNationalTeam] = React.useState(false);
   const [delegatedPermissions, setDelegatedPermissions] = React.useState<Set<CompetitionPermission>>(new Set());
   const [protocolMatchId, setProtocolMatchId] = React.useState<string | null>(null);
-  const privateProtocolEnabled = import.meta.env.DEV && !!effectiveUser;
+  const privateProtocolEnabled = !!effectiveUser;
   const canOpenProtocol = (match: { home: string; delegate?: string }) => !!effectiveUser && (isAdmin || effectiveUser.club === match.home || effectiveUser.name === match.delegate);
   const formRef = React.useRef<HTMLDivElement>(null);
 

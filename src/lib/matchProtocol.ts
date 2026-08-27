@@ -1,4 +1,5 @@
 import { getClubIdsByNames, getMatchRoster, type MatchRosterWithPlayers } from "./rosters";
+import { supabase } from "./supabase";
 import type { Match } from "../types/wpolo";
 
 export type ProtocolTeam = "home" | "away";
@@ -66,6 +67,7 @@ export type MatchProtocolDraft = {
   closedBy?: string;
   approvedAt?: string;
   approvedBy?: string;
+  updatedAt?: string;
 };
 
 export type ProtocolContext = { homeRoster: MatchRosterWithPlayers | null; awayRoster: MatchRosterWithPlayers | null; homePlayers: ProtocolPlayer[]; awayPlayers: ProtocolPlayer[] };
@@ -89,7 +91,63 @@ export function loadProtocol(matchId: string): MatchProtocolDraft {
     };
   } catch { return blankProtocol(matchId); }
 }
-export function saveProtocol(protocol: MatchProtocolDraft) { localStorage.setItem(key(protocol.matchId), JSON.stringify(protocol)); }
+export function saveProtocol(protocol: MatchProtocolDraft) {
+  try {
+    localStorage.setItem(key(protocol.matchId), JSON.stringify(protocol));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export type ProtocolSyncResult = { updatedAt: string; protocol: MatchProtocolDraft };
+
+export async function loadRemoteProtocol(matchId: string): Promise<ProtocolSyncResult | null> {
+  const { data, error } = await supabase
+    .from("match_protocols")
+    .select("protocol_data, client_updated_at")
+    .eq("match_id", matchId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.protocol_data) return null;
+  const protocol = data.protocol_data as MatchProtocolDraft;
+  return { protocol: { ...blankProtocol(matchId), ...protocol, matchId }, updatedAt: data.client_updated_at };
+}
+
+export async function saveRemoteProtocol(protocol: MatchProtocolDraft): Promise<string> {
+  const updatedAt = protocol.updatedAt || new Date().toISOString();
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!authData.user?.id) throw new Error("Brak aktywnej sesji użytkownika.");
+  const { error } = await supabase.from("match_protocols").upsert({
+    match_id: protocol.matchId,
+    protocol_data: { ...protocol, updatedAt },
+    client_updated_at: updatedAt,
+    updated_at: new Date().toISOString(),
+    updated_by: authData.user.id,
+  }, { onConflict: "match_id" });
+  if (error) throw error;
+  return updatedAt;
+}
+
+export function exportProtocolFile(protocol: MatchProtocolDraft) {
+  const payload = { format: "wpolo-match-protocol", exportedAt: new Date().toISOString(), protocol: { ...protocol, updatedAt: protocol.updatedAt || new Date().toISOString() } };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `protokol-offline-${protocol.matchId}.wpolo.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function importProtocolFile(file: File, expectedMatchId: string): Promise<MatchProtocolDraft> {
+  const parsed = JSON.parse(await file.text()) as { format?: string; protocol?: MatchProtocolDraft };
+  if (parsed.format !== "wpolo-match-protocol" || !parsed.protocol) throw new Error("To nie jest plik protokołu wpolo.pl.");
+  if (parsed.protocol.matchId !== expectedMatchId) throw new Error("Plik dotyczy innego meczu.");
+  if (parsed.protocol.version !== 2 || !Array.isArray(parsed.protocol.events)) throw new Error("Plik protokołu ma nieobsługiwany format.");
+  return { ...blankProtocol(expectedMatchId), ...parsed.protocol, matchId: expectedMatchId, updatedAt: new Date().toISOString() };
+}
 
 function mapPlayers(roster: MatchRosterWithPlayers | null): ProtocolPlayer[] {
   return (roster?.players || []).slice(0, 15).map(entry => ({ id: entry.player.id, slot: entry.slot, capNumber: entry.slot, name: `${entry.player.first_name} ${entry.player.last_name}`.trim(), isGoalkeeper: entry.is_goalkeeper, isCaptain: entry.is_captain }));
