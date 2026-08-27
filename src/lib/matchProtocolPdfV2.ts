@@ -158,6 +158,10 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
       doc.setFont(PDF_FONT, "normal"); doc.text(notes, 10, lowerY + 11, { maxWidth: 125 });
       doc.setFont(PDF_FONT, "bold"); doc.text(`Godzina zakończenia: ${protocol.finishedAt || "-"}`, 142, lowerY + 7);
       doc.text(`Protest: ${protocol.protest ? "TAK" : "NIE"}`, 142, lowerY + 12);
+      const homeMvp = protocol.homePlayers.find(player => player.id === protocol.homeMvpPlayerId);
+      const awayMvp = protocol.awayPlayers.find(player => player.id === protocol.awayMvpPlayerId);
+      doc.text(`MVP jasnych: ${homeMvp ? `#${homeMvp.capNumber} ${homeMvp.name}` : "-"}`, 142, lowerY + 17, { maxWidth: 58 });
+      doc.text(`MVP ciemnych: ${awayMvp ? `#${awayMvp.capNumber} ${awayMvp.name}` : "-"}`, 142, lowerY + 22, { maxWidth: 58 });
     }
     doc.setDrawColor(0); doc.setLineWidth(.2); doc.setFont(PDF_FONT, "normal"); doc.setFontSize(6.2);
     const signatures = [["Sędzia I", protocol.referee1 || match.referees[0] || ""], ["Sędzia II", protocol.referee2 || match.referees[1] || ""], ["Protokolant", protocol.protocolSecretary || ""], ["Delegat", protocol.delegateName || match.delegate || ""]];

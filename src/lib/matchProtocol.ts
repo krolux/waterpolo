@@ -65,6 +65,8 @@ export type MatchProtocolDraft = {
   finishedAt: string;
   currentPeriod: 1 | 2 | 3 | 4 | "PS";
   shootoutFirstTeam: ProtocolTeam | null;
+  homeMvpPlayerId: string;
+  awayMvpPlayerId: string;
   closedAt?: string;
   closedBy?: string;
   approvedAt?: string;
@@ -75,7 +77,7 @@ export type MatchProtocolDraft = {
 export type ProtocolContext = { homeRoster: MatchRosterWithPlayers | null; awayRoster: MatchRosterWithPlayers | null; homePlayers: ProtocolPlayer[]; awayPlayers: ProtocolPlayer[] };
 
 const key = (matchId: string) => `wpolo:private-match-protocol:${matchId}`;
-export const blankProtocol = (matchId: string): MatchProtocolDraft => ({ version: 2, matchId, status: "setup", homePlayers: [], awayPlayers: [], homeCoach: "", awayCoach: "", homeOfficial1: "", homeOfficial2: "", awayOfficial1: "", awayOfficial2: "", referee1: "", referee2: "", delegateName: "", protocolSecretary: "", secretary1: "", secretary2: "", timeSecretary1: "", timeSecretary2: "", goalSecretary1: "", goalSecretary2: "", homeCaps: "jasne", awayCaps: "ciemne", events: [], refereeNotes: "", protest: false, finishedAt: "", currentPeriod: 1, shootoutFirstTeam: null });
+export const blankProtocol = (matchId: string): MatchProtocolDraft => ({ version: 2, matchId, status: "setup", homePlayers: [], awayPlayers: [], homeCoach: "", awayCoach: "", homeOfficial1: "", homeOfficial2: "", awayOfficial1: "", awayOfficial2: "", referee1: "", referee2: "", delegateName: "", protocolSecretary: "", secretary1: "", secretary2: "", timeSecretary1: "", timeSecretary2: "", goalSecretary1: "", goalSecretary2: "", homeCaps: "jasne", awayCaps: "ciemne", events: [], refereeNotes: "", protest: false, finishedAt: "", currentPeriod: 1, shootoutFirstTeam: null, homeMvpPlayerId: "", awayMvpPlayerId: "" });
 export function loadProtocol(matchId: string): MatchProtocolDraft {
   try {
     const raw = localStorage.getItem(key(matchId));
@@ -169,6 +171,27 @@ export async function approveRemoteMatchProtocol(match: Match, approvedBy: strin
   await saveRemoteProtocol(approved);
   saveProtocol(approved);
   return approved;
+}
+
+export async function reopenRemoteMatchProtocol(matchId: string): Promise<MatchProtocolDraft> {
+  const remote = await loadRemoteProtocol(matchId);
+  if (!remote) throw new Error("Nie znaleziono zapisanego protokołu.");
+  const reopened: MatchProtocolDraft = {
+    ...remote.protocol,
+    status: remote.protocol.events.length ? "live" : "setup",
+    finishedAt: "",
+    closedAt: undefined,
+    closedBy: undefined,
+    approvedAt: undefined,
+    approvedBy: undefined,
+    updatedAt: new Date().toISOString(),
+  };
+  await setMatchResult(matchId, "", false);
+  const { error } = await supabase.from("penalties").delete().eq("match_id", matchId).not("source_event_id", "is", null).not("source_event_id", "like", "manual-%");
+  if (error) throw error;
+  await saveRemoteProtocol(reopened);
+  saveProtocol(reopened);
+  return reopened;
 }
 
 export function exportProtocolFile(protocol: MatchProtocolDraft) {

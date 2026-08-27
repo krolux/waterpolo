@@ -1,6 +1,7 @@
 import React from "react";
-import { Crown, Shield, Star } from "lucide-react";
+import { Crown, Star } from "lucide-react";
 import type { Match } from "../../types/wpolo";
+import { loadPublishedProtocolStats, type PublishedProtocolStats } from "../../lib/protocolStats";
 
 type Row = { club: string; played: number; points: number; goalsFor: number; goalsAgainst: number };
 
@@ -33,6 +34,14 @@ export const LeagueTablesSection: React.FC<LeagueTablesSectionProps> = ({
   tournamentNameById,
   onOpenMore,
 }) => {
+  const [protocolStats, setProtocolStats] = React.useState<PublishedProtocolStats | null>(null);
+  React.useEffect(() => { let active = true; loadPublishedProtocolStats().then(value => { if (active) setProtocolStats(value); }).catch(() => { if (active) setProtocolStats(null); }); return () => { active = false; }; }, [matches]);
+  const leaderText = (key: string, ready: boolean, unit: string) => {
+    if (!ready) return "Ranking pojawi się, gdy każda drużyna rozegra co najmniej 3 mecze.";
+    const people = protocolStats?.leaders[key] || [];
+    if (!people.length) return "Brak danych w zatwierdzonych protokołach.";
+    return `${people.map(person => `${person.playerName} (${person.club})`).join(" · ")} — ${people[0].value} ${unit}`;
+  };
   const tables = React.useMemo(() => {
     const grouped = new Map<string, Match[]>();
 
@@ -182,23 +191,23 @@ export const LeagueTablesSection: React.FC<LeagueTablesSectionProps> = ({
 
         <div className="mt-5 space-y-3">
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="inline-flex items-center gap-2 text-amber-300"><Crown className="h-4 w-4" /> Król strzelców</div>
-            <div className="mt-1 text-sm text-slate-200">Statystyki będą dostępne po rozegraniu pierwszych spotkań.</div>
+            <div className="inline-flex items-center gap-2 text-amber-300"><Crown className="h-4 w-4" /> Król strzelców Ekstraklasy</div>
+            <div className="mt-1 text-sm text-slate-200">{leaderText("eks_goals", !!protocolStats?.ekstraklasaReady, "goli")}</div>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="inline-flex items-center gap-2 text-sky-300"><Shield className="h-4 w-4" /> Najlepszy bramkarz</div>
-            <div className="mt-1 text-sm text-slate-200">Statystyki będą dostępne po rozegraniu pierwszych spotkań.</div>
+            <div className="inline-flex items-center gap-2 text-amber-300"><Star className="h-4 w-4" /> MVP Ekstraklasy</div>
+            <div className="mt-1 text-sm text-slate-200">{leaderText("eks_mvp", !!protocolStats?.ekstraklasaReady, "wyróżnień")}</div>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="inline-flex items-center gap-2 text-amber-300"><Star className="h-4 w-4" /> MVP sezonu</div>
-            <div className="mt-1 text-sm text-slate-200">Statystyki będą dostępne po rozegraniu pierwszych spotkań.</div>
+            <div className="inline-flex items-center gap-2 text-sky-300"><Crown className="h-4 w-4" /> Król strzelców — wszystkie kategorie</div>
+            <div className="mt-1 text-sm text-slate-200">{leaderText("all_goals", !!protocolStats?.allReady, "goli")}</div>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="inline-flex items-center gap-2 text-sky-300"><Crown className="h-4 w-4" /> Lider asyst</div>
-            <div className="mt-1 text-sm text-slate-200">Statystyki będą dostępne po rozegraniu pierwszych spotkań.</div>
+            <div className="inline-flex items-center gap-2 text-sky-300"><Star className="h-4 w-4" /> MVP — wszystkie kategorie</div>
+            <div className="mt-1 text-sm text-slate-200">{leaderText("all_mvp", !!protocolStats?.allReady, "wyróżnień")}</div>
           </div>
         </div>
 
