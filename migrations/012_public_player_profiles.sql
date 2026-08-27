@@ -42,6 +42,9 @@ WITH approved AS (
     p.first_name,
     p.last_name,
     p.birth_year,
+    club.name AS registered_club,
+    club.logo_url AS registered_club_logo,
+    NULLIF(btrim(p.loan_club_name), '') IS NOT NULL AS is_loan,
     a.category_id,
     a.category_name,
     a.represented_club,
@@ -66,12 +69,16 @@ WITH approved AS (
     ) AS exclusions
   FROM appearances a
   JOIN public.players p ON p.id::text = a.player->>'id'
+  JOIN public.clubs club ON club.id = p.club_id
 ), grouped AS (
   SELECT
     player_id,
     first_name,
     last_name,
     birth_year,
+    registered_club,
+    registered_club_logo,
+    is_loan,
     category_id,
     category_name,
     represented_club,
@@ -91,7 +98,7 @@ WITH approved AS (
       ) ORDER BY date DESC, match_id
     ) AS matches
   FROM player_matches
-  GROUP BY player_id, first_name, last_name, birth_year, category_id, category_name, represented_club
+  GROUP BY player_id, first_name, last_name, birth_year, registered_club, registered_club_logo, is_loan, category_id, category_name, represented_club
 ), filtered AS (
   SELECT * FROM grouped g
   WHERE (player_id_filter IS NULL OR g.player_id = player_id_filter)
@@ -110,6 +117,9 @@ SELECT COALESCE(
       'firstName', first_name,
       'lastName', last_name,
       'birthYear', birth_year,
+      'registeredClub', CASE WHEN is_loan THEN NULL ELSE registered_club END,
+      'registeredClubLogo', CASE WHEN is_loan THEN NULL ELSE registered_club_logo END,
+      'isLoan', is_loan,
       'categoryId', category_id,
       'categoryName', category_name,
       'club', represented_club,

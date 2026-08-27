@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, UserRound, CalendarDays, Goal, ShieldAlert } from "lucide-react";
+import { Search, UserRound, CalendarDays, Goal, ShieldAlert, ArrowLeft, MapPin } from "lucide-react";
 import { listPublicPlayerStatistics, type PublicPlayerStatistics } from "../../lib/playerStatistics";
 
 const normalize = (value: string) => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pl-PL").trim();
@@ -12,6 +12,8 @@ export function PlayersPage() {
   const [club, setClub] = React.useState("");
   const [birthYear, setBirthYear] = React.useState("");
   const [selectedPlayerId, setSelectedPlayerId] = React.useState("");
+  const [matchQuery, setMatchQuery] = React.useState("");
+  const [matchCategory, setMatchCategory] = React.useState("");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -42,8 +44,9 @@ export function PlayersPage() {
     return true;
   }), [rows, query, selectedPlayerId, club, birthYear]);
 
-  const choosePlayer = (id: string, name: string) => { setSelectedPlayerId(id); setQuery(name); };
+  const choosePlayer = (id: string, name: string) => { setSelectedPlayerId(id); setQuery(name); setMatchQuery(""); setMatchCategory(""); };
   const resetPlayer = (value: string) => { setQuery(value); setSelectedPlayerId(""); };
+  const displayedRows = selectedPlayerId && matchCategory ? visible.filter(row => row.categoryName === matchCategory) : visible;
 
   return <section className="space-y-5">
     <div className="rounded-2xl border border-sky-100 bg-[linear-gradient(135deg,#f8fcff,#eef8ff)] p-5">
@@ -64,12 +67,21 @@ export function PlayersPage() {
     {loading && <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">Ładowanie zawodników…</div>}
     {error && <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">{error}</div>}
     {!loading && !error && visible.length === 0 && <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">Nie znaleziono zawodnika ze statystykami w wybranej kategorii.</div>}
-    <div className="grid gap-4 lg:grid-cols-2">{visible.map(row => <article key={`${row.playerId}-${row.categoryId}-${row.club}`} className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-sm">
-      <header className="border-b border-sky-100 bg-[#f4faff] p-4"><div className="text-xl font-bold text-[#061a33]">{row.firstName} {row.lastName}</div><div className="mt-1 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white px-2.5 py-1 text-slate-600">Rocznik {row.birthYear}</span><span className="rounded-full bg-sky-100 px-2.5 py-1 font-semibold text-sky-700">{row.categoryName}</span><span className="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800">{row.club}</span></div></header>
+    {selectedPlayerId && visible.length > 0 && <button onClick={() => { setSelectedPlayerId(""); setQuery(""); }} className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-semibold text-slate-700"><ArrowLeft className="h-4 w-4" />Wróć do listy</button>}
+    {selectedPlayerId && visible.length > 0 && <PlayerIdentity rows={visible} />}
+    {selectedPlayerId && visible.length > 0 && <div className="grid gap-3 rounded-2xl border border-sky-100 bg-white p-4 md:grid-cols-[1fr_260px]"><label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Wyszukaj mecz<input value={matchQuery} onChange={event => setMatchQuery(event.target.value)} placeholder="Drużyna, data lub miejsce…" className="mt-1 w-full rounded-xl border border-sky-100 px-3 py-2.5 text-sm font-normal normal-case" /></label><label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Kategoria<select value={matchCategory} onChange={event => setMatchCategory(event.target.value)} className="mt-1 w-full rounded-xl border border-sky-100 bg-white px-3 py-2.5 text-sm font-normal normal-case"><option value="">Wszystkie kategorie</option>{[...new Set(visible.map(row => row.categoryName))].map(name => <option key={name}>{name}</option>)}</select></label></div>}
+    <div className="grid gap-4 lg:grid-cols-2">{displayedRows.map(row => <article key={`${row.playerId}-${row.categoryId}-${row.club}`} className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-sm">
+      <header className="border-b border-sky-100 bg-[#f4faff] p-4"><button type="button" onClick={() => choosePlayer(row.playerId, `${row.firstName} ${row.lastName}`)} className="text-left text-xl font-bold text-[#061a33] hover:text-sky-600">{row.firstName} {row.lastName}</button><div className="mt-1 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white px-2.5 py-1 text-slate-600">Rocznik {row.birthYear}</span><span className="rounded-full bg-sky-100 px-2.5 py-1 font-semibold text-sky-700">{row.categoryName}</span><span className="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800">{row.club}</span></div></header>
       <div className="grid grid-cols-3 border-b border-sky-100 text-center"><Stat icon={<CalendarDays />} label="Mecze" value={row.matchesPlayed} /><Stat icon={<Goal />} label="Bramki" value={row.goals} /><Stat icon={<ShieldAlert />} label="Wykluczenia" value={row.exclusions} /></div>
-      <div className="p-4"><h3 className="mb-2 text-sm font-bold text-[#061a33]">Rozegrane mecze</h3><div className="space-y-2">{row.matches.map(match => <div key={match.id} className="grid gap-1 rounded-xl bg-slate-50 px-3 py-2 text-sm sm:grid-cols-[90px_1fr_auto]"><span className="text-slate-500">{match.date}</span><span className="font-medium">{match.home} – {match.away}</span><span className="font-bold">{match.result || "—"}</span><span className="text-xs text-slate-500 sm:col-start-2">{match.club} • gole: {match.goals} • wykluczenia: {match.exclusions}</span></div>)}</div></div>
+      <div className="p-4"><h3 className="mb-2 text-sm font-bold text-[#061a33]">{selectedPlayerId ? "Mecze zawodnika" : "Ostatnie 5 meczów"}</h3><div className="space-y-2">{row.matches.filter(match => { const needle = normalize(matchQuery); return (!selectedPlayerId || (!matchCategory || row.categoryName === matchCategory)) && (!needle || normalize(`${match.date} ${match.home} ${match.away} ${match.club}`).includes(needle)); }).slice(0, selectedPlayerId ? undefined : 5).map(match => <div key={match.id} className="grid gap-1 rounded-xl bg-slate-50 px-3 py-2 text-sm sm:grid-cols-[90px_1fr_auto]"><span className="text-slate-500">{match.date}</span><span className="font-medium">{match.home} – {match.away}</span><span className="font-bold">{match.result || "—"}</span><span className="text-xs text-slate-500 sm:col-start-2">{match.club} • gole: {match.goals} • wykluczenia: {match.exclusions}</span></div>)}</div></div>
     </article>)}</div>
   </section>;
+}
+
+function PlayerIdentity({ rows }: { rows: PublicPlayerStatistics[] }) {
+  const player = rows[0];
+  if (!player || player.isLoan || !player.registeredClub) return null;
+  return <div className="flex items-center gap-4 rounded-2xl border border-sky-100 bg-white p-4"><div className="grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border bg-slate-50">{player.registeredClubLogo ? <img src={player.registeredClubLogo} alt={`Logo ${player.registeredClub}`} className="h-full w-full object-contain p-1" /> : <MapPin className="h-7 w-7 text-slate-300" />}</div><div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Klub zawodnika</div><div className="text-lg font-bold text-[#061a33]">{player.registeredClub}</div></div></div>;
 }
 
 function Stat({ icon, label, value }: { icon: React.ReactElement; label: string; value: number }) {

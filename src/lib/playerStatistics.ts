@@ -19,6 +19,9 @@ export type PublicPlayerStatistics = {
   categoryId: string | null;
   categoryName: string;
   club: string;
+  registeredClub: string | null;
+  registeredClubLogo: string | null;
+  isLoan: boolean;
   matchesPlayed: number;
   goals: number;
   exclusions: number;

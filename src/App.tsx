@@ -1,6 +1,6 @@
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState } from "react";
-import { FileText, Users, Shield, House, Trophy, CalendarDays, FlaskConical, UserRoundSearch } from "lucide-react";
+import { FileText, Users, Shield, House, Trophy, CalendarDays, FlaskConical, UserRoundSearch, UserRoundCheck } from "lucide-react";
 import { useSupabaseAuth } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
@@ -16,12 +16,15 @@ import { Badge } from "./components/shared/Badge";
 import type { Role, Match, AppState, ProfileRow } from "./types/wpolo";
 import type { SaveRosterPayload } from "./types/rosters";
 import type { CompetitionCode } from "./lib/competitionsV2";
+import { getMyRefereeClass, type RefereeClass } from "./lib/refereeRatings";
 
 const CompetitionsPageV2 = React.lazy(() => import("./components/pages/CompetitionsPageV2").then(module => ({ default: module.CompetitionsPageV2 })));
 const ClubDashboard = React.lazy(() => import("./components/dashboard/ClubDashboard").then(module => ({ default: module.ClubDashboard })));
 const DemoPage = React.lazy(() => import("./components/pages/DemoPage").then(module => ({ default: module.DemoPage })));
 const Ktpw = React.lazy(() => import("./components/Ktpw"));
 const PlayersPage = React.lazy(() => import("./components/pages/PlayersPage").then(module => ({ default: module.PlayersPage })));
+const AdminRefereesPage = React.lazy(() => import("./components/pages/AdminRefereesPage").then(module => ({ default: module.AdminRefereesPage })));
+const MatchProtocolWorkspace = React.lazy(() => import("./components/matches/MatchProtocolWorkspace").then(module => ({ default: module.MatchProtocolWorkspace })));
 const AdminPanel = React.lazy(() => import("./components/matches/AdminPanel").then(module => ({ default: module.AdminPanel })));
 const ArticleList = React.lazy(() => import("./components/ArticleList").then(module => ({ default: module.ArticleList })));
 const ArticleView = React.lazy(() => import("./components/ArticleView").then(module => ({ default: module.ArticleView })));
@@ -187,9 +190,12 @@ function openEditor(newId?: string | null) {
   setPage('editor');
 }
 
-const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'players' | 'my-matches' | 'club' | 'ktpw' | 'demo' | 'admin'>('dashboard');
+const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'players' | 'referees' | 'my-matches' | 'club' | 'ktpw' | 'demo' | 'admin'>('dashboard');
 const [competitionStartCode, setCompetitionStartCode] = useState<CompetitionCode>("EKS");
 const [savedRosters, setSavedRosters] = useState<SaveRosterPayload[]>([]);
+const [myProtocolMatchId, setMyProtocolMatchId] = useState<string | null>(null);
+const [myMatchesCategory, setMyMatchesCategory] = useState("");
+const [myRefereeClass, setMyRefereeClass] = useState<RefereeClass | null>(null);
 
 const handleSaveRoster = React.useCallback((payload: SaveRosterPayload) => {
   const nextPayload: SaveRosterPayload = {
@@ -507,6 +513,8 @@ const showKtpwTab = true;
 const showDemoTab = !!effectiveUser && (isClub(effectiveUser) || isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser));
 const showAdminTab = !!effectiveUser && isAdmin(effectiveUser);
 
+useEffect(() => { if (!effectiveUser || !isReferee(effectiveUser)) { setMyRefereeClass(null); return; } let active=true; getMyRefereeClass().then(value=>{if(active)setMyRefereeClass(value);}).catch(()=>{if(active)setMyRefereeClass(null);}); return()=>{active=false;}; }, [effectiveUser?.name, effectiveUser?.role]);
+
 useEffect(() => {
   // Ładuj profile tylko gdy jestem Adminem
   if (effectiveUser?.role && effectiveUser.role.toString().includes("Admin")) {
@@ -643,9 +651,12 @@ const myMatches = useMemo(() => {
 
   return state.matches.filter((match) => {
     const role = getMyMatchRole(effectiveUser, match);
-    return !!role;
+    const categoryName = match.competitionSeasonId ? competitionNameById[match.competitionSeasonId] || "" : "";
+    return !!role && (!myMatchesCategory || categoryName === myMatchesCategory);
   });
-}, [effectiveUser, state.matches]);
+}, [effectiveUser, state.matches, myMatchesCategory, competitionNameById]);
+
+const myMatchCategories = useMemo(() => Array.from(new Set(state.matches.filter(match => !!getMyMatchRole(effectiveUser, match)).map(match => match.competitionSeasonId ? competitionNameById[match.competitionSeasonId] : "").filter(Boolean))).sort((a,b)=>a.localeCompare(b,"pl")), [state.matches,effectiveUser,competitionNameById]);
 
 const myUpcomingMatches = useMemo(
   () => myMatches.filter((match) => !match.result || match.result.trim() === ""),
@@ -985,6 +996,11 @@ const delegateCandidateNames = Array.from(new Set([
               Moje mecze
             </button>
           )}
+          {showAdminTab && (
+            <button className={navPillClass(activePage === 'referees')} onClick={() => setActivePage('referees')}>
+              <UserRoundCheck className="h-4 w-4" />Sędziowie
+            </button>
+          )}
           {showClubTab && (
             <button
               className={navPillClass(activePage === 'club')}
@@ -1114,8 +1130,14 @@ const delegateCandidateNames = Array.from(new Set([
         </section>
       )}
 
+      {activePage === 'referees' && effectiveUser && isAdmin(effectiveUser) && (
+        <AdminRefereesPage matches={state.matches} user={effectiveUser} />
+      )}
+
       {activePage === 'my-matches' && effectiveUser && (isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser)) && (
         <Section title="Moje mecze" icon={<Users className="w-5 h-5" />}>
+          {myRefereeClass && <div className="mb-4 inline-flex rounded-full bg-sky-100 px-3 py-1 text-sm font-bold text-sky-800">Klasa sędziowska: {myRefereeClass}</div>}
+          <label className="mb-4 block max-w-sm text-xs font-semibold uppercase tracking-wide text-slate-500">Kategoria rozgrywek<select value={myMatchesCategory} onChange={event => setMyMatchesCategory(event.target.value)} className="mt-1 w-full rounded-xl border border-sky-100 bg-white px-3 py-2.5 text-sm font-normal normal-case"><option value="">Wszystkie kategorie</option>{myMatchCategories.map(name=><option key={name}>{name}</option>)}</select></label>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fcff] p-4 shadow-sm">
               <div className="mb-3 text-sm font-semibold text-[#061a33]">Najbliższe mecze</div>
@@ -1124,14 +1146,14 @@ const delegateCandidateNames = Array.from(new Set([
                   <div className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm text-slate-500">Brak nadchodzących meczów.</div>
                 ) : (
                   myUpcomingMatches.map((match) => (
-                    <div key={match.id} className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm shadow-sm">
+                    <button key={match.id} onClick={() => setMyProtocolMatchId(match.id)} className="w-full rounded-xl border border-[#dbeafe] bg-white p-3 text-left text-sm shadow-sm transition hover:border-sky-300 hover:bg-sky-50">
                       <div className="font-medium">{formatMatchDate(match.date)}{match.time ? ` ${match.time}` : ""}</div>
                       <div className="text-xs text-slate-600">{match.location}</div>
                       <div className="mt-1 font-medium">{match.home} vs {match.away}</div>
                       <div className="mt-1 text-xs text-slate-600">
                         Rola: <span className="font-medium text-slate-700">{getMyMatchRole(effectiveUser, match)}</span>
                       </div>
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
@@ -1144,7 +1166,7 @@ const delegateCandidateNames = Array.from(new Set([
                   <div className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm text-slate-500">Brak zakończonych meczów.</div>
                 ) : (
                   myFinishedMatches.map((match) => (
-                    <div key={match.id} className="rounded-xl border border-[#dbeafe] bg-white p-3 text-sm shadow-sm">
+                    <button key={match.id} onClick={() => setMyProtocolMatchId(match.id)} className="w-full rounded-xl border border-[#dbeafe] bg-white p-3 text-left text-sm shadow-sm transition hover:border-sky-300 hover:bg-sky-50">
                       <div className="font-medium">{formatMatchDate(match.date)}{match.time ? ` ${match.time}` : ""}</div>
                       <div className="text-xs text-slate-600">{match.location}</div>
                       <div className="mt-1 font-medium">{match.home} vs {match.away}</div>
@@ -1154,7 +1176,7 @@ const delegateCandidateNames = Array.from(new Set([
                       {match.result && (
                         <div className="mt-1 text-xs text-slate-600">Wynik: {match.result}</div>
                       )}
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
@@ -1162,6 +1184,7 @@ const delegateCandidateNames = Array.from(new Set([
           </div>
         </Section>
       )}
+      {myProtocolMatchId && effectiveUser && (() => { const match = state.matches.find(item => item.id === myProtocolMatchId); return match ? <MatchProtocolWorkspace match={match} user={effectiveUser} readOnly={isReferee(effectiveUser) && !isAdmin(effectiveUser) && match.delegate !== effectiveUser.name} onClose={() => setMyProtocolMatchId(null)} /> : null; })()}
 
       {activePage === 'club' && (
         <section className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
