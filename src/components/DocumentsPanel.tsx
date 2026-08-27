@@ -48,7 +48,7 @@ export default function DocumentsPanel({ matchId }: Props) {
   async function handleOpen(path: string) {
     try {
       const url = await getSignedUrl(path);
-      window.open(url, '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       alert('Download failed');
     }

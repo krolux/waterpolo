@@ -6,6 +6,7 @@ import {
   deleteKtpwDocument,
   getKtpwSignedUrl,
 } from "../lib/ktpw";
+import { assertSafePdf, hasPdfSignature } from "../lib/fileValidation";
 
 type KtpwDoc = {
   id: string;
@@ -82,10 +83,13 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
     setPdfFileName("");
   }
 
-  function handlePdfUpload(file?: File | null) {
+  async function handlePdfUpload(file?: File | null) {
     if (!file) return;
-    if (file.type !== "application/pdf") {
-      alert("Wybierz plik PDF.");
+    try {
+      assertSafePdf(file);
+      if (!(await hasPdfSignature(file))) throw new Error("Plik nie ma prawidłowej sygnatury PDF.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Nieprawidłowy plik PDF.");
       return;
     }
 
@@ -174,8 +178,10 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
     if (!doc.pdfUrl) return;
 
     try {
-      if (doc.pdfUrl.startsWith('http')) {
-        window.open(doc.pdfUrl, '_blank', 'noopener,noreferrer');
+      if (/^https?:\/\//i.test(doc.pdfUrl)) {
+        const externalUrl = new URL(doc.pdfUrl);
+        if (externalUrl.protocol !== "https:") throw new Error("Dozwolone są wyłącznie bezpieczne adresy HTTPS.");
+        window.open(externalUrl.toString(), '_blank', 'noopener,noreferrer');
         return;
       }
 
@@ -245,7 +251,7 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
               </div>
               <label className="cursor-pointer rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-center text-[#08284a] hover:bg-sky-50">
                 Wybierz PDF
-                <input type="file" accept="application/pdf" className="hidden" onChange={e => handlePdfUpload(e.target.files?.[0])} />
+                <input type="file" accept="application/pdf" className="hidden" onChange={e => void handlePdfUpload(e.target.files?.[0])} />
               </label>
             </div>
 

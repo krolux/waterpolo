@@ -1,7 +1,5 @@
 import { getClubIdsByNames, getMatchRoster, type MatchRosterWithPlayers } from "./rosters";
 import { supabase } from "./supabase";
-import { addProtocolPenalty, countPriorPlayerSuspensions } from "./penalties";
-import { setMatchResult } from "./matches";
 import type { Match } from "../types/wpolo";
 
 export type ProtocolTeam = "home" | "away";
@@ -77,12 +75,18 @@ export type MatchProtocolDraft = {
 export type ProtocolContext = { homeRoster: MatchRosterWithPlayers | null; awayRoster: MatchRosterWithPlayers | null; homePlayers: ProtocolPlayer[]; awayPlayers: ProtocolPlayer[] };
 
 const key = (matchId: string) => `wpolo:private-match-protocol:${matchId}`;
+const LOCAL_PROTOCOL_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 export const blankProtocol = (matchId: string): MatchProtocolDraft => ({ version: 2, matchId, status: "setup", homePlayers: [], awayPlayers: [], homeCoach: "", awayCoach: "", homeOfficial1: "", homeOfficial2: "", awayOfficial1: "", awayOfficial2: "", referee1: "", referee2: "", delegateName: "", protocolSecretary: "", secretary1: "", secretary2: "", timeSecretary1: "", timeSecretary2: "", goalSecretary1: "", goalSecretary2: "", homeCaps: "jasne", awayCaps: "ciemne", events: [], refereeNotes: "", protest: false, finishedAt: "", currentPeriod: 1, shootoutFirstTeam: null, homeMvpPlayerId: "", awayMvpPlayerId: "" });
 export function loadProtocol(matchId: string): MatchProtocolDraft {
   try {
     const raw = localStorage.getItem(key(matchId));
     if (!raw) return blankProtocol(matchId);
     const parsed = JSON.parse(raw) as Partial<MatchProtocolDraft> & { status?: string; version?: number };
+    const lastUpdate = Date.parse(String(parsed.updatedAt || ""));
+    if (Number.isFinite(lastUpdate) && Date.now() - lastUpdate > LOCAL_PROTOCOL_RETENTION_MS) {
+      localStorage.removeItem(key(matchId));
+      return blankProtocol(matchId);
+    }
     const allowed = new Set(PROTOCOL_EVENT_OPTIONS.map(option => option.value));
     const storedStatus = String(parsed.status || "");
     const migratedStatus: MatchProtocolDraft["status"] = storedStatus === "closed" ? "approved" : storedStatus === "draft" ? ((parsed.events?.length || 0) > 0 ? "live" : "setup") : (["setup", "live", "submitted", "approved"].includes(storedStatus) ? storedStatus as MatchProtocolDraft["status"] : "setup");
@@ -97,11 +101,14 @@ export function loadProtocol(matchId: string): MatchProtocolDraft {
 }
 export function saveProtocol(protocol: MatchProtocolDraft) {
   try {
-    localStorage.setItem(key(protocol.matchId), JSON.stringify(protocol));
+    localStorage.setItem(key(protocol.matchId), JSON.stringify({ ...protocol, updatedAt: protocol.updatedAt || new Date().toISOString() }));
     return true;
   } catch {
     return false;
   }
+}
+export function removeLocalProtocol(matchId: string) {
+  try { localStorage.removeItem(key(matchId)); } catch { /* storage may be unavailable */ }
 }
 
 export type ProtocolSyncResult = { updatedAt: string; protocol: MatchProtocolDraft };
@@ -141,55 +148,18 @@ export async function listRemoteProtocolStatuses(matchIds: string[]): Promise<Re
   return Object.fromEntries((data || []).map(row => [String(row.match_id), (row.protocol_data as MatchProtocolDraft)?.status || "setup"]));
 }
 
-export async function approveRemoteMatchProtocol(match: Match, approvedBy: string): Promise<MatchProtocolDraft> {
-  const remote = await loadRemoteProtocol(match.id);
-  if (!remote || remote.protocol.status !== "submitted") throw new Error("Protokół nie został jeszcze przekazany do zatwierdzenia.");
-  const protocol = remote.protocol;
-  const score = protocolScore(protocol.events);
-  const result = `${score.home}:${score.away}`;
-  const shootout = protocol.events.some(event => event.period === "PS");
-
-  const disciplinaryEvents = protocol.events.filter(event => event.playerId && (event.kind === "brutality" || event.grossUnsporting === true));
-  for (const event of disciplinaryEvents) {
-    const roster = event.team === "home" ? protocol.homePlayers : protocol.awayPlayers;
-    const player = roster.find(item => item.id === event.playerId);
-    if (!player) continue;
-    const prior = await countPriorPlayerSuspensions(player.id, match.competitionSeasonId || null, match.id);
-    await addProtocolPenalty({
-      matchId: match.id,
-      clubName: event.team === "home" ? match.home : match.away,
-      playerName: player.name,
-      playerId: player.id,
-      competitionSeasonId: match.competitionSeasonId || null,
-      sourceEventId: event.id,
-      games: 2 ** prior,
-    });
-  }
-
-  await setMatchResult(match.id, result, shootout);
-  const approved = { ...protocol, status: "approved" as const, approvedAt: new Date().toISOString(), approvedBy, updatedAt: new Date().toISOString() };
-  await saveRemoteProtocol(approved);
-  saveProtocol(approved);
+export async function approveRemoteMatchProtocol(match: Match, _approvedBy: string): Promise<MatchProtocolDraft> {
+  const { data, error } = await supabase.rpc("approve_match_protocol", { target_match_id: match.id });
+  if (error) throw error;
+  const approved = { ...blankProtocol(match.id), ...(data as MatchProtocolDraft), matchId: match.id };
+  removeLocalProtocol(match.id);
   return approved;
 }
 
 export async function reopenRemoteMatchProtocol(matchId: string): Promise<MatchProtocolDraft> {
-  const remote = await loadRemoteProtocol(matchId);
-  if (!remote) throw new Error("Nie znaleziono zapisanego protokołu.");
-  const reopened: MatchProtocolDraft = {
-    ...remote.protocol,
-    status: remote.protocol.events.length ? "live" : "setup",
-    finishedAt: "",
-    closedAt: undefined,
-    closedBy: undefined,
-    approvedAt: undefined,
-    approvedBy: undefined,
-    updatedAt: new Date().toISOString(),
-  };
-  await setMatchResult(matchId, "", false);
-  const { error } = await supabase.from("penalties").delete().eq("match_id", matchId).not("source_event_id", "is", null).not("source_event_id", "like", "manual-%");
+  const { data, error } = await supabase.rpc("reopen_match_protocol", { target_match_id: matchId });
   if (error) throw error;
-  await saveRemoteProtocol(reopened);
+  const reopened = { ...blankProtocol(matchId), ...(data as MatchProtocolDraft), matchId };
   saveProtocol(reopened);
   return reopened;
 }
@@ -206,10 +176,22 @@ export function exportProtocolFile(protocol: MatchProtocolDraft) {
 }
 
 export async function importProtocolFile(file: File, expectedMatchId: string): Promise<MatchProtocolDraft> {
+  if (file.size <= 0 || file.size > 5 * 1024 * 1024) throw new Error("Plik protokołu może mieć maksymalnie 5 MB.");
   const parsed = JSON.parse(await file.text()) as { format?: string; protocol?: MatchProtocolDraft };
   if (parsed.format !== "wpolo-match-protocol" || !parsed.protocol) throw new Error("To nie jest plik protokołu wpolo.pl.");
   if (parsed.protocol.matchId !== expectedMatchId) throw new Error("Plik dotyczy innego meczu.");
   if (parsed.protocol.version !== 2 || !Array.isArray(parsed.protocol.events)) throw new Error("Plik protokołu ma nieobsługiwany format.");
+  if (parsed.protocol.events.length > 1000) throw new Error("Plik zawiera zbyt wiele wydarzeń.");
+  if (!Array.isArray(parsed.protocol.homePlayers) || !Array.isArray(parsed.protocol.awayPlayers) || parsed.protocol.homePlayers.length > 15 || parsed.protocol.awayPlayers.length > 15) {
+    throw new Error("Plik zawiera nieprawidłowe składy.");
+  }
+  const allowedStatuses = new Set(["setup", "live", "submitted"]);
+  if (!allowedStatuses.has(parsed.protocol.status)) throw new Error("Nie można importować zatwierdzonego protokołu.");
+  for (const event of parsed.protocol.events) {
+    if (!event || typeof event.id !== "string" || !["home", "away"].includes(event.team) || typeof event.kind !== "string") {
+      throw new Error("Plik zawiera nieprawidłowe wydarzenie.");
+    }
+  }
   return { ...blankProtocol(expectedMatchId), ...parsed.protocol, matchId: expectedMatchId, updatedAt: new Date().toISOString() };
 }
 

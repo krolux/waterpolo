@@ -1,5 +1,6 @@
 // src/lib/articles.ts
 import { supabase } from "./supabase";
+import { assertSafeImage } from "./fileValidation";
 
 /** Typ artykułu zgodny z tabelą `articles` */
 export type Article = {
@@ -192,7 +193,8 @@ export async function addComment(articleId: string, body: string) {
 /* ====== Storage: okładka ====== */
 
 export async function uploadCover(file: File): Promise<string> {
-  const ext = file.name.split(".").pop() || "jpg";
+  assertSafeImage(file);
+  const ext = ({ "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as Record<string, string>)[file.type];
   const path = `covers/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase
     .storage
@@ -244,6 +246,7 @@ async function compressToWebP(file: File, maxSize = 1600, quality = 0.8): Promis
 }
 
 export async function uploadArticleImage(articleId: string, file: File): Promise<ArticleImage> {
+  assertSafeImage(file);
   // 1) kompresja
   const webp = await compressToWebP(file, 1600, 0.82);
 

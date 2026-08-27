@@ -1,5 +1,6 @@
 // src/lib/storage.ts
 import { supabase } from "./supabase";
+import { assertSafeImage, assertSafePdf, hasPdfSignature } from "./fileValidation";
 
 export type DocKind = "comms" | "roster" | "report" | "photos";
 
@@ -47,6 +48,12 @@ function makePath(kind: DocKind, matchId: string, clubOrNeutral: string, fileNam
  * Dodatkowo ustawiamy contentType i pozwalamy nadpisać jeśli serwer jednak uzna, że plik istnieje.
  */
 export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: string, file: File) {
+  if (kind === "photos") {
+    assertSafeImage(file);
+  } else {
+    assertSafePdf(file);
+    if (!(await hasPdfSignature(file))) throw new Error("Plik nie ma prawidłowej sygnatury PDF.");
+  }
   // 1. pierwsza próba z nową, unikalną ścieżką
   let path = makePath(kind, matchId, clubOrNeutral, file.name);
 

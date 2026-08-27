@@ -1,9 +1,16 @@
 // src/components/ArticleView.tsx
 import React from "react";
+import DOMPurify from "dompurify";
 import { Article } from "../lib/articles";
 import { supabase } from "../lib/supabase";
 import { getPublicUrl, listArticleImages, type ArticleImage } from "../lib/articles";
 import { useSupabaseAuth } from "../hooks/useSupabaseAuth";
+
+DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+  if (node instanceof HTMLAnchorElement && node.getAttribute("target") === "_blank") {
+    node.setAttribute("rel", "noopener noreferrer");
+  }
+});
 
 export type ArticleViewProps = {
   id: string;
@@ -144,7 +151,13 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ id, onBack, onGoHome, 
         {article.content && (
           <div
             className="prose max-w-none"
-            dangerouslySetInnerHTML={{ __html: article.content }}
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(article.content, {
+                USE_PROFILES: { html: true },
+                FORBID_TAGS: ["style", "iframe", "object", "embed", "form"],
+                FORBID_ATTR: ["style"],
+              }),
+            }}
           />
         )}
 

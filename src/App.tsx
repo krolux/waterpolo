@@ -1,6 +1,6 @@
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState } from "react";
-import { FileText, Users, Shield, House, Trophy, CalendarDays, FlaskConical } from "lucide-react";
+import { FileText, Users, Shield, House, Trophy, CalendarDays, FlaskConical, UserRoundSearch } from "lucide-react";
 import { useSupabaseAuth } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
@@ -21,6 +21,7 @@ const CompetitionsPageV2 = React.lazy(() => import("./components/pages/Competiti
 const ClubDashboard = React.lazy(() => import("./components/dashboard/ClubDashboard").then(module => ({ default: module.ClubDashboard })));
 const DemoPage = React.lazy(() => import("./components/pages/DemoPage").then(module => ({ default: module.DemoPage })));
 const Ktpw = React.lazy(() => import("./components/Ktpw"));
+const PlayersPage = React.lazy(() => import("./components/pages/PlayersPage").then(module => ({ default: module.PlayersPage })));
 const AdminPanel = React.lazy(() => import("./components/matches/AdminPanel").then(module => ({ default: module.AdminPanel })));
 const ArticleList = React.lazy(() => import("./components/ArticleList").then(module => ({ default: module.ArticleList })));
 const ArticleView = React.lazy(() => import("./components/ArticleView").then(module => ({ default: module.ArticleView })));
@@ -186,7 +187,7 @@ function openEditor(newId?: string | null) {
   setPage('editor');
 }
 
-const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'my-matches' | 'club' | 'ktpw' | 'demo' | 'admin'>('dashboard');
+const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'players' | 'my-matches' | 'club' | 'ktpw' | 'demo' | 'admin'>('dashboard');
 const [competitionStartCode, setCompetitionStartCode] = useState<CompetitionCode>("EKS");
 const [savedRosters, setSavedRosters] = useState<SaveRosterPayload[]>([]);
 
@@ -968,6 +969,13 @@ const delegateCandidateNames = Array.from(new Set([
             <Trophy className="h-4 w-4" />
             Rozgrywki
           </button>
+          <button
+            className={navPillClass(activePage === 'players')}
+            onClick={() => setActivePage('players')}
+          >
+            <UserRoundSearch className="h-4 w-4" />
+            Zawodnicy
+          </button>
           {showMyMatches && (
             <button
               className={navPillClass(activePage === 'my-matches')}
@@ -1058,6 +1066,10 @@ const delegateCandidateNames = Array.from(new Set([
         <section className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
           <Ktpw effectiveUser={effectiveUser} isAdmin={effectiveUser ? isAdmin(effectiveUser) : false} />
         </section>
+      )}
+
+      {activePage === 'players' && (
+        <PlayersPage />
       )}
 
       {activePage === 'demo' && effectiveUser && showDemoTab && (
