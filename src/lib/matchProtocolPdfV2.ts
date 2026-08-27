@@ -122,7 +122,7 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
       const x = 10 + tableIndex * 63;
       const widths = [5, 5, 10, 8, 8, 11, 13];
       const rowHeight = 3.25;
-      ["Lp.", "K", "Czas", "Jasne", "Ciemne", "Sym.", "Wynik"].forEach((value, column) => {
+      ["Lp.", "K", "Czas", "B", "N", "Sym.", "Wynik"].forEach((value, column) => {
         const cellX = x + widths.slice(0, column).reduce((sum, item) => sum + item, 0);
         const fill = column === 3 ? 210 : column === 4 ? 95 : 75;
         drawCell(cellX, flowY + 2, widths[column], rowHeight, value, { bold: true, fill, invert: column !== 3, size: 4.8 });
