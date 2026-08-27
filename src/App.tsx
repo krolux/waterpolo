@@ -1,6 +1,6 @@
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState } from "react";
-import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, UploadCloud, Image, Settings, Table, Check, RefreshCw, X, House, Trophy, CalendarDays } from "lucide-react";
+import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, UploadCloud, Image, Settings, Table, Check, RefreshCw, X, House, Trophy, CalendarDays, FlaskConical } from "lucide-react";
 import { useSupabaseAuth } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
@@ -16,6 +16,7 @@ import { ClubDashboard } from "./components/dashboard/ClubDashboard";
 import { MatchesPage } from "./components/pages/MatchesPage";
 import { CompetitionsPageV2 } from "./components/pages/CompetitionsPageV2";
 import { HomePortalPage } from "./components/pages/HomePortalPage";
+import { DemoPage } from "./components/pages/DemoPage";
 import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
 import { ArticleEditor } from "./components/ArticleEditor";
@@ -393,7 +394,7 @@ function openEditor(newId?: string | null) {
   setPage('editor');
 }
 
-const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'my-matches' | 'club' | 'ktpw' | 'admin'>('dashboard');
+const [activePage, setActivePage] = useState<'dashboard' | 'matches' | 'my-matches' | 'club' | 'ktpw' | 'demo' | 'admin'>('dashboard');
 const [competitionStartCode, setCompetitionStartCode] = useState<CompetitionCode>("EKS");
 const [savedRosters, setSavedRosters] = useState<SaveRosterPayload[]>([]);
 
@@ -759,6 +760,7 @@ const effectiveUser = useMemo(() => {
 const showMyMatches = !!effectiveUser && (isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser));
 const showClubTab = !!effectiveUser && isClub(effectiveUser);
 const showKtpwTab = true;
+const showDemoTab = !!effectiveUser && (isClub(effectiveUser) || isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser));
 const showAdminTab = !!effectiveUser && isAdmin(effectiveUser);
 
 useEffect(() => {
@@ -1277,6 +1279,15 @@ const delegateCandidateNames = Array.from(new Set([
               KTPW
             </button>
           )}
+          {showDemoTab && (
+            <button
+              className={navPillClass(activePage === 'demo')}
+              onClick={() => setActivePage('demo')}
+            >
+              <FlaskConical className="h-4 w-4" />
+              DEMO
+            </button>
+          )}
           {showAdminTab && (
             <button
               className={navPillClass(activePage === 'admin')}
@@ -1330,6 +1341,12 @@ const delegateCandidateNames = Array.from(new Set([
       {activePage === 'ktpw' && (
         <section className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
           <Ktpw effectiveUser={effectiveUser} isAdmin={effectiveUser ? isAdmin(effectiveUser) : false} />
+        </section>
+      )}
+
+      {activePage === 'demo' && effectiveUser && showDemoTab && (
+        <section className="rounded-3xl border border-[#dbeafe] bg-white p-4 shadow-sm sm:p-5">
+          <DemoPage user={effectiveUser} />
         </section>
       )}
 

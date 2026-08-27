@@ -13,8 +13,8 @@ const ShootoutMissMark = () => <span aria-label="niewykorzystany rzut karny" cla
 const fixedCapNumbers = (players: ProtocolPlayer[]) => players.map(player => player.capNumber === player.slot ? player : { ...player, capNumber: player.slot });
 const clockSeconds = (clock: string) => { const [minutes, seconds] = clock.split(":").map(Number); return (minutes || 0) * 60 + (seconds || 0); };
 
-export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged }: { match: Match; user: User; onClose: () => void; onProtocolChanged?: (status: MatchProtocolDraft["status"]) => Promise<void> | void }) {
-  const [protocol, setProtocol] = React.useState<MatchProtocolDraft>(() => { const saved = loadProtocol(match.id); return { ...saved, homePlayers: fixedCapNumbers(saved.homePlayers), awayPlayers: fixedCapNumbers(saved.awayPlayers) }; });
+export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged, localOnly = false, initialProtocol, onLocalProtocolChange }: { match: Match; user: User; onClose: () => void; onProtocolChanged?: (status: MatchProtocolDraft["status"]) => Promise<void> | void; localOnly?: boolean; initialProtocol?: MatchProtocolDraft; onLocalProtocolChange?: (protocol: MatchProtocolDraft) => void }) {
+  const [protocol, setProtocol] = React.useState<MatchProtocolDraft>(() => { const saved = initialProtocol || loadProtocol(match.id); return { ...saved, homePlayers: fixedCapNumbers(saved.homePlayers), awayPlayers: fixedCapNumbers(saved.awayPlayers) }; });
   const [context, setContext] = React.useState<ProtocolContext | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [editorOpen, setEditorOpen] = React.useState(false);
@@ -38,9 +38,10 @@ export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged
   const protocolRef = React.useRef(protocol);
   const importRef = React.useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => { let active = true; setLoading(true); loadProtocolContext(match).then(v => { if (!active) return; setContext(v); setProtocol(p => ({ ...p, homePlayers: p.homePlayers.length ? p.homePlayers : v.homePlayers, awayPlayers: p.awayPlayers.length ? p.awayPlayers : v.awayPlayers, referee1: p.referee1 || match.referees[0] || "", referee2: p.referee2 || match.referees[1] || "", delegateName: p.delegateName || match.delegate || "" })); }).finally(() => active && setLoading(false)); return () => { active = false; }; }, [match]);
+  React.useEffect(() => { if (localOnly) { setContext({ homeRoster: null, awayRoster: null, homePlayers: initialProtocol?.homePlayers || [], awayPlayers: initialProtocol?.awayPlayers || [] }); setLoading(false); return; } let active = true; setLoading(true); loadProtocolContext(match).then(v => { if (!active) return; setContext(v); setProtocol(p => ({ ...p, homePlayers: p.homePlayers.length ? p.homePlayers : v.homePlayers, awayPlayers: p.awayPlayers.length ? p.awayPlayers : v.awayPlayers, referee1: p.referee1 || match.referees[0] || "", referee2: p.referee2 || match.referees[1] || "", delegateName: p.delegateName || match.delegate || "" })); }).finally(() => active && setLoading(false)); return () => { active = false; }; }, [match, localOnly, initialProtocol]);
   React.useEffect(() => { protocolRef.current = protocol; }, [protocol]);
   React.useEffect(() => {
+    if (localOnly) { setSyncReady(true); setSyncStatus("saved"); setLastSavedAt(initialProtocol?.updatedAt || null); return; }
     let active = true;
     const local = loadProtocol(match.id);
     setSyncReady(false); setSyncStatus("loading");
@@ -57,33 +58,35 @@ export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged
       setProtocol(local); setLastSavedAt(local.updatedAt || null); setSyncStatus(navigator.onLine ? "error" : "offline");
     }).finally(() => { if (active) setSyncReady(true); });
     return () => { active = false; };
-  }, [match.id]);
+  }, [match.id, localOnly, initialProtocol]);
   const syncProtocol = React.useCallback(async (source = protocolRef.current) => {
     const next = { ...source, updatedAt: source.updatedAt || new Date().toISOString() };
+    if (localOnly) { onLocalProtocolChange?.(next); setLastSavedAt(next.updatedAt || null); setSyncStatus("saved"); return; }
     saveProtocol(next); setLastSavedAt(next.updatedAt || null);
     if (!navigator.onLine) { setSyncStatus("offline"); return; }
     setSyncStatus("syncing");
     try { await saveRemoteProtocol(next); setSyncStatus("saved"); }
     catch { setSyncStatus(navigator.onLine ? "error" : "offline"); }
-  }, []);
+  }, [localOnly, onLocalProtocolChange]);
   React.useEffect(() => {
     if (!syncReady) return;
     const next = { ...protocol, updatedAt: new Date().toISOString() };
-    saveProtocol(next); setLastSavedAt(next.updatedAt || null);
+    if (!localOnly) saveProtocol(next); else onLocalProtocolChange?.(next); setLastSavedAt(next.updatedAt || null);
     if (syncTimer.current) clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => void syncProtocol(next), 900);
     return () => { if (syncTimer.current) clearTimeout(syncTimer.current); };
-  }, [protocol, syncReady, syncProtocol]);
+  }, [protocol, syncReady, syncProtocol, localOnly, onLocalProtocolChange]);
   React.useEffect(() => {
+    if (localOnly) return;
     const online = () => void syncProtocol({ ...protocolRef.current, updatedAt: new Date().toISOString() });
     const offline = () => setSyncStatus("offline");
     window.addEventListener("online", online); window.addEventListener("offline", offline);
     return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
-  }, [syncProtocol]);
+  }, [syncProtocol, localOnly]);
   const homePlayers = protocol.homePlayers.length ? protocol.homePlayers : context?.homePlayers || [], awayPlayers = protocol.awayPlayers.length ? protocol.awayPlayers : context?.awayPlayers || [];
   const players = team === "home" ? homePlayers : awayPlayers;
-  const canApprove = isDelegate(user, match);
-  const canSubmit = isAdminUser(user) || user.club === match.home || canApprove;
+  const canApprove = localOnly || isDelegate(user, match);
+  const canSubmit = localOnly || isAdminUser(user) || user.club === match.home || canApprove;
   const setup = protocol.status === "setup";
   const live = protocol.status === "live";
   const score = protocolScore(protocol.events);
@@ -204,6 +207,7 @@ export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged
       return !reasonText || typeof e.grossUnsporting !== "boolean";
     })) return alert("Uzupełnij powód kary i decyzję o rażącym niesportowym zachowaniu przy wszystkich oznaczonych zdarzeniach.");
     const submitted = { ...protocol, status: "submitted" as const, closedAt: new Date().toISOString(), closedBy: user.name, updatedAt: new Date().toISOString() };
+    if (localOnly) { setProtocol(submitted); onLocalProtocolChange?.(submitted); setSyncStatus("saved"); await onProtocolChanged?.("submitted"); return; }
     try {
       await saveRemoteProtocol(submitted);
       setProtocol(submitted); saveProtocol(submitted); setSyncStatus("saved");
@@ -216,6 +220,7 @@ export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged
     if (!canApprove) return;
     if (!confirm("Cofnąć zatwierdzenie i ponownie otworzyć protokół? Wynik oraz automatyczne zawieszenia z tego protokołu zostaną wycofane.")) return;
     try {
+      if (localOnly) { const reopened = { ...protocol, status: protocol.events.length ? "live" as const : "setup" as const, finishedAt: "", closedAt: undefined, closedBy: undefined, approvedAt: undefined, approvedBy: undefined, updatedAt: new Date().toISOString() }; setProtocol(reopened); onLocalProtocolChange?.(reopened); await onProtocolChanged?.(reopened.status); return; }
       const reopened = await reopenRemoteMatchProtocol(match.id);
       setProtocol(reopened);
       await onProtocolChanged?.(reopened.status);
@@ -291,7 +296,7 @@ export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged
     }
   };
 
-  const syncLabel = syncStatus === "loading" ? "Pobieranie wersji" : syncStatus === "syncing" ? "Synchronizacja" : syncStatus === "saved" ? "Zapisano na urządzeniu i serwerze" : syncStatus === "offline" ? "Offline - zapisano na urządzeniu" : "Zapisano na urządzeniu - serwer niedostępny";
+  const syncLabel = localOnly ? "DEMO — zapis wyłącznie na tym urządzeniu" : syncStatus === "loading" ? "Pobieranie wersji" : syncStatus === "syncing" ? "Synchronizacja" : syncStatus === "saved" ? "Zapisano na urządzeniu i serwerze" : syncStatus === "offline" ? "Offline - zapisano na urządzeniu" : "Zapisano na urządzeniu - serwer niedostępny";
 
   const timeoutBoxes = (side: ProtocolTeam) => <div className="flex items-center gap-2 text-sm"><b>Time-out:</b>{[0,1].map(i => <span key={i} className={`grid h-7 w-7 place-items-center rounded border-2 font-black ${timeouts(side) > i ? "border-red-400 bg-red-50 text-red-600" : "border-slate-300 text-transparent"}`}>×</span>)}</div>;
   const teamCard = (side: ProtocolTeam, title: string, roster: typeof homePlayers) => <section className={`rounded-xl border ${side === "away" ? "border-sky-200 bg-sky-50" : "border-slate-200 bg-white"}`}>
