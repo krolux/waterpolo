@@ -5,7 +5,7 @@ import type { MatchProtocolDraft, ProtocolEvent, ProtocolEventKind, ProtocolPlay
 const PDF_FONT = "NotoSans";
 const PAGE_EVENT_LIMIT = 75;
 const TABLE_EVENT_LIMIT = 25;
-const SYMBOLS: Partial<Record<ProtocolEventKind, string>> = { goal: "G", exclusion: "W", exclusion_substitution: "WZ", brutality: "WB", penalty: "K", timeout: "To", yellow_card: "ŻK", red_card: "CZK", official_penalty: "Kof", shootout_goal: "G", shootout_miss: "G /" };
+const SYMBOLS: Partial<Record<ProtocolEventKind, string>> = { goal: "G", exclusion: "W", exclusion_substitution: "WZ", brutality: "WB", penalty: "K", timeout: "To", yellow_card: "ŻK", red_card: "CZK", official_penalty: "Kof", shootout_goal: "G", shootout_miss: "noG" };
 const eventSymbol = (kind?: ProtocolEventKind) => kind ? SYMBOLS[kind] || "" : "";
 const protocolScore = (events: ProtocolEvent[]) => events.reduce((score, event) => { if (event.kind === "goal" || event.kind === "shootout_goal") score[event.team] += 1; return score; }, { home: 0, away: 0 });
 const playerGoals = (events: ProtocolEvent[], playerId: string) => events.filter(event => event.kind === "goal" && event.playerId === playerId).length;
@@ -35,7 +35,7 @@ const participant = (event: ProtocolEvent, players: ProtocolPlayer[], protocol: 
   return ({ coach: "T", official1: "O1", official2: "O2" }[role as "coach" | "official1" | "official2"] || "O") + (names[role as keyof typeof names] ? ` ${names[role as keyof typeof names]}` : "");
 };
 
-const flowSymbol = (event: ProtocolEvent) => event.kind === "shootout_miss" ? "G /" : eventSymbol(event.kind) || "W (obie)";
+const flowSymbol = (event: ProtocolEvent) => eventSymbol(event.kind) || "W (obie)";
 
 export async function generateMatchProtocolPdf(match: Match, protocol: MatchProtocolDraft, homePlayers: ProtocolPlayer[], awayPlayers: ProtocolPlayer[]) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -82,7 +82,18 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
     drawCell(left, y, 7, rowHeight, "", { fill: dark ? 115 : 225, invert: dark });
     drawCell(left + 7, y, width - 7, rowHeight, `Trener: ${coach || "-"}; Oficjele: ${officials.filter(Boolean).join(", ") || "-"}`, { bold: true, fill: dark ? 115 : 225, invert: dark, size: 5.4 });
     y += rowHeight;
-    drawCell(left, y, width, rowHeight, `Time-out: ${timeouts > 0 ? "[X]" : "[ ]"}  ${timeouts > 1 ? "[X]" : "[ ]"}`, { bold: true, fill: dark ? 225 : 255, size: 5.5 });
+    drawCell(left, y, width, rowHeight, "Time-out:", { bold: true, fill: dark ? 225 : 255, size: 5.5 });
+    [0, 1].forEach(index => {
+      const boxX = left + 20 + index * 5;
+      const boxY = y + .45;
+      const boxSize = 3;
+      doc.setDrawColor(60); doc.setLineWidth(.25); doc.rect(boxX, boxY, boxSize, boxSize);
+      if (timeouts > index) {
+        doc.setLineWidth(.35);
+        doc.line(boxX + .55, boxY + .55, boxX + boxSize - .55, boxY + boxSize - .55);
+        doc.line(boxX + boxSize - .55, boxY + .55, boxX + .55, boxY + boxSize - .55);
+      }
+    });
   };
 
   const drawPage = (pageIndex: number) => {
@@ -141,7 +152,7 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
     }
     const lowerY = flowY + 2 + 26 * 3.25 + 4;
     doc.setFont(PDF_FONT, "normal"); doc.setFontSize(5.4);
-    doc.text("Legenda: G - gol; W - wykluczenie 20 s; K - rzut karny; WZ - wykluczenie z prawem zamiany; WB - brutalność; To - time-out; ŻK - żółta kartka; CZK - czerwona kartka; Kof - karny za działanie oficjela.", 10, lowerY, { maxWidth: 190 });
+    doc.text("Legenda: G - gol; noG - niewykorzystany rzut karny w serii; W - wykluczenie 20 s; K - rzut karny; WZ - wykluczenie z prawem zamiany; WB - brutalność; To - time-out; ŻK - żółta kartka; CZK - czerwona kartka; Kof - karny za działanie oficjela.", 10, lowerY, { maxWidth: 190 });
     if (pageIndex === pageCount - 1) {
       doc.setFont(PDF_FONT, "bold"); doc.text("Uwagi sędziowskie:", 10, lowerY + 7);
       doc.setFont(PDF_FONT, "normal"); doc.text(notes, 10, lowerY + 11, { maxWidth: 125 });
