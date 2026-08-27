@@ -1,5 +1,7 @@
 import { getClubIdsByNames, getMatchRoster, type MatchRosterWithPlayers } from "./rosters";
 import { supabase } from "./supabase";
+import { addProtocolPenalty, countPriorPlayerSuspensions } from "./penalties";
+import { setMatchResult } from "./matches";
 import type { Match } from "../types/wpolo";
 
 export type ProtocolTeam = "home" | "away";
@@ -128,6 +130,45 @@ export async function saveRemoteProtocol(protocol: MatchProtocolDraft): Promise<
   }, { onConflict: "match_id" });
   if (error) throw error;
   return updatedAt;
+}
+
+export async function listRemoteProtocolStatuses(matchIds: string[]): Promise<Record<string, MatchProtocolDraft["status"]>> {
+  if (!matchIds.length) return {};
+  const { data, error } = await supabase.from("match_protocols").select("match_id,protocol_data").in("match_id", matchIds);
+  if (error) throw error;
+  return Object.fromEntries((data || []).map(row => [String(row.match_id), (row.protocol_data as MatchProtocolDraft)?.status || "setup"]));
+}
+
+export async function approveRemoteMatchProtocol(match: Match, approvedBy: string): Promise<MatchProtocolDraft> {
+  const remote = await loadRemoteProtocol(match.id);
+  if (!remote || remote.protocol.status !== "submitted") throw new Error("Protokół nie został jeszcze przekazany do zatwierdzenia.");
+  const protocol = remote.protocol;
+  const score = protocolScore(protocol.events);
+  const result = `${score.home}:${score.away}`;
+  const shootout = protocol.events.some(event => event.period === "PS");
+
+  const disciplinaryEvents = protocol.events.filter(event => event.playerId && (event.kind === "brutality" || event.grossUnsporting === true));
+  for (const event of disciplinaryEvents) {
+    const roster = event.team === "home" ? protocol.homePlayers : protocol.awayPlayers;
+    const player = roster.find(item => item.id === event.playerId);
+    if (!player) continue;
+    const prior = await countPriorPlayerSuspensions(player.id, match.competitionSeasonId || null, match.id);
+    await addProtocolPenalty({
+      matchId: match.id,
+      clubName: event.team === "home" ? match.home : match.away,
+      playerName: player.name,
+      playerId: player.id,
+      competitionSeasonId: match.competitionSeasonId || null,
+      sourceEventId: event.id,
+      games: 2 ** prior,
+    });
+  }
+
+  await setMatchResult(match.id, result, shootout);
+  const approved = { ...protocol, status: "approved" as const, approvedAt: new Date().toISOString(), approvedBy, updatedAt: new Date().toISOString() };
+  await saveRemoteProtocol(approved);
+  saveProtocol(approved);
+  return approved;
 }
 
 export function exportProtocolFile(protocol: MatchProtocolDraft) {

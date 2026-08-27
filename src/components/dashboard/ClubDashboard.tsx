@@ -1,5 +1,5 @@
 import React from "react";
-import { CalendarClock, Users } from "lucide-react";
+import { CalendarClock, Trash2, Users } from "lucide-react";
 import { PlayerTable } from "../club/PlayerTable";
 import { RosterPanel, type RosterContext } from "../club/RosterPanel";
 import { Section } from "../shared/Section";
@@ -12,6 +12,8 @@ import {
   updateClubLogoUrl,
   updatePlayer,
   uploadClubLogo,
+  deleteMatchRoster,
+  listClubMatchRosterIds,
   type PlayerRow,
 } from "../../lib/rosters";
 import type { Match, Role } from "../../types/wpolo";
@@ -93,6 +95,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   const [editingPlayerId, setEditingPlayerId] = React.useState<string>("");
   const [playerForm, setPlayerForm] = React.useState<PlayerFormState>(emptyPlayerFormState);
   const [rosterContext, setRosterContext] = React.useState<RosterContext | null>(null);
+  const [rosterIdByMatchId, setRosterIdByMatchId] = React.useState<Record<string, string>>({});
   const [loadedTournamentTypes, setLoadedTournamentTypes] = React.useState<Record<string, string>>({});
   const [logoOptions, setLogoOptions] = React.useState<Array<{ id: string; name: string; logoUrl: string | null }>>([]);
   const [selectedLogoClubId, setSelectedLogoClubId] = React.useState<string>(clubId || "");
@@ -146,6 +149,24 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   React.useEffect(() => {
     void loadPlayers();
   }, [loadPlayers]);
+
+  const loadRosterIds = React.useCallback(async () => {
+    if (!clubId) { setRosterIdByMatchId({}); return; }
+    try { setRosterIdByMatchId(await listClubMatchRosterIds(clubId)); }
+    catch { setRosterIdByMatchId({}); }
+  }, [clubId]);
+
+  React.useEffect(() => { void loadRosterIds(); }, [loadRosterIds]);
+
+  const removeOwnRoster = React.useCallback(async (matchId: string) => {
+    const rosterId = rosterIdByMatchId[matchId];
+    if (!rosterId || !confirm("Usunąć zapisany skład meczowy?")) return;
+    try {
+      await deleteMatchRoster(rosterId);
+      setRosterIdByMatchId(current => { const next = { ...current }; delete next[matchId]; return next; });
+      if (rosterContext?.mode === "match" && rosterContext.matchId === matchId) setRosterContext(null);
+    } catch { alert("Nie udało się usunąć składu."); }
+  }, [rosterContext, rosterIdByMatchId]);
 
   React.useEffect(() => {
     let isActive = true;
@@ -489,6 +510,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
                             >
                               {match.tournamentId ? "Skład meczowy" : "Dodaj skład"}
                             </button>
+                            {rosterIdByMatchId[match.id] ? <button type="button" onClick={() => void removeOwnRoster(match.id)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"><Trash2 className="h-3.5 w-3.5" />Usuń skład</button> : null}
                             {match.tournamentId && tournamentTypeFor(match) !== "league" ? (
                               <button
                                 onClick={() => setRosterContext({

@@ -997,3 +997,18 @@ export async function listMatchRosterDocuments(matchId: string): Promise<MatchRo
     submittedAt: row.submitted_at,
   }));
 }
+
+export async function deleteMatchRoster(rosterId: string): Promise<void> {
+  const { error } = await supabase.from('match_rosters').delete().eq('id', rosterId);
+  if (error) throw error;
+}
+
+export async function listClubMatchRosterIds(clubId: string): Promise<Record<string, string>> {
+  const { data, error } = await supabase
+    .from('match_rosters')
+    .select('id,match_id')
+    .eq('club_id', clubId)
+    .in('status', ['submitted', 'verified']);
+  if (error) throw error;
+  return Object.fromEntries((data || []).map(row => [String(row.match_id), String(row.id)]));
+}

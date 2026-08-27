@@ -467,7 +467,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
             )}
           </div>
 
-          {canActAsDelegate && (
+          {isAdmin(user) && (
             <div className="mt-4 border-t pt-3">
               <div className="text-sm text-amber-600 font-medium mb-2">Nałóż karę</div>
 
@@ -501,7 +501,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
                     }
 
                     try {
-                      await addPenalty(match.id, club, player, games);
+                      await addPenalty(match.id, club, player, games, match.competitionSeasonId || null);
                       onPenaltiesChange();
                       alert("Kara dodana.");
                       clubSel.value = "";
@@ -515,7 +515,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
                   Dodaj karę
                 </button>
                 <div className="text-xs text-gray-500 mt-1">
-                  Kara będzie widoczna w najbliższych meczach danego klubu, poczynając od następnego spotkania po meczu, w którym ją nałożono.
+                  Kara będzie widoczna w kolejnych meczach tej samej kategorii, poczynając od następnego spotkania po meczu, w którym ją nałożono.
                 </div>
               </div>
             </div>

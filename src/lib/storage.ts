@@ -85,3 +85,21 @@ export async function removeDoc(path: string) {
   const { error } = await supabase.storage.from("docs2").remove([path]);
   if (error) throw new Error(error.message);
 }
+
+export async function removeMatchDocumentSlot(kind: DocKind, matchId: string, clubOrNeutral: string) {
+  const { data: rows, error: readError } = await supabase
+    .from("docs_meta")
+    .select("path")
+    .match({ match_id: matchId, kind, club_or_neutral: sanitizeSegment(clubOrNeutral) });
+  if (readError) throw readError;
+  const paths = (rows || []).map(row => String(row.path)).filter(Boolean);
+  if (paths.length) {
+    const { error: storageError } = await supabase.storage.from("docs2").remove(paths);
+    if (storageError) throw storageError;
+  }
+  const { error: deleteError } = await supabase
+    .from("docs_meta")
+    .delete()
+    .match({ match_id: matchId, kind, club_or_neutral: sanitizeSegment(clubOrNeutral) });
+  if (deleteError) throw deleteError;
+}
