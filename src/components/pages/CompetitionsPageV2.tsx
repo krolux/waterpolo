@@ -104,7 +104,6 @@ export function CompetitionsPageV2({ initialCode, isAdmin, clubs, refereeNames, 
   };
 
   const tournamentById = React.useMemo(() => new Map(context.tournaments.map(t => [t.id, t])), [context.tournaments]);
-  const stageById = React.useMemo(() => new Map(context.stages.map(s => [s.id, s])), [context.stages]);
   const matchClubs = React.useMemo(() => Array.from(new Set(context.matches.flatMap(m => [m.home, m.away]).filter(Boolean))), [context.matches]);
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = context.matches.filter(m => m.date >= today && (!m.result || !m.result.trim())).sort((a, b) => a.date.localeCompare(b.date) || Number(a.round || 0) - Number(b.round || 0));

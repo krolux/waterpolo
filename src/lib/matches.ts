@@ -110,8 +110,6 @@ export async function listMatches(): Promise<DbMatchRow[]> {
 
 export async function createMatch(row: Omit<DbMatchRow, 'id' | 'created_at' | 'created_by'>) {
   const payload = toMatchDbPayload(row)
-  console.log('[match db payload]', payload)
-
   const { data, error } = await supabase
     .from('matches')
     .insert(payload)
@@ -124,8 +122,6 @@ export async function createMatch(row: Omit<DbMatchRow, 'id' | 'created_at' | 'c
 
 export async function updateMatch(id: string, patch: Partial<DbMatchRow>) {
   const payload = toMatchDbPayload(patch)
-  console.log('[match db payload]', payload)
-
   const { data, error } = await supabase
     .from('matches')
     .update(payload)

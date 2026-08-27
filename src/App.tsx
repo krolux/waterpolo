@@ -1,44 +1,32 @@
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState } from "react";
-import { Download, Upload, FileText, Users, Shield, Trash2, Edit, LogIn, LogOut, Search, UploadCloud, Image, Settings, Table, Check, RefreshCw, X, House, Trophy, CalendarDays, FlaskConical } from "lucide-react";
+import { FileText, Users, Shield, House, Trophy, CalendarDays, FlaskConical } from "lucide-react";
 import { useSupabaseAuth } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
 import { supabase } from "./lib/supabase"
-import { listMatches, createMatch, updateMatch as dbUpdateMatch, deleteMatch as dbDeleteMatch, setMatchResult } from './lib/matches'
-import { addPenalty, listPenalties, deletePenalty, type Penalty } from "./lib/penalties";
-import { uploadDoc } from "./lib/storage";
-import { uploadImportCSV, triggerBulkImport } from "./lib/imports";
-import { setMyAvailability, getMyAvailabilityForMatches, listAvailableReferees } from "./lib/availability";
-import { namesOfAvailableReferees } from "./lib/availability";
-import { listCompetitions, listTournamentMatches, type Competition, type CompetitionSeason } from "./lib/competitions";
+import { listMatches } from './lib/matches'
+import { listPenalties, type Penalty } from "./lib/penalties";
+import { getMyAvailabilityForMatches } from "./lib/availability";
+import { listCompetitions, type Competition, type CompetitionSeason } from "./lib/competitions";
 import { useTournamentManagement } from "./hooks/useTournamentManagement";
-import { ClubDashboard } from "./components/dashboard/ClubDashboard";
-import { MatchesPage } from "./components/pages/MatchesPage";
-import { CompetitionsPageV2 } from "./components/pages/CompetitionsPageV2";
 import { HomePortalPage } from "./components/pages/HomePortalPage";
-import { DemoPage } from "./components/pages/DemoPage";
-import { ArticleList } from "./components/ArticleList";
-import { ArticleView } from "./components/ArticleView";
-import { ArticleEditor } from "./components/ArticleEditor";
-import { ArticleModeration } from "./components/ArticleModeration";
-import Ktpw from "./components/Ktpw";
 import { RegisterForm } from "./components/RegisterForm";
-import { AdminUserApprovals } from "./components/AdminUserApprovals";
 import { Section } from "./components/shared/Section";
 import { Badge } from "./components/shared/Badge";
-import { DocBadge } from "./components/shared/DocBadge";
-import { RankingTable } from "./components/matches/RankingTable";
-import { AdminAvailableReferees } from "./components/matches/AdminAvailableReferees";
-import { PerMatchActions } from "./components/matches/PerMatchActions";
-import { MatchesTable } from "./components/matches/MatchesTable";
-import { CompetitionMatchesView } from "./components/matches/CompetitionMatchesView";
-import { AdminPanel } from "./components/matches/AdminPanel";
-import { MatchForm } from "./components/matches/MatchForm";
-import { StageForm } from "./components/tournaments/StageForm";
-import { TournamentForm } from "./components/tournaments/TournamentForm";
-import type { Role, StoredFile, UploadLog, Match, AppState, ProfileRow } from "./types/wpolo";
+import type { Role, Match, AppState, ProfileRow } from "./types/wpolo";
 import type { SaveRosterPayload } from "./types/rosters";
 import type { CompetitionCode } from "./lib/competitionsV2";
+
+const CompetitionsPageV2 = React.lazy(() => import("./components/pages/CompetitionsPageV2").then(module => ({ default: module.CompetitionsPageV2 })));
+const ClubDashboard = React.lazy(() => import("./components/dashboard/ClubDashboard").then(module => ({ default: module.ClubDashboard })));
+const DemoPage = React.lazy(() => import("./components/pages/DemoPage").then(module => ({ default: module.DemoPage })));
+const Ktpw = React.lazy(() => import("./components/Ktpw"));
+const AdminPanel = React.lazy(() => import("./components/matches/AdminPanel").then(module => ({ default: module.AdminPanel })));
+const ArticleList = React.lazy(() => import("./components/ArticleList").then(module => ({ default: module.ArticleList })));
+const ArticleView = React.lazy(() => import("./components/ArticleView").then(module => ({ default: module.ArticleView })));
+const ArticleEditor = React.lazy(() => import("./components/ArticleEditor").then(module => ({ default: module.ArticleEditor })));
+const ArticleModeration = React.lazy(() => import("./components/ArticleModeration").then(module => ({ default: module.ArticleModeration })));
+const AdminUserApprovals = React.lazy(() => import("./components/AdminUserApprovals").then(module => ({ default: module.AdminUserApprovals })));
 
 
 
@@ -55,38 +43,6 @@ const normKey = (s?: string) =>
     .replace(/^_+|_+$/g, "");         
 
 
-async function removeWholeSlot(
-  kind: "comms" | "roster" | "report" | "photos",
-  matchId: string,
-  clubOrNeutral: string,
-  _path?: string // 4. argument opcjonalny – wywołania mogą go podawać; ignorujemy
-) {
-  // 1) pobierz ścieżki plików z metadanych
-  const { data: rows, error: qerr } = await supabase
-    .from("docs_meta")
-    .select("path")
-    .match({ match_id: matchId, kind, club_or_neutral: clubOrNeutral });
-
-  if (qerr) throw qerr;
-
-  const paths = (rows || []).map(r => r.path);
-
-  // 2) usuń pliki ze storage (jeśli są)
-  if (paths.length) {
-    const { error: serr } = await supabase.storage.from("docs2").remove(paths);
-    if (serr) throw serr;
-  }
-
-  // 3) usuń metadane
-  const { error: derr } = await supabase
-    .from("docs_meta")
-    .delete()
-    .match({ match_id: matchId, kind, club_or_neutral: clubOrNeutral });
-
-  if (derr) throw derr;
-}
-
-
 const classes = {
   input: "w-full px-3 py-2 rounded-xl border border-[#dbeafe] bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300/80 focus:border-sky-300",
   btnPrimary: "px-3 py-2 rounded-xl bg-gradient-to-r from-[#058CFF] to-[#2CC0FF] text-white font-semibold hover:from-[#0f99ff] hover:to-[#4acbff] shadow-[0_10px_20px_rgba(5,140,255,0.24)]",
@@ -96,67 +52,6 @@ const classes = {
   pill: "inline-flex items-center gap-1 rounded-full border border-[#dbeafe] bg-white px-2 py-1 text-xs text-slate-700",
 };
 
-
-const HorizontalScroller: React.FC<React.PropsWithChildren<{ className?: string }>> = ({ className, children }) => {
-  const ref = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        el.scrollLeft += e.deltaY;
-        e.preventDefault();
-      }
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      className={clsx("w-full overflow-x-auto", className)}
-      style={{
-        WebkitOverflowScrolling: "touch",
-        touchAction: "pan-x pinch-zoom",
-        overscrollBehaviorX: "contain",
-      }}
-    >
-      {children}
-    </div>
-  );
-};
-
-// Files helpers
-async function toStoredFileUsingStorage(kind: "comms"|"roster"|"report"|"photos", matchId: string, clubOrNeutral: string, file: File, uploadedBy: string, label: string): Promise<StoredFile> {
-  const path = await uploadDoc(kind, matchId, clubOrNeutral, file);
-  return {
-    id: crypto.randomUUID(),
-    name: file.name,
-    mime: file.type || "application/octet-stream",
-    size: file.size,
-    path,
-    uploadedBy,
-    uploadedAt: new Date().toISOString(),
-    label,
-  };
-}
-
-function sanitizeUrl(u?: string | null) {
-  const s = (u || "").trim();
-  if (!s) return null;
-  try {
-    const url = new URL(s);
-    if (url.protocol === "http:" || url.protocol === "https:") return url.toString();
-    return null;
-  } catch {
-    // pozwól też na krótkie „youtu.be/…” lub „youtube.com/…” bez protokołu:
-    if (/^([a-z0-9-]+\.)+[a-z]{2,}/i.test(s)) return `https://${s}`;
-    return null;
-  }
-}
 
 const prettyRole = (r: Role) => r; // pokazuj prawdziwą rolę
 // === MULTI-ROLE HELPERS (NEW) ===
@@ -182,100 +77,6 @@ function isDelegate(u:{role:Role}) { return hasRole(u,'Delegate') || isAdmin(u);
 function isReferee(u:{role:Role})  { return hasRole(u,'Referee') || isAdmin(u); }
 
 
-// Permissions
-function canUploadComms(user:{role:Role;club?:string}, m:Match){
-  return isClub(user) && !!user.club && user.club===m.home;
-}
-function canUploadRoster(user:{role:Role;club?:string}, m:Match){
-  return isClub(user) && !!user.club && (user.club===m.home || user.club===m.away);
-}
-function canUploadReport(user:{role:Role;name?:string}, m:Match){
-  // Admin zawsze może; w innym przypadku delegatem jest osoba wpisana w tym meczu
-  return isAdmin(user) || (!!m.delegate && !!user?.name && m.delegate === user.name);
-}
-function canEditResult(user:{role:Role;name:string}, m:Match){
-  // Admin lub osoba wybrana jako delegat w tym konkretnym meczu
-  return isAdmin(user) || (!!m.delegate && m.delegate === user.name);
-}
-
-
-
-// Components
-const LoginPanel: React.FC<{ users: AppState["users"]; onLogin: (n: string, r: Role, c?: string) => void; }> = ({ users, onLogin }) => {
-  const [name, setName] = useState("");
-  const [role, setRole] = useState<Role>("Guest");
-  const [club, setClub] = useState("");
-
-  // Tu już nic nie renderujemy (mail/hasło jest w <LoginBox/> w nagłówku).
-  // Zostawiamy pustą sekcję, żeby nie psuć reszty struktury.
-  return (
-    <Section title="Zaloguj się" icon={<LogIn className="w-5 h-5" />}>
-      {/* celowo pusto – logowanie jest przez LoginBox */}
-    </Section>
-  );
-};
-
-
-
-const ExportImport: React.FC<{state: AppState; setState:(s:AppState)=>void}> = ({ state, setState }) => {
-  function exportJSON(){ const blob=new Blob([JSON.stringify(state.matches,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`wpr-matches-export-${new Date().toISOString().slice(0,10)}.json`; a.click(); }
-  async function importJSON(e:React.ChangeEvent<HTMLInputElement>){ const f=e.target.files?.[0]; if(!f) return; const text=await f.text(); try{ const parsed=JSON.parse(text) as Match[]; setState({...state, matches: parsed}); }catch{ alert("Niepoprawny plik JSON.")} }
-  return (<div className="flex items-center gap-2">
-    <button onClick={exportJSON} className={clsx(classes.btnSecondary,"flex items-center gap-2")}><Download className="w-4 h-4"/>Eksport</button>
-   
-    <label className={clsx(classes.btnSecondary,"inline-flex items-center gap-2 cursor-pointer")}>
-      <Upload className="w-4 h-4"/>Import<input type="file" accept="application/json" className="hidden" onChange={importJSON}/>
-    </label>
-  </div>)
-}
-
-// Diagnostics
-function runDiagnostics(state:AppState){
-  type Test={name:string; pass:boolean; details?:string}; const tests:Test[]=[]; const sample=state.matches[0];
-  if(sample){ const uHome={role:"Club" as Role, club:sample.home} as any; const uOther={role:"Club" as Role, club:"Inny Klub"} as any; const uGuest={role:"Guest" as Role} as any;
-    tests.push({name:"Gospodarz może dodać komunikat", pass: canUploadComms(uHome,sample)===true});
-    tests.push({name:"Gość nie może dodać komunikatu", pass: canUploadComms(uGuest,sample)===false});
-    tests.push({name:"Gospodarz może dodać skład", pass: canUploadRoster(uHome,sample)===true});
-    tests.push({name:"Klub spoza meczu nie może dodać składu", pass: canUploadRoster(uOther,sample)===false});
-    const canDownload=(u:{role:Role}|null)=>!!u && u.role!=='Guest'; tests.push({name:"Gość nie pobiera plików", pass: canDownload({role:'Guest' as Role})===false});
-    const delegatedMatch=state.matches.find(match => !!match.delegate?.trim());
-    if(delegatedMatch){
-      const assignedDelegate={role:"Delegate" as Role, name:delegatedMatch.delegate!.trim()} as any;
-      tests.push({name:"Delegat może dodać protokół", pass: canUploadReport(assignedDelegate, delegatedMatch)===true});
-      tests.push({name:"Tylko delegat tego meczu może ustawić wynik", pass: canEditResult(assignedDelegate,delegatedMatch)===true && canEditResult({role:'Delegate' as Role, name:'Inny Delegat'} as any,delegatedMatch)===false });
-    }
-  } else { tests.push({name:"Dane (z bazy) istnieją", pass:false, details:"Brak meczów do testu"}) }
-  const selectedIdInitial:string=""; tests.push({name:"selectedId jest stringiem na starcie", pass: typeof selectedIdInitial==="string"}); return tests;
-}
-const Diagnostics: React.FC<{ state:AppState }> = ({ state }) => { const tests=runDiagnostics(state); const allPass=tests.every(t=>t.pass);
-  return (<Section title="Diagnostyka (testy runtime)" icon={<Shield className="w-5 h-5"/>}><div className="mb-2 text-sm">Wynik: {allPass? <span className="text-green-700 font-semibold">OK</span> : <span className="text-red-700 font-semibold">BŁĘDY</span>}</div>
-    <ul className="text-sm space-y-1">{tests.map((t,i)=>(<li key={i} className={t.pass?"text-green-700":"text-red-700"}>• {t.name} — {t.pass?"PASS":"FAIL"}{t.details?` (${t.details})`:''}</li>))}</ul></Section>)
-}
-
-const UserChip: React.FC<{
-  effectiveUser: { name: string; role: Role; club?: string } | null;
-  supaUser: any;
-  demoLogout: () => void;
-}> = ({ effectiveUser, supaUser, demoLogout }) => (
-  effectiveUser ? (
-    <div className="flex items-center gap-2 shrink-0">
-      <Badge tone="blue">
-        {effectiveUser.role}
-        {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
-      </Badge>
-      <span className="text-sm text-gray-700">{effectiveUser.name}</span>
-      {!supaUser && (
-        <button onClick={demoLogout} className={classes.btnSecondary}>
-          <LogOut className="w-4 h-4 inline mr-1" />
-          Wyloguj (demo)
-        </button>
-      )}
-    </div>
-  ) : (
-    <span className="text-sm text-gray-600">Niezalogowany</span>
-  )
-);
-
 export default function App(){
 const { userId, userDisplay, role: sRole, signOut } = useSupabaseAuth()
 
@@ -292,8 +93,6 @@ useEffect(() => {
     if (raw) setDemoUser(JSON.parse(raw));
   } catch {}
 }, []);
-  function demoLogin(n:string,r:Role,c?:string){ const u={name:n, role:r, club:c}; setDemoUser(u); localStorage.setItem("wpr-auth-user", JSON.stringify(u)); }
-  function demoLogout(){ setDemoUser(null); localStorage.removeItem("wpr-auth-user"); }
   // === Auth user z Supabase (id + email) – użyjemy do dopasowania profilu po id ===
 const [authUser, setAuthUser] = useState<{ id: string; email: string } | null>(null);
 
@@ -374,13 +173,6 @@ useEffect(() => {
 // --- quick edit (Admin): otwieraj edycję inline pod wybranym meczem ---
 const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
 
-function handleQuickEdit(matchId: string) {
-  setEditingMatchId((current) => (current === matchId ? null : matchId));
-}
-
-function handleCancelInlineEdit() {
-  setEditingMatchId(null);
-}
 // === [3.3] PROSTA NAWIGACJA ARTYKUŁÓW (mini-router) ===
 const [page, setPage] = useState<'home' | 'articles' | 'article' | 'editor' | 'moderation' | 'register' | 'approvals'>('home');
   function openModeration() { setPage('moderation'); }
@@ -458,8 +250,8 @@ const [competitions, setCompetitions] = useState<Competition[]>([]);
 const [competitionNameBySeasonId, setCompetitionNameBySeasonId] = useState<Record<string, string>>({});
 const [selectedCompetitionId, setSelectedCompetitionId] = useState<string | null>(null);
 const [selectedCompetitionSeason, setSelectedCompetitionSeason] = useState<CompetitionSeason | null>(null);
-const [loadingCompetitions, setLoadingCompetitions] = useState(false);
-const [loadingCompetitionSeason, setLoadingCompetitionSeason] = useState(false);
+const [, setLoadingCompetitions] = useState(false);
+const [, setLoadingCompetitionSeason] = useState(false);
 
 const resolveCompetitionBySelection = React.useCallback((competitionId: string) => {
   if (!competitionId.startsWith("fallback-")) return null;
@@ -567,10 +359,6 @@ useEffect(() => {
   }
 }, [selectedCompetitionId, fallbackCompetitions]);
 
-const handleCompetitionChange = async (competitionId: string) => {
-  setSelectedCompetitionId(competitionId);
-};
-
 useEffect(() => {
   let cancelled = false;
 
@@ -619,36 +407,6 @@ useEffect(() => {
   const {
     stages,
     tournaments,
-    loadingStages,
-    tournamentClubs,
-    showAddStageForm,
-    setShowAddStageForm,
-    stageFormData,
-    setStageFormData,
-    showAddTournamentForm,
-    setShowAddTournamentForm,
-    selectedStageForTournament,
-    setSelectedStageForTournament,
-    tournamentFormData,
-    setTournamentFormData,
-    showAddMatchForm,
-    setShowAddMatchForm,
-    selectedTournamentForMatch,
-    setSelectedTournamentForMatch,
-    matchFormData,
-    setMatchFormData,
-    showAddTournamentClubForm,
-    setShowAddTournamentClubForm,
-    tournamentClubFormData,
-    setTournamentClubFormData,
-    handleAddStage,
-    handleDeleteStage,
-    handleAddTournament,
-    handleDeleteTournament,
-    handleAddTournamentClub,
-    handleDeleteTournamentClub,
-    handleAddMatch,
-    handleDeleteMatch,
   } = useTournamentManagement({
     selectedCompetitionSeason,
     refreshMatches,
@@ -684,27 +442,12 @@ useEffect(() => {
       return false;
     });
 
-    console.log("[competition diagnostic]", {
-      selectedCompetitionId,
-      selectedCompetitionSeason,
-      stages,
-      tournaments,
-    });
-
-    matches.forEach((match) => {
-      console.log("[match mapping]", {
-        id: match.id,
-        competitionSeasonId: match.competitionSeasonId,
-        tournamentId: match.tournamentId,
-      });
-    });
-
     return matches;
   }, [isEkstraklasaSelected, selectedCompetitionId, selectedCompetitionSeason, selectedSeasonTournamentIds, stages, state.matches, tournaments]);
 
   // Load profiles (for admin select lists)
   const [profiles,setProfiles]=useState<ProfileRow[]>([])
-  const [loadingProfiles,setLoadingProfiles]=useState(false)
+  const [,setLoadingProfiles]=useState(false)
 async function refreshProfiles() {
   // Tę listę wykorzystujesz w panelu admina – rób to tylko jako Admin.
   setLoadingProfiles(true);
@@ -884,17 +627,6 @@ const allTournaments = useMemo(
   [tournaments]
 );
   
-// Podział na nadchodzące i zakończone (prosto: po obecności wyniku)
-const upcomingMatches = useMemo(
-  () => state.matches.filter(m => !m.result || m.result.trim() === ""),
-  [state.matches]
-);
-
-const finishedMatches = useMemo(
-  () => state.matches.filter(m => !!m.result && m.result.trim() !== ""),
-  [state.matches]
-);
-
 function getMyMatchRole(user: { name?: string } | null | undefined, match: Match) {
   const name = user?.name?.trim();
   if (!name) return null;
@@ -937,21 +669,12 @@ const navPillClass = (isActive: boolean) => clsx(
 );
 
   // Load matches from Supabase and merge docs from localStorage
-  const [loadingMatches,setLoadingMatches]=useState(false)
+const [,setLoadingMatches]=useState(false)
   
     async function refreshMatches() {
   setLoadingMatches(true);
   try {
-    console.log("[matches] raw fetch start");
     const rows = await listMatches();
-    console.log("[matches] raw fetch result", {
-      count: rows?.length,
-      matches: rows,
-    });
-    if (typeof window !== "undefined") {
-      (window as any).__wpMatchesCount = rows?.length || 0;
-    }
-
     // zmapuj wiersze z DB na nasz kształt Match
 const matches: Match[] = rows.map((r: any) => ({
   id: r.id,
@@ -1126,14 +849,6 @@ const delegateCandidateNames = Array.from(new Set([
   ...refereeNames,
 ]));
 
- async function handleRemovePenalty(id: string) {
-  try {
-    await deletePenalty(id);
-    await refreshPenalties();
-  } catch (e: any) {
-    alert("Błąd usuwania kary: " + e.message);
-  }
-}
  return (
 <div className="wp-theme relative min-h-screen w-full max-w-full overflow-hidden bg-[#f6faff] px-3 py-3 sm:px-4 sm:py-4 md:px-8 md:py-6">
   <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_16%_18%,rgba(56,189,248,0.2),transparent_34%),radial-gradient(circle_at_84%_20%,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,#f6faff_0%,#edf6ff_55%,#e9edf2_100%)]" />
@@ -1231,6 +946,7 @@ const delegateCandidateNames = Array.from(new Set([
   </div>
 </header>
 
+<React.Suspense fallback={<main className="mx-auto w-full max-w-[1220px] rounded-3xl border border-[#dbeafe] bg-white p-8 text-center text-sm text-slate-500 shadow-sm">Ładowanie wybranej sekcji…</main>}>
 <main className="mx-auto grid w-full min-w-0 max-w-[1220px] gap-5">
 
   {/* === [3.3] HOME: pasek 3 najnowszych newsów + dotychczasowa strona === */}
@@ -1383,8 +1099,6 @@ const delegateCandidateNames = Array.from(new Set([
               </button>
             </div>
           </Section>
-
-          <Diagnostics state={state} />
         </section>
       )}
 
@@ -1514,6 +1228,7 @@ const delegateCandidateNames = Array.from(new Set([
   <RegisterForm onDone={() => setPage('home')} />
 )}
 </main>
+</React.Suspense>
   </div>)
 }
 

@@ -46,9 +46,9 @@ type AdminPanelProps = {
 };
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
-  state,
+  state: _state,
   matches,
-  setState,
+  setState: _setState,
   clubs,
   refereeNames,
   delegateNames,

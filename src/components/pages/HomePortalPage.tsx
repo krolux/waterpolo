@@ -95,10 +95,6 @@ export const HomePortalPage: React.FC<HomePortalPageProps> = ({
     clubsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [effectiveUser, onOpenClubPage]);
 
-  const scrollToTables = React.useCallback(() => {
-    tablesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
-
   return (
     <div className="w-full min-w-0 space-y-6 bg-transparent pb-6 sm:space-y-8">
       <HomeHero

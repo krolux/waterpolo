@@ -9,12 +9,10 @@ export const LoginBox: React.FC<{ classes: Record<string, string> }> = ({ classe
   const [busy, setBusy] = useState(false)
 
   const handleSignIn = async () => {
-    console.log('[LoginBox] CLICK login', { email })
     if (!email || !password) { alert('Podaj email i hasło'); return }
     try {
       setBusy(true)
       await signIn(email, password)
-      console.log('[LoginBox] signIn OK')
       setPassword('')
     } catch (e: any) {
       console.error('[LoginBox] signIn ERROR', e)

@@ -82,10 +82,6 @@ function isClub(u: { role: Role }) {
   return hasRole(u, "Club") || isAdmin(u);
 }
 
-function isDelegate(u: { role: Role }) {
-  return hasRole(u, "Delegate") || isAdmin(u);
-}
-
 function canUploadComms(user: { role: Role; club?: string }, m: Match) {
   return isClub(user) && !!user.club && user.club === m.home;
 }
@@ -189,8 +185,6 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
             }
 
             const clubKey = normKey(match.home);
-            console.log("[UPLOAD] comms ->", { matchId: match.id, clubKey, file: files[0]?.name });
-
             const sf = await toStoredFileUsingStorage(
               "comms",
               match.id,
@@ -210,8 +204,6 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
 
             const clubName = key === "home" ? match.home : match.away;
             const clubKey = normKey(clubName);
-            console.log("[UPLOAD] roster ->", { matchId: match.id, clubKey, file: files[0]?.name });
-
             const sf = await toStoredFileUsingStorage(
               "roster",
               match.id,
@@ -238,8 +230,6 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
             return;
           }
 
-          console.log("[UPLOAD] report ->", { matchId: match.id, file: files[0]?.name });
-
           const sf = await toStoredFileUsingStorage(
             "report",
             match.id,
@@ -264,8 +254,6 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
             alert("Zdjęcia raportu może dodać tylko delegat tego meczu lub Admin.");
             return;
           }
-
-          console.log("[UPLOAD] photos ->", { matchId: match.id, count: files.length });
 
           const sfs: StoredFile[] = [];
           for (const f of files) {
@@ -311,7 +299,6 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
   }
 
   const canClubAct = () => isClub(user) && !!user.club;
-  const canDelegateAct = () => isDelegate(user);
 
   return (
     <div className="grid gap-4">

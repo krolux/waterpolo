@@ -257,10 +257,6 @@ export function generateRosterVerificationCode(): string {
   return `WP-${suffix}`;
 }
 
-type PlayerLookup = PlayerRow & {
-  club_name?: string | null;
-};
-
 async function getPlayersByIds(playerIds: string[]): Promise<Map<string, PlayerRow>> {
   if (playerIds.length === 0) {
     return new Map();
@@ -407,30 +403,6 @@ async function loadTournamentRosterPlayers(rosterIds: string[]): Promise<Map<str
 
   const grouped = new Map<string, TournamentRosterPlayerRow[]>();
   for (const row of (data || []) as TournamentRosterPlayerRow[]) {
-    const list = grouped.get(row.roster_id) || [];
-    list.push(row);
-    grouped.set(row.roster_id, list);
-  }
-
-  return grouped;
-}
-
-async function loadMatchRosterPlayers(rosterIds: string[]): Promise<Map<string, MatchRosterPlayerRow[]>> {
-  if (rosterIds.length === 0) {
-    return new Map();
-  }
-
-  const { data, error } = await supabase
-    .from('match_roster_players')
-    .select('*')
-    .in('roster_id', rosterIds)
-    .order('roster_id', { ascending: true })
-    .order('slot', { ascending: true });
-
-  if (error) throw error;
-
-  const grouped = new Map<string, MatchRosterPlayerRow[]>();
-  for (const row of (data || []) as MatchRosterPlayerRow[]) {
     const list = grouped.get(row.roster_id) || [];
     list.push(row);
     grouped.set(row.roster_id, list);

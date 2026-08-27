@@ -56,7 +56,7 @@ export const RegisterForm: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
     setLoading(true);
     try {
       // 1) Rejestracja w Auth
-      const { data: sign, error: signErr } = await supabase.auth.signUp({
+      const { error: signErr } = await supabase.auth.signUp({
         email: emailNorm,
         password: passNorm,
       });

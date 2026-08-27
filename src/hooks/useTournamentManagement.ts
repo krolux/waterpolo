@@ -11,7 +11,6 @@ import {
   listStages,
   listTournamentClubs,
   listTournaments,
-  type Competition,
   type CompetitionSeason,
   type Stage,
   type Tournament,

@@ -30,9 +30,8 @@ export function useSupabaseAuth() {
       }
     })()
 
-    const { data: sub } = supabase.auth.onAuthStateChange((evt, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       const u = session?.user
-      console.log('[onAuthStateChange]', evt, u?.id)
       if (u?.id) {
         setUserId(u.id)
         void loadProfile(u.id)
@@ -50,7 +49,6 @@ export function useSupabaseAuth() {
   }, [])
 
   async function loadProfile(id: string) {
-    console.log('[loadProfile] for', id)
     const { data, error } = await supabase
       .from('profiles')
       .select('id, display_name, role')
@@ -74,7 +72,6 @@ export function useSupabaseAuth() {
   }
 
   async function signIn(email: string, password: string) {
-    console.log('[signIn] try', email)
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
@@ -83,7 +80,6 @@ export function useSupabaseAuth() {
       console.error('[signIn] error', error)
       throw error
     }
-    console.log('[signIn] ok', data.user?.id)
     if (data.user?.id) await loadProfile(data.user.id)
   }
 

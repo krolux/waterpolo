@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   listKtpwDocuments,
   uploadKtpwPdf,
@@ -19,8 +19,6 @@ type KtpwDoc = {
   pdfName?: string | null;
 };
 
-const STORAGE_KEY = "wpolo_ktpw_documents";
-
 const CATEGORIES = [
   "Przepisy",
   "Regulaminy",
@@ -33,8 +31,8 @@ const CATEGORIES = [
 export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; isAdmin?: boolean }) {
   const [docs, setDocs] = useState<KtpwDoc[]>([]);
   const [filter, setFilter] = useState<string>("All");
+  const [, setLoading] = useState(false);
 
-  const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // form
@@ -48,7 +46,6 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true);
       try {
         const rows = await listKtpwDocuments();
         if (!cancelled) {
@@ -67,7 +64,6 @@ export default function Ktpw({ effectiveUser, isAdmin }: { effectiveUser?: any; 
       } catch (e:any) {
         console.error('KTPW load failed', e?.message || e);
       }
-      if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);

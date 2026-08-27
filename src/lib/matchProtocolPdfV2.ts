@@ -112,7 +112,6 @@ export async function generateMatchProtocolPdf(match: Match, protocol: MatchProt
   };
 
   const drawPage = (pageIndex: number) => {
-    const pageNumber = pageIndex + 1;
     doc.setTextColor(0); doc.setFont(PDF_FONT, "bold"); doc.setFontSize(14); doc.text("PROTOKÓŁ MECZU PIŁKI WODNEJ", 105, 10, { align: "center" });
     const infoRows = [
       ["Miejsce", match.location || "-", "Data", match.date, "Wynik", `${finalScore.home}:${finalScore.away}`],

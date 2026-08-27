@@ -1,4 +1,4 @@
-const CACHE_NAME = "wpolo-offline-v1";
+const CACHE_NAME = "wpolo-offline-v2";
 const APP_SHELL = ["/"];
 
 self.addEventListener("install", (event) => {
