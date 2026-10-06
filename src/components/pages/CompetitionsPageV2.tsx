@@ -1181,12 +1181,17 @@ export function CompetitionsPageV2({
             <h3 className="mt-1 text-lg font-semibold text-[#061a33]">
               Nadchodzące mecze
             </h3>
+            {archived.length > 0 && (
+              <a href="#match-archive" className="mt-2 inline-block text-sm font-medium text-sky-700 underline underline-offset-4">
+                Przejdź do archiwum meczów ({archived.length})
+              </a>
+            )}
           </div>
           {renderGroupedMatches(upcoming)}
         </section>
       )}
       {archived.length > 0 && (
-        <section className="rounded-2xl border border-sky-100 bg-white">
+        <section id="match-archive" className="scroll-mt-4 rounded-2xl border border-sky-100 bg-white">
           <div className="border-b p-3">
             <h3 className="font-semibold">Archiwum meczów</h3>
             <p className="mt-1 text-sm text-slate-500">
