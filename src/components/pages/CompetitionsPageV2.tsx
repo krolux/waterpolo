@@ -1,3 +1,4 @@
+import { competitionToday, splitMatchSchedule } from '../../lib/matchArchive';
 import { isClubSide } from '../../lib/clubIdentity';
 import React from "react";
 import {
@@ -316,17 +317,8 @@ export function CompetitionsPageV2({
       ),
     [context.matches],
   );
-  const today = new Date().toISOString().slice(0, 10);
-  const upcoming = context.matches
-    .filter((m) => m.date >= today && (!m.result || !m.result.trim()))
-    .sort(
-      (a, b) =>
-        a.date.localeCompare(b.date) ||
-        Number(a.round || 0) - Number(b.round || 0),
-    );
-  const finished = context.matches
-    .filter((m) => !!m.result?.trim())
-    .sort((a, b) => b.date.localeCompare(a.date));
+  const today = competitionToday();
+  const { upcoming, archived } = splitMatchSchedule(context.matches, today);
   const formClubs = React.useMemo(() => {
     const tournamentClubs = matchDraft.tournamentId
       ? context.tournamentClubs
@@ -1193,6 +1185,17 @@ export function CompetitionsPageV2({
           {renderGroupedMatches(upcoming)}
         </section>
       )}
+      {archived.length > 0 && (
+        <section className="rounded-2xl border border-sky-100 bg-white">
+          <div className="border-b p-3">
+            <h3 className="font-semibold">Archiwum meczów</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Zakończone mecze i wcześniejsze kolejki. Znak — oznacza brak wpisanego wyniku.
+            </p>
+          </div>
+          {renderGroupedMatches(archived)}
+        </section>
+      )}
       {context.matches.length > 0 && (
         <RankingTable matches={context.matches} clubs={matchClubs} />
       )}
@@ -1244,12 +1247,6 @@ export function CompetitionsPageV2({
               ))}
           </section>
         ))}
-      {finished.length > 0 && (
-        <section className="rounded-2xl border border-sky-100 bg-white">
-          <h3 className="border-b p-3 font-semibold">Zakończone mecze</h3>
-          {renderGroupedMatches(finished)}
-        </section>
-      )}
       <div className="text-xs text-slate-400">
         Stan na {today}. Rozgrywki V2.
       </div>
