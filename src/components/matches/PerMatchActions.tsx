@@ -1,3 +1,4 @@
+import { HostMatchDetails } from './HostMatchDetails';
 import { canEditMatchResult } from '../../lib/matchResultAccess';
 import { isClubSide } from '../../lib/clubIdentity';
 import React, { useEffect, useMemo, useState } from "react";
@@ -85,11 +86,11 @@ function isClub(u: { role: Role }) {
 }
 
 function canUploadComms(user: { role: Role; club?: string; clubId?: string }, m: Match) {
-  return isAdmin(user) || isClub(user) && !!user.club && isClubSide(user, m, "home");
+  return isAdmin(user) || isClub(user) && !!user.clubId && isClubSide(user, m, "home");
 }
 
 function canUploadRoster(user: { role: Role; club?: string; clubId?: string }, m: Match) {
-  return isAdmin(user) || isClub(user) && !!user.club && (isClubSide(user, m, "home") || isClubSide(user, m, "away"));
+  return isAdmin(user) || isClub(user) && !!user.clubId && (isClubSide(user, m, "home") || isClubSide(user, m, "away"));
 }
 
 function canUploadReport(user: { role: Role; name?: string }, m: Match) {
@@ -140,6 +141,8 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
   const [savingResult, setSavingResult] = useState(false);
   const [resultMessage, setResultMessage] = useState("");
   const [resultError, setResultError] = useState("");
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [adminRosterSide, setAdminRosterSide] = useState<"home" | "away">("home");
   const [resultDraft, setResultDraft] = useState<string>(match?.result || "");
   const [shootoutDraft, setShootoutDraft] = useState<boolean>(!!match?.shootout);
 
@@ -162,6 +165,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
 
     const input = document.createElement("input");
     input.type = "file";
+    input.accept = type === "photos" ? "image/jpeg,image/png,image/webp" : ".pdf,application/pdf";
     if (type === "photos") input.multiple = true;
 
     input.onchange = async () => {
@@ -176,7 +180,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
           return;
         }
 
-        const key = isAdmin(user) ? "home" : isClubSide(user, match, "home") ? "home" : isClubSide(user, match, "away") ? "away" : null;
+        const key = isAdmin(user) ? (type === "roster" ? adminRosterSide : "home") : isClubSide(user, match, "home") ? "home" : isClubSide(user, match, "away") ? "away" : null;
 
         if (!key) {
           alert("Twój klub nie jest przypisany do tego meczu.");
@@ -281,6 +285,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
         ...prev,
         matches: prev.matches.map(m => (m.id === match.id ? next : m)),
       }));
+      setUploadMessage(type === "roster" ? "Dodano skład PDF." : "Dodano dokument meczu.");
       onPenaltiesChange();
     };
 
@@ -343,6 +348,10 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
       {match && (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
+            {uploadMessage && <p role="status" className="text-green-700">{uploadMessage}</p>}
+          {isAdmin(user) && (
+              <label>Skład PDF dla: <select className={classes.input} value={adminRosterSide} onChange={e => setAdminRosterSide(e.target.value as "home" | "away")}><option value="home">{match.home} (gospodarz)</option><option value="away">{match.away} (goście)</option></select></label>
+            )}
             {canClubAct() && (
               <>
                 {canUploadComms(user, match) && (
@@ -352,7 +361,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
                 )}
                 {canUploadRoster(user, match) ? (
                   <button onClick={() => handleUpload("roster")} className={clsx(classes.btnOutline, "flex items-center gap-2")}>
-                    <UploadCloud className="w-4 h-4" />Dodaj skład (Twój klub)
+                    <UploadCloud className="w-4 h-4" />Dodaj skład PDF (Twój klub)
                   </button>
                 ) : (
                   <div className="text-sm text-gray-600">Twój klub nie jest uczestnikiem tego meczu.</div>
@@ -360,98 +369,8 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
               </>
             )}
 
-            {match && (isAdmin(user) || isClubSide(user, match, "home")) && (
-              <>
-                <div className="mt-4 border-t pt-3">
-                  <div className="text-sm text-amber-600 font-medium mb-2">Zmień datę / godzinę (gospodarz)</div>
-                  <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-end">
-                    <div>
-                      <label className="text-xs text-gray-600">Data</label>
-                      <input
-                        type="date"
-                        defaultValue={match.date}
-                        id="host-date"
-                        className={classes.input}
-                        style={{ minWidth: 180 }}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Godzina (opcjonalnie)</label>
-                      <input
-                        type="time"
-                        defaultValue={match.time || ""}
-                        id="host-time"
-                        className={classes.input}
-                        style={{ minWidth: 160 }}
-                      />
-                    </div>
-                    <button
-                      className={classes.btnPrimary}
-                      onClick={async () => {
-                        const dateEl = document.getElementById("host-date") as HTMLInputElement;
-                        const timeEl = document.getElementById("host-time") as HTMLInputElement;
-                        const streamEl = document.getElementById("host-stream") as HTMLInputElement;
-
-                        const newDate = (dateEl?.value || "").trim();
-                        const newTime = (timeEl?.value || "").trim();
-                        const rawStream = (streamEl?.value || "").trim();
-                        const safeStream = sanitizeUrl(rawStream);
-
-                        if (!newDate) {
-                          alert("Podaj poprawną datę.");
-                          return;
-                        }
-                        if (rawStream && !safeStream) {
-                          alert("Podany link do transmisji jest niepoprawny. Upewnij się, że zaczyna się od http(s)://");
-                          return;
-                        }
-
-                        try {
-                          const { error } = await supabase
-                            .from("matches")
-                            .update({
-                              date: newDate,
-                              time: newTime || null,
-                              stream_url: safeStream || null,
-                            })
-                            .eq("id", match.id);
-                          if (error) throw error;
-
-                          const updated = {
-                            ...match,
-                            date: newDate,
-                            time: newTime,
-                            streamUrl: safeStream || null,
-                          };
-                          setState(prev => ({
-                            ...prev,
-                            matches: prev.matches.map(m => (m.id === match.id ? updated : m)),
-                          }));
-                          alert("Zaktualizowano termin i link do transmisji.");
-                        } catch (e: any) {
-                          alert("Błąd zapisu: " + e.message);
-                        }
-                      }}
-                    >
-                      Zapisz termin i link
-                    </button>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Uprawnienie tylko dla klubu-gospodarza. Zmienić można datę, godzinę oraz link do transmisji.
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-600">Link do transmisji (opcjonalnie)</label>
-                  <input
-                    type="url"
-                    defaultValue={match.streamUrl || ""}
-                    id="host-stream"
-                    placeholder="https://..."
-                    className={classes.input}
-                    style={{ minWidth: 260 }}
-                  />
-                </div>
-              </>
+            {(isAdmin(user) || isClubSide(user, match, "home")) && (
+              <HostMatchDetails match={match} setState={setState} onSaved={onResultSaved} />
             )}
 
             {canActAsDelegate && (

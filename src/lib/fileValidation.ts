@@ -10,7 +10,7 @@ export function assertSafeImage(file: File, maxBytes = 10 * 1024 * 1024) {
 }
 
 export function assertSafePdf(file: File, maxBytes = 20 * 1024 * 1024) {
-  if (file.type !== "application/pdf") throw new Error("Wybierz plik PDF.");
+  if (file.type !== "application/pdf" && !((file.type === "" || file.type === "application/octet-stream") && /\.pdf$/i.test(file.name))) throw new Error("Wybierz plik PDF.");
   if (file.size <= 0 || file.size > maxBytes) {
     throw new Error(`Plik PDF może mieć maksymalnie ${Math.round(maxBytes / 1024 / 1024)} MB.`);
   }

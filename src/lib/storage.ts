@@ -61,7 +61,7 @@ export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: s
     const { data, error } = await supabase.storage.from("docs2").upload(path, file, {
       cacheControl: "3600",
       upsert: false, // każda próba zapisuje nową, unikalną ścieżkę
-      contentType: file.type || "application/octet-stream",
+      contentType: kind === "photos" ? file.type : "application/pdf",
     });
     if (error) throw error;
     return (data?.path as string) || path;
@@ -73,7 +73,7 @@ export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: s
       const { data, error } = await supabase.storage.from("docs2").upload(path, file, {
         cacheControl: "3600",
         upsert: false,
-        contentType: file.type || "application/octet-stream",
+        contentType: kind === "photos" ? file.type : "application/pdf",
       });
       if (error) throw error;
       return (data?.path as string) || path;
