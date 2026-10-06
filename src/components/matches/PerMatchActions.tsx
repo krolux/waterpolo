@@ -1,3 +1,4 @@
+import { canEditMatchResult } from '../../lib/matchResultAccess';
 import { isClubSide } from '../../lib/clubIdentity';
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Image, UploadCloud } from "lucide-react";
@@ -95,9 +96,6 @@ function canUploadReport(user: { role: Role; name?: string }, m: Match) {
   return isAdmin(user) || (!!m.delegate && !!user?.name && m.delegate === user.name);
 }
 
-function canEditResult(user: { role: Role; name: string }, m: Match) {
-  return isAdmin(user) || (!!m.delegate && m.delegate === user.name);
-}
 
 type PerMatchActionsProps = {
   state: AppState;
@@ -105,6 +103,7 @@ type PerMatchActionsProps = {
   user: { name: string; role: Role; club?: string; clubId?: string };
   onPenaltiesChange: () => void;
   fixedMatch?: Match;
+  onResultSaved?: () => Promise<void> | void;
 };
 
 export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
@@ -113,6 +112,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
   user,
   onPenaltiesChange,
   fixedMatch,
+  onResultSaved,
 }) => {
   const availableMatches = useMemo(() => {
     if (fixedMatch) return [fixedMatch];
@@ -137,10 +137,15 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
   const match = fixedMatch ?? (availableMatches.find(m => m.id === selectedId) || null);
   const isMatchDelegate = !!match && match.delegate === user.name;
   const canActAsDelegate = isAdmin(user) || isMatchDelegate;
+  const [savingResult, setSavingResult] = useState(false);
+  const [resultMessage, setResultMessage] = useState("");
+  const [resultError, setResultError] = useState("");
   const [resultDraft, setResultDraft] = useState<string>(match?.result || "");
   const [shootoutDraft, setShootoutDraft] = useState<boolean>(!!match?.shootout);
 
   useEffect(() => {
+    setResultMessage("");
+    setResultError("");
     setResultDraft(match?.result || "");
     setShootoutDraft(!!match?.shootout);
   }, [match?.id]);
@@ -283,21 +288,31 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
   }
 
   async function saveResult() {
-    if (!match) return;
-    if (!canEditResult(user, match)) {
-      alert("Wynik może ustawić tylko delegat tego meczu.");
+    if (!match || savingResult) return;
+    if (!canEditMatchResult(user, match)) {
+      alert("Wynik może zapisać administrator, delegat lub sędzia przypisany do tego meczu.");
       return;
     }
+    setSavingResult(true);
+    setResultMessage("");
+    setResultError("");
     try {
-      await setMatchResult(match.id, resultDraft, shootoutDraft);
+      const saved = await setMatchResult(match.id, resultDraft, shootoutDraft);
       setState(prev => ({
         ...prev,
         matches: prev.matches.map(m =>
-          m.id === match.id ? { ...m, result: resultDraft, shootout: shootoutDraft } : m
+          m.id === match.id ? { ...m, result: saved.result, shootout: saved.shootout } : m
         ),
       }));
+      setResultDraft(saved.result);
+      setResultMessage("Zapisano wynik " + saved.result + ".");
+      if (onResultSaved) {
+        try { await onResultSaved(); } catch { setResultMessage("Wynik zapisano. Odśwież stronę, aby odświeżyć tabelę."); }
+      }
     } catch (e: any) {
-      alert("Błąd zapisu wyniku: " + e.message);
+      setResultError("Błąd zapisu wyniku: " + (e?.message || String(e)));
+    } finally {
+      setSavingResult(false);
     }
   }
 
@@ -511,7 +526,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
             </div>
           )}
 
-          {canEditResult(user, match) && (
+          {canEditMatchResult(user, match) && (
             <div className="grid gap-2 grid-cols-1 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
               <input
                 className={classes.input + " w-full sm:w-auto"}
@@ -528,13 +543,16 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
 
               <button
                 onClick={saveResult}
+                disabled={savingResult}
                 className={clsx(classes.btnPrimary, "flex items-center gap-2 w-full sm:w-auto")}
               >
                 <Check className="w-4 h-4" />
-                Zapisz wynik
+                {savingResult ? "Zapisywanie…" : "Zapisz wynik"}
               </button>
 
-              <span className="text-xs text-gray-500 block">(Dostępne tylko dla delegata tego meczu)</span>
+              <span className="text-xs text-gray-500 block">Administrator, delegat lub sędzia tego meczu</span>
+              {resultMessage && <p role="status" className="text-sm text-green-700">{resultMessage}</p>}
+              {resultError && <p role="alert" className="text-sm text-red-700">{resultError}</p>}
             </div>
           )}
         </div>

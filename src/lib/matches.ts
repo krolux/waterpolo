@@ -1,3 +1,4 @@
+import { normalizeMatchResult } from './matchResultAccess';
 import { supabase } from './supabase'
 import { refreshClubIdentity, resolveMatchClubs, clubIdForName } from './clubIdentity'
 
@@ -155,11 +156,11 @@ export async function deleteMatch(id: string) {
 }
 
 // zapisz wynik + informację czy były rzuty karne
-export async function setMatchResult(id: string, result: string, shootout: boolean) {
-  const { error } = await supabase
-    .from('matches')
-    .update({ result, shootout })
-    .eq('id', id)
-
-  if (error) throw error
+export async function setMatchResult(id: string, result: string, shootout: boolean): Promise<{ id: string; result: string; shootout: boolean }> {
+  const { data, error } = await supabase.rpc('save_match_result', {
+    target_match_id: id, score: normalizeMatchResult(result), penalties: shootout,
+  });
+  if (error) throw error;
+  if (!data || data.id !== id || typeof data.result !== 'string') throw new Error('Baza nie potwierdziła zapisu wyniku.');
+  return data;
 }

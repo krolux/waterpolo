@@ -718,6 +718,7 @@ export function CompetitionsPageV2({
                   user={effectiveUser}
                   onPenaltiesChange={onPenaltiesChange}
                   fixedMatch={actionMatch}
+                  onResultSaved={async () => { await onMatchesChanged(); await reload(); }}
                 />
               </div>
             )}
@@ -937,6 +938,7 @@ export function CompetitionsPageV2({
                             user={effectiveUser}
                             onPenaltiesChange={onPenaltiesChange}
                             fixedMatch={actionMatch}
+                            onResultSaved={async () => { await onMatchesChanged(); await reload(); }}
                           />
                         </td>
                       </tr>
