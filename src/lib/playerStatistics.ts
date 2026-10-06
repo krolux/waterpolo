@@ -1,3 +1,4 @@
+import { normalizeClubName } from './clubIdentity';
 import { supabase } from "./supabase";
 
 export type PublicPlayerMatch = {
@@ -36,6 +37,9 @@ export async function listPublicPlayerStatistics(): Promise<PublicPlayerStatisti
     player_id_filter: null,
   });
   if (error) throw error;
-  return Array.isArray(data) ? data as PublicPlayerStatistics[] : [];
+  return Array.isArray(data) ? (data as PublicPlayerStatistics[]).map(row => ({ ...row,
+    club: normalizeClubName(row.club), registeredClub: row.registeredClub ? normalizeClubName(row.registeredClub) : row.registeredClub,
+    matches: (row.matches || []).map(match => ({ ...match, home: normalizeClubName(match.home), away: normalizeClubName(match.away), club: normalizeClubName(match.club) }))
+  })) : [];
 }
 

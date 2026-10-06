@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { refreshClubIdentity, resolveMatchClubs, clubDisplayName, clubIdForName } from './clubIdentity';
 
 export type Competition = {
   id: string;
@@ -229,6 +230,7 @@ export type TournamentMatch = {
  * Pobierz mecze dla danego turnieju
  */
 export async function listTournamentMatches(tournamentId: string): Promise<TournamentMatch[]> {
+  await refreshClubIdentity();
   const { data, error } = await supabase
     .from('matches')
     .select('*')
@@ -237,7 +239,7 @@ export async function listTournamentMatches(tournamentId: string): Promise<Tourn
     .order('time', { ascending: true, nullsFirst: true });
 
   if (error) throw error;
-  return (data || []) as TournamentMatch[];
+  return (data || []).map(resolveMatchClubs) as TournamentMatch[];
 }
 
 /**
@@ -260,6 +262,7 @@ export async function addTournamentMatch(
     delegate?: string;
   }
 ): Promise<TournamentMatch> {
+  await refreshClubIdentity();
   const { data: result, error } = await supabase
     .from('matches')
     .insert([
@@ -273,6 +276,8 @@ export async function addTournamentMatch(
         series_round: data.series_round || null,
         location: data.location,
         home: data.home,
+        home_club_id: clubIdForName(data.home) ?? null,
+        away_club_id: clubIdForName(data.away) ?? null,
         away: data.away,
         referee1: data.referee1 || null,
         referee2: data.referee2 || null,
@@ -306,6 +311,7 @@ export type TournamentClub = {
 };
 
 export async function listTournamentClubs(tournamentId: string): Promise<TournamentClub[]> {
+  await refreshClubIdentity();
   const { data, error } = await supabase
     .from('tournament_clubs')
     .select('*')
@@ -313,7 +319,7 @@ export async function listTournamentClubs(tournamentId: string): Promise<Tournam
     .order('club_name', { ascending: true });
 
   if (error) throw error;
-  return (data || []) as TournamentClub[];
+  return (data || []).map(row => ({ ...row, club_name: clubDisplayName(row.club_name, row.club_id) })) as TournamentClub[];
 }
 
 export async function addTournamentClub(

@@ -1,3 +1,4 @@
+import { normalizeClubName, refreshClubIdentity, resolveMatchClubs } from './clubIdentity';
 import { supabase } from './supabaseClient';
 
 export type PlayerRow = {
@@ -301,7 +302,7 @@ export async function getPlayerLicenseStatuses(playerIds: string[]): Promise<Map
 }
 
 export async function getClubIdsByNames(clubNames: string[]): Promise<Map<string, string>> {
-  const normalized = Array.from(new Set(clubNames.map((name) => name.trim()).filter(Boolean)));
+  const normalized = Array.from(new Set(clubNames.map((name) => normalizeClubName(name)).filter(Boolean)));
   if (normalized.length === 0) {
     return new Map();
   }
@@ -314,7 +315,7 @@ export async function getClubIdsByNames(clubNames: string[]): Promise<Map<string
   if (error) throw error;
 
   const rows = (data || []) as ClubLookupRow[];
-  return new Map(rows.map((row) => [row.name, row.id]));
+  return new Map(clubNames.flatMap(name => { const row = rows.find(row => normalizeClubName(row.name) === normalizeClubName(name)); return row ? [[name, row.id] as [string, string]] : []; }));
 }
 
 export async function listClubsForLogoManagement(): Promise<ClubLookupRow[]> {
@@ -774,16 +775,17 @@ export async function getMatchRoster(matchId: string, clubId: string): Promise<M
 }
 
 export async function getMatchRosterPdfPayload(matchId: string, clubId: string): Promise<MatchRosterPdfPayload | null> {
+  await refreshClubIdentity();
   const [clubResponse, matchResponse] = await Promise.all([
     supabase.from('clubs').select('id,name,logo_url').eq('id', clubId).maybeSingle(),
-    supabase.from('matches').select('id,home,away,date,time,location,tournament_id').eq('id', matchId).maybeSingle(),
+    supabase.from('matches').select('*').eq('id', matchId).maybeSingle(),
   ]);
 
   if (clubResponse.error) throw clubResponse.error;
   if (matchResponse.error) throw matchResponse.error;
 
   const club = clubResponse.data as ClubLookupRow | null;
-  const match = matchResponse.data as MatchRowForPdf | null;
+  const match = matchResponse.data ? resolveMatchClubs(matchResponse.data) as MatchRowForPdf : null;
 
   if (!club || !match) return null;
 

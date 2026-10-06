@@ -111,3 +111,39 @@ export async function namesOfAvailableReferees(
   }
   return set;
 }
+
+/**
+ * Dostępni sędziowie dla wielu meczów w jednym zapytaniu (bez N+1 w pętli).
+ * Zwraca Mapę: match_id -> lista { id, name } dostępnych sędziów.
+ */
+export async function getAvailableRefereesForMatches(
+  matchIds: string[]
+): Promise<Map<string, { id: string; name: string }[]>> {
+  const map = new Map<string, { id: string; name: string }[]>();
+  if (matchIds.length === 0) return map;
+
+  const { data, error } = await supabase
+    .from("match_availability")
+    .select(`
+      match_id,
+      referee_id,
+      profiles!inner ( display_name, role )
+    `)
+    .in("match_id", matchIds)
+    .eq("available", true);
+
+  if (error) throw error;
+
+  for (const row of data || []) {
+    const matchId = (row as any)?.match_id as string | undefined;
+    const refereeId = (row as any)?.referee_id as string | undefined;
+    const name = (row as any)?.profiles?.display_name as string | undefined;
+    const role = (row as any)?.profiles?.role as string | undefined;
+    if (!matchId || !refereeId || !name) continue;
+    if (role !== "Referee" && role !== "Admin") continue;
+    const list = map.get(matchId) || [];
+    list.push({ id: refereeId, name });
+    map.set(matchId, list);
+  }
+  return map;
+}

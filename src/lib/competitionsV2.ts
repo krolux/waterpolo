@@ -1,3 +1,4 @@
+import { refreshClubIdentity, clubDisplayName } from './clubIdentity';
 import { supabase } from "./supabase";
 import { fromMatchDbRow, type DbMatchRow } from "./matches";
 import type { Competition, CompetitionSeason, Stage, Tournament, TournamentClub } from "./competitions";
@@ -40,6 +41,7 @@ export async function loadCompetitionsV2(): Promise<Competition[]> {
 }
 
 export async function loadCompetitionContextV2(code: CompetitionCode): Promise<CompetitionContextV2> {
+  await refreshClubIdentity();
   const competitions = await loadCompetitionsV2();
   const competition = competitions.find(item => codeOf(item) === code) ?? null;
   if (!competition) return { competition: null, season: null, stages: [], tournaments: [], tournamentClubs: [], matches: [] };
@@ -67,7 +69,7 @@ export async function loadCompetitionContextV2(code: CompetitionCode): Promise<C
         const { data: clubRows, error: clubsError } = await supabase
           .from("tournament_clubs").select("*").in("tournament_id", tournaments.map(item => item.id)).order("club_name");
         if (clubsError) throw clubsError;
-        tournamentClubs = (clubRows || []) as TournamentClub[];
+        tournamentClubs = (clubRows || []).map(row => ({ ...row, club_name: clubDisplayName(row.club_name, row.club_id) })) as TournamentClub[];
       }
     }
   }

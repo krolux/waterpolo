@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');const ts=require('typescript');const vm=require('node:vm');
+let rows=[{id:'bytom',name:'WTS Polonia Bytom'},{id:'other',name:'Other club'}];
+const stub={from:()=>({select:async()=>({data:rows,error:null})})};
+const source=fs.readFileSync(require('node:path').join(__dirname,'../src/lib/clubIdentity.ts'),'utf8');
+const moduleUnderTest={exports:{}};
+vm.runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:moduleUnderTest.exports,require:()=>({supabase:stub})});
+(async()=>{
+const c=moduleUnderTest.exports;await c.refreshClubIdentity();
+const old=c.legacyClubName;const match=c.resolveMatchClubs({home:old,away:'Other club'});
+assert.equal(match.home,'WTS Polonia Bytom');assert.equal(match.homeClubId,'bytom');assert.equal(match.legacyHome,old);
+assert.equal(c.normalizeClubName(old+' II'),old+' II');
+assert.equal(c.isClubSide({role:'Club',clubId:'bytom'},match,'home'),true);
+assert.equal(c.isClubSide({role:'Club',clubId:'other'},match,'home'),false);
+assert.equal(c.isClubSide({role:'Club',clubId:'other'},match,'away'),true);
+assert.equal(c.isClubSide({role:'Referee',clubId:'bytom'},match,'home'),false);
+assert.equal(c.isClubSide({role:'Club',club:old},match,'home'),false);
+assert.equal(c.isClubSide({role:'Club-Referee',clubId:'bytom'},match,'home'),true);
+const explicit=c.resolveMatchClubs({home:old,away:'Other club',home_club_id:'other'});
+assert.equal(explicit.home,'Other club');assert.equal(c.isClubSide({role:'Club',clubId:'bytom'},explicit,'home'),false);
+rows=[...rows,{id:'duplicate',name:'WTS Polonia Bytom'}];await c.refreshClubIdentity();
+assert.equal(c.clubIdForName(old),undefined);
+console.log('Club identity: legacy display, ID precedence, mixed roles, foreign club denial, missing ID and duplicate ambiguity passed.');
+})().catch(e=>{console.error(e);process.exitCode=1});

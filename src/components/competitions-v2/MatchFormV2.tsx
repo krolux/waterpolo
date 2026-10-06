@@ -23,12 +23,20 @@ type Props = {
   onSave: () => void;
   onHide: () => void;
   onCancel: () => void;
+  availableRefereeNames?: Set<string>;
 };
 
 const input = "w-full rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm";
 
-export function MatchFormV2({ draft, setDraft, tournaments, clubs, refereeNames, delegateNames, editing, onSave, onHide, onCancel }: Props) {
+export function MatchFormV2({ draft, setDraft, tournaments, clubs, refereeNames, delegateNames, editing, onSave, onHide, onCancel, availableRefereeNames }: Props) {
   const set = (key: keyof MatchDraftV2, value: string) => setDraft(old => ({ ...old, [key]: value }));
+  // Odporne na różnice w białych znakach/wielkości liter między listą sędziów a wpisami dostępności.
+  const normalize = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
+  const normalizedAvailable = React.useMemo(
+    () => new Set(Array.from(availableRefereeNames ?? []).map(normalize)),
+    [availableRefereeNames],
+  );
+  const isAvailable = (name: string) => normalizedAvailable.has(normalize(name));
   return <div className="rounded-2xl border border-sky-200 bg-[#f8fcff] p-4 shadow-sm">
     <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-[#061a33]">{editing ? "Edytuj mecz" : "Dodaj mecz"}</h3><button aria-label="Schowaj formularz" onClick={onHide}><X className="h-5 w-5" /></button></div>
     <div className="grid gap-2 md:grid-cols-2">
@@ -44,8 +52,8 @@ export function MatchFormV2({ draft, setDraft, tournaments, clubs, refereeNames,
       <input className={input} placeholder="Runda" value={draft.series_round || ""} onChange={e => set("series_round", e.target.value)} />
       <input className={input} placeholder="Wynik, np. 10:8" value={draft.result || ""} onChange={e => set("result", e.target.value)} />
       <input className={input} placeholder="Link do transmisji" value={draft.stream_url || ""} onChange={e => set("stream_url", e.target.value)} />
-      <select className={input} value={draft.referee1 || ""} onChange={e => set("referee1", e.target.value)}><option value="">Sędzia 1</option>{refereeNames.map(n => <option key={n}>{n}</option>)}</select>
-      <select className={input} value={draft.referee2 || ""} onChange={e => set("referee2", e.target.value)}><option value="">Sędzia 2</option>{refereeNames.map(n => <option key={n}>{n}</option>)}</select>
+      <select className={input} value={draft.referee1 || ""} onChange={e => set("referee1", e.target.value)}><option value="">Sędzia 1</option>{refereeNames.map(n => <option key={n} value={n}>{isAvailable(n) ? `✓ DOSTĘPNY — ${n}` : n}</option>)}</select>
+      <select className={input} value={draft.referee2 || ""} onChange={e => set("referee2", e.target.value)}><option value="">Sędzia 2</option>{refereeNames.map(n => <option key={n} value={n}>{isAvailable(n) ? `✓ DOSTĘPNY — ${n}` : n}</option>)}</select>
       <select className={input} value={draft.delegate || ""} onChange={e => set("delegate", e.target.value)}><option value="">Delegat</option>{delegateNames.map(n => <option key={n}>{n}</option>)}</select>
       <input className={input} placeholder="Uwagi" value={draft.notes || ""} onChange={e => set("notes", e.target.value)} />
     </div>

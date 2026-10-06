@@ -1,9 +1,10 @@
+import { isClubSide } from '../../lib/clubIdentity';
 import React from "react";
 import { Check, ChevronDown, ChevronUp, Cloud, CloudOff, Download, FileCheck2, FileDown, Pencil, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import type { Match, Role } from "../../types/wpolo";
 import { PROTOCOL_EVENT_OPTIONS, eventLabel, eventSymbol, exportProtocolFile, importProtocolFile, loadProtocol, loadProtocolContext, loadRemoteProtocol, normalizeProtocolClock, playerGoals, playerMajorFoulEvents, playerMajorFouls, protocolScore, reopenRemoteMatchProtocol, requiresDisciplinaryDecision, saveProtocol, saveRemoteProtocol, type MatchProtocolDraft, type ProtocolContext, type ProtocolEvent, type ProtocolEventKind, type ProtocolPlayer, type ProtocolTeam } from "../../lib/matchProtocol";
 
-type User = { name: string; role: Role; club?: string };
+type User = { name: string; role: Role; club?: string; clubId?: string };
 const input = "w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm outline-none focus:border-sky-400";
 const isAdminUser = (user: User) => String(user.role).split(/[-+,\s]+/).includes("Admin");
 const isDelegate = (user: User, match: Match, delegateName?: string) => isAdminUser(user) || (delegateName || match.delegate) === user.name;
@@ -85,7 +86,7 @@ export function MatchProtocolWorkspace({ match, user, onClose, onProtocolChanged
   const homePlayers = protocol.homePlayers.length ? protocol.homePlayers : context?.homePlayers || [], awayPlayers = protocol.awayPlayers.length ? protocol.awayPlayers : context?.awayPlayers || [];
   const players = team === "home" ? homePlayers : awayPlayers;
   const canApprove = localOnly || isDelegate(user, match);
-  const canSubmit = localOnly || isAdminUser(user) || user.club === match.home || canApprove;
+  const canSubmit = localOnly || isAdminUser(user) || isClubSide(user, match, "home") || canApprove;
   const setup = protocol.status === "setup" && !readOnly;
   const live = protocol.status === "live" && !readOnly;
   const score = protocolScore(protocol.events);

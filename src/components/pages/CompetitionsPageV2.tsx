@@ -1,3 +1,4 @@
+import { isClubSide } from '../../lib/clubIdentity';
 import React from "react";
 import {
   CalendarDays,
@@ -39,7 +40,7 @@ import {
   deleteStage,
   deleteTournament,
 } from "../../lib/competitions";
-import { setMyAvailability } from "../../lib/availability";
+import { setMyAvailability, getAvailableRefereesForMatches } from "../../lib/availability";
 import { AdminAvailableReferees } from "../matches/AdminAvailableReferees";
 import { PerMatchActions } from "../matches/PerMatchActions";
 import { MatchDocuments } from "../matches/MatchDocuments";
@@ -60,13 +61,14 @@ import { RefereeReviewModal } from "../matches/RefereeReviewModal";
 type Props = {
   initialCode: CompetitionCode;
   isAdmin: boolean;
+  isReferee: boolean;
   clubs: string[];
   refereeNames: string[];
   delegateNames: string[];
   onMatchesChanged: () => Promise<void> | void;
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
-  effectiveUser: { name: string; role: Role; club?: string } | null;
+  effectiveUser: { name: string; role: Role; club?: string; clubId?: string } | null;
   onPenaltiesChange: () => void;
 };
 
@@ -96,6 +98,7 @@ const tournamentBlank = (): TournamentDraftV2 => ({
 export function CompetitionsPageV2({
   initialCode,
   isAdmin,
+  isReferee,
   clubs,
   refereeNames,
   delegateNames,
@@ -136,11 +139,21 @@ export function CompetitionsPageV2({
   const [reviewingMatchId, setReviewingMatchId] = React.useState<string | null>(
     null,
   );
+  const [availableRefereesByMatch, setAvailableRefereesByMatch] =
+    React.useState<Map<string, { id: string; name: string }[]>>(new Map());
+  // Dostępność dla AKTUALNIE edytowanego meczu, liczona wprost z editingId
+  // (nie z m.id wiersza), żeby oba renderery (mobile/desktop) używały tego samego źródła.
+  const editingAvailableRefereeNames = React.useMemo(() => {
+    if (!editingId) return new Set<string>();
+    return new Set(
+      (availableRefereesByMatch.get(editingId) || []).map((r) => r.name),
+    );
+  }, [editingId, availableRefereesByMatch]);
   const privateProtocolEnabled = !!effectiveUser;
   const canOpenProtocol = (match: { home: string; delegate?: string }) =>
     !!effectiveUser &&
     (isAdmin ||
-      effectiveUser.club === match.home ||
+      isClubSide(effectiveUser, match, "home") ||
       effectiveUser.name === match.delegate);
   const formRef = React.useRef<HTMLDivElement>(null);
 
@@ -212,6 +225,24 @@ export function CompetitionsPageV2({
       cancelled = true;
     };
   }, [context.matches, effectiveUser]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin || !context.matches.length) {
+      setAvailableRefereesByMatch(new Map());
+      return;
+    }
+    getAvailableRefereesForMatches(context.matches.map((match) => match.id))
+      .then((map) => {
+        if (!cancelled) setAvailableRefereesByMatch(map);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableRefereesByMatch(new Map());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [context.matches, isAdmin]);
 
   const can = React.useCallback(
     (permission: CompetitionPermission) =>
@@ -313,11 +344,48 @@ export function CompetitionsPageV2({
     matchDraft.home,
     matchDraft.tournamentId,
   ]);
-  const isUserReferee =
-    !!effectiveUser &&
-    String(effectiveUser.role)
-      .split(/[-+,\s]+/)
-      .includes("Referee");
+  // Admin jest w naszym modelu biznesowym też sędzią — dostępność ma widzieć
+  // niezależnie od tego, czy prop isReferee poprawnie rozpoznał rolę z profilu.
+  const canSetOwnAvailability = isReferee || isAdmin;
+
+  const setMyAvailabilityWithRollback = React.useCallback(
+    async (matchId: string, available: boolean) => {
+      const previous = state.matches.find((item) => item.id === matchId);
+      const prevAvailable = previous?.myAvailable;
+      const prevSet = previous?.myAvailabilitySet;
+
+      setState((old) => ({
+        ...old,
+        matches: old.matches.map((item) =>
+          item.id === matchId
+            ? { ...item, myAvailable: available, myAvailabilitySet: true }
+            : item,
+        ),
+      }));
+
+      try {
+        await setMyAvailability(matchId, available);
+      } catch (e) {
+        setState((old) => ({
+          ...old,
+          matches: old.matches.map((item) =>
+            item.id === matchId
+              ? {
+                  ...item,
+                  myAvailable: prevAvailable,
+                  myAvailabilitySet: prevSet,
+                }
+              : item,
+          ),
+        }));
+        alert(
+          "Błąd zapisu dostępności: " +
+            (e instanceof Error ? e.message : String(e)),
+        );
+      }
+    },
+    [state.matches, setState],
+  );
 
   const openNew = (kind: "match" | "stage" | "tournament") => {
     setEditingId(null);
@@ -526,65 +594,23 @@ export function CompetitionsPageV2({
                   Wynik: {m.result}
                 </div>
               ) : null}
-              {(isUserReferee || isAdmin || (effectiveUser && actionMatch)) && (
+              {(canSetOwnAvailability || isAdmin || (effectiveUser && actionMatch)) && (
                 <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-sky-50 pt-3">
-                  {isUserReferee && (
+                  {canSetOwnAvailability && (
                     <>
                       <span className="mr-1 text-xs text-slate-500">
-                        Dostępność:
+                        Moja dostępność:
                       </span>
                       <button
                         aria-label={`Dostępny na ${m.home} – ${m.away}`}
-                        onClick={async () => {
-                          try {
-                            await setMyAvailability(m.id, true);
-                            setState((old) => ({
-                              ...old,
-                              matches: old.matches.map((item) =>
-                                item.id === m.id
-                                  ? {
-                                      ...item,
-                                      myAvailable: true,
-                                      myAvailabilitySet: true,
-                                    }
-                                  : item,
-                              ),
-                            }));
-                          } catch (e) {
-                            alert(
-                              "Błąd zapisu dostępności: " +
-                                (e instanceof Error ? e.message : String(e)),
-                            );
-                          }
-                        }}
+                        onClick={() => void setMyAvailabilityWithRollback(m.id, true)}
                         className={`rounded-lg border p-1.5 ${actionMatch?.myAvailabilitySet && actionMatch.myAvailable ? "border-green-300 bg-green-50 text-green-700" : "text-slate-500"}`}
                       >
                         <Check className="h-4 w-4" />
                       </button>
                       <button
                         aria-label={`Niedostępny na ${m.home} – ${m.away}`}
-                        onClick={async () => {
-                          try {
-                            await setMyAvailability(m.id, false);
-                            setState((old) => ({
-                              ...old,
-                              matches: old.matches.map((item) =>
-                                item.id === m.id
-                                  ? {
-                                      ...item,
-                                      myAvailable: false,
-                                      myAvailabilitySet: true,
-                                    }
-                                  : item,
-                              ),
-                            }));
-                          } catch (e) {
-                            alert(
-                              "Błąd zapisu dostępności: " +
-                                (e instanceof Error ? e.message : String(e)),
-                            );
-                          }
-                        }}
+                        onClick={() => void setMyAvailabilityWithRollback(m.id, false)}
                         className={`rounded-lg border p-1.5 ${actionMatch?.myAvailabilitySet && !actionMatch.myAvailable ? "border-red-300 bg-red-50 text-red-700" : "text-slate-500"}`}
                       >
                         <X className="h-4 w-4" />
@@ -667,7 +693,9 @@ export function CompetitionsPageV2({
             </div>
             {isAdmin && (
               <div className="border-t border-sky-50 px-3 py-2">
-                <AdminAvailableReferees matchId={m.id} />
+                <AdminAvailableReferees
+                  names={(availableRefereesByMatch.get(m.id) || []).map((r) => r.name)}
+                />
               </div>
             )}
             {editingId === m.id && form === "match" && (
@@ -686,6 +714,7 @@ export function CompetitionsPageV2({
                   onSave={() => void saveMatch()}
                   onHide={cancel}
                   onCancel={cancel}
+                  availableRefereeNames={editingAvailableRefereeNames}
                 />
               </div>
             )}
@@ -726,10 +755,10 @@ export function CompetitionsPageV2({
                 <th className="p-2">Wynik</th>
                 <th className="p-2">Miejsce</th>
                 <th className="p-2">Obsada</th>
-                {isUserReferee && (
+                {isAdmin && <th className="p-2">Dostępni sędziowie</th>}
+                {canSetOwnAvailability && (
                   <th className="p-2 text-center">Moja dostępność</th>
                 )}
-                {isAdmin && <th className="p-2">Dostępni sędziowie</th>}
                 {effectiveUser && <th className="p-2">Akcje</th>}
               </tr>
             </thead>
@@ -740,8 +769,8 @@ export function CompetitionsPageV2({
                 );
                 const colSpan =
                   5 +
-                  (isUserReferee ? 1 : 0) +
                   (isAdmin ? 1 : 0) +
+                  (canSetOwnAvailability ? 1 : 0) +
                   (effectiveUser ? 1 : 0);
                 return (
                   <React.Fragment key={m.id}>
@@ -769,36 +798,20 @@ export function CompetitionsPageV2({
                           </div>
                         </div>
                       </td>
-                      {isUserReferee && (
+                      {isAdmin && (
+                        <td className="p-2">
+                          <AdminAvailableReferees
+                            names={(availableRefereesByMatch.get(m.id) || []).map((r) => r.name)}
+                          />
+                        </td>
+                      )}
+                      {canSetOwnAvailability && (
                         <td className="p-2">
                           <div className="flex justify-center gap-1">
                             <button
                               aria-label={`Dostępny na ${m.home} – ${m.away}`}
                               title="Jestem dostępny"
-                              onClick={async () => {
-                                try {
-                                  await setMyAvailability(m.id, true);
-                                  setState((old) => ({
-                                    ...old,
-                                    matches: old.matches.map((item) =>
-                                      item.id === m.id
-                                        ? {
-                                            ...item,
-                                            myAvailable: true,
-                                            myAvailabilitySet: true,
-                                          }
-                                        : item,
-                                    ),
-                                  }));
-                                } catch (e) {
-                                  alert(
-                                    "Błąd zapisu dostępności: " +
-                                      (e instanceof Error
-                                        ? e.message
-                                        : String(e)),
-                                  );
-                                }
-                              }}
+                              onClick={() => void setMyAvailabilityWithRollback(m.id, true)}
                               className={`rounded-lg border p-1.5 ${actionMatch?.myAvailabilitySet && actionMatch.myAvailable ? "border-green-300 bg-green-50 text-green-700" : "text-slate-500"}`}
                             >
                               <Check className="h-4 w-4" />
@@ -806,40 +819,12 @@ export function CompetitionsPageV2({
                             <button
                               aria-label={`Niedostępny na ${m.home} – ${m.away}`}
                               title="Nie mogę"
-                              onClick={async () => {
-                                try {
-                                  await setMyAvailability(m.id, false);
-                                  setState((old) => ({
-                                    ...old,
-                                    matches: old.matches.map((item) =>
-                                      item.id === m.id
-                                        ? {
-                                            ...item,
-                                            myAvailable: false,
-                                            myAvailabilitySet: true,
-                                          }
-                                        : item,
-                                    ),
-                                  }));
-                                } catch (e) {
-                                  alert(
-                                    "Błąd zapisu dostępności: " +
-                                      (e instanceof Error
-                                        ? e.message
-                                        : String(e)),
-                                  );
-                                }
-                              }}
+                              onClick={() => void setMyAvailabilityWithRollback(m.id, false)}
                               className={`rounded-lg border p-1.5 ${actionMatch?.myAvailabilitySet && !actionMatch.myAvailable ? "border-red-300 bg-red-50 text-red-700" : "text-slate-500"}`}
                             >
                               <X className="h-4 w-4" />
                             </button>
                           </div>
-                        </td>
-                      )}
-                      {isAdmin && (
-                        <td className="p-2">
-                          <AdminAvailableReferees matchId={m.id} />
                         </td>
                       )}
                       {effectiveUser && (
@@ -945,6 +930,7 @@ export function CompetitionsPageV2({
                               onSave={() => void saveMatch()}
                               onHide={cancel}
                               onCancel={cancel}
+                              availableRefereeNames={editingAvailableRefereeNames}
                             />
                           </div>
                         </td>

@@ -1,8 +1,10 @@
+import { clubDisplayName } from './lib/clubIdentity';
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState } from "react";
 import { FileText, Users, Shield, House, Trophy, CalendarDays, FlaskConical, UserRoundSearch, UserRoundCheck } from "lucide-react";
 import { useSupabaseAuth } from './hooks/useSupabaseAuth'
 import { LoginBox } from './components/LoginBox'
+import { AccountMenu } from './components/AccountMenu'
 import { supabase } from "./lib/supabase"
 import { listMatches } from './lib/matches'
 import { listPenalties, type Penalty } from "./lib/penalties";
@@ -82,7 +84,7 @@ function isReferee(u:{role:Role})  { return hasRole(u,'Referee') || isAdmin(u); 
 
 
 export default function App(){
-const { userId, userDisplay, role: sRole, signOut } = useSupabaseAuth()
+const { userId, userDisplay, role: sRole, signOut, changePassword, updateDisplayName } = useSupabaseAuth()
 
 // Zalogowany = mamy session (userId), rola może być nawet 'Guest'
 const supaUser = userId
@@ -236,7 +238,7 @@ const refreshClubs = React.useCallback(async () => {
     .select("name")
     .order("name", { ascending: true });
 
-  if (!error && data) setClubs(data.map(r => r.name));
+  if (!error && data) setClubs(data.map(r => clubDisplayName(r.name)));
 }, []);
 
 useEffect(() => {
@@ -501,11 +503,11 @@ async function refreshProfiles() {
 const effectiveUser = useMemo(() => {
   if (supaUser) {
     const finalRole = (myProfile?.role ?? supaUser.role) as Role;
-    const club = finalRole === "Club" ? (myProfile?.club_name ?? undefined) : undefined;
-    return { name: userDisplay, role: finalRole, club };
+    const club = roleTokens(finalRole).includes("Club") ? (myProfile?.club_name ?? undefined) : undefined;
+    return { name: userDisplay, role: finalRole, club, clubId: myProfile?.club_id ?? undefined };
   }
-  return demoUser;
-}, [supaUser, myProfile?.role, myProfile?.club_name, userDisplay, demoUser]);
+  return demoUser ? { ...demoUser, club: demoUser.club ? clubDisplayName(demoUser.club) : undefined } : null;
+}, [supaUser, myProfile?.role, myProfile?.club_name, myProfile?.club_id, userDisplay, demoUser]);
 
 const showMyMatches = !!effectiveUser && (isReferee(effectiveUser) || isDelegate(effectiveUser) || isAdmin(effectiveUser));
 const showClubTab = !!effectiveUser && isClub(effectiveUser);
@@ -696,6 +698,10 @@ const matches: Match[] = rows.map((r: any) => ({
     seriesRound: r.series_round || null,
   location: r.location,
   home: r.home,
+  homeClubId: r.homeClubId,
+  awayClubId: r.awayClubId,
+  legacyHome: r.legacyHome,
+  legacyAway: r.legacyAway,
   away: r.away,
   result: r.result || "",
   shootout: !!r.shootout,                
@@ -745,7 +751,7 @@ const norm = normKey;
 
 
 for (const x of d) {
-  if (x.kind === "comms" && x.club_or_neutral === norm(m.home)) {
+  if (x.kind === "comms" && (x.club_or_neutral === m.homeClubId || x.club_or_neutral === norm(m.home) || x.club_or_neutral === norm(m.legacyHome || m.home))) {
     if (!mm.commsByClub.home) {
       mm.commsByClub.home = {
         id: crypto.randomUUID(),
@@ -763,7 +769,7 @@ for (const x of d) {
   if (x.kind === "roster") {
     const target =
       x.club_or_neutral === norm(m.home) ? "home" :
-      x.club_or_neutral === norm(m.away) ? "away" : null;
+      (x.club_or_neutral === m.awayClubId || x.club_or_neutral === norm(m.away) || x.club_or_neutral === norm(m.legacyAway || m.away)) ? "away" : null;
 
     if (target && !mm.rosterByClub[target]) {
       mm.rosterByClub[target] = {
@@ -904,13 +910,13 @@ const delegateCandidateNames = Array.from(new Set([
       {prettyRole(effectiveUser.role)}
       {effectiveUser.club ? ` • ${effectiveUser.club}` : ""}
     </Badge>
-    <span className="max-w-[40vw] truncate text-sm text-slate-700 sm:max-w-none">
-      {effectiveUser.name}
-    </span>
-
-    <button onClick={signOut} className="rounded-xl border border-[#dbeafe] bg-white px-3 py-2 text-sm font-medium text-[#0A1F44] transition hover:bg-sky-50" title="Wyloguj">
-      Wyloguj
-    </button>
+    <AccountMenu
+      classes={classes}
+      name={effectiveUser.name}
+      onSignOut={signOut}
+      onUpdateDisplayName={updateDisplayName}
+      onChangePassword={changePassword}
+    />
 
     {isEditor(effectiveUser) && (
       <button
@@ -1066,6 +1072,7 @@ const delegateCandidateNames = Array.from(new Set([
           <CompetitionsPageV2
             initialCode={competitionStartCode}
             isAdmin={!!effectiveUser && isAdmin(effectiveUser)}
+            isReferee={!!effectiveUser && isReferee(effectiveUser)}
             clubs={clubs}
             refereeNames={refereeNames}
             delegateNames={delegateCandidateNames}

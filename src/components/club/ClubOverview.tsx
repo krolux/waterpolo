@@ -1,3 +1,4 @@
+import { isClubSide } from '../../lib/clubIdentity';
 import React from "react";
 import { FileText, Shield, Users } from "lucide-react";
 import { Section } from "../shared/Section";
@@ -7,7 +8,7 @@ import { DocBadge } from "../shared/DocBadge";
 import { getMatchRoster } from "../../lib/rosters";
 
 type ClubOverviewProps = {
-  effectiveUser: { name: string; role: Role; club?: string } | null;
+  effectiveUser: { name: string; role: Role; club?: string; clubId?: string } | null;
   matches: Match[];
   clubId?: string | null;
   savedRosters?: SaveRosterPayload[];
@@ -22,8 +23,8 @@ export const ClubOverview: React.FC<ClubOverviewProps> = ({ effectiveUser, match
 
   const myClubMatches = React.useMemo(() => {
     if (!myClub) return [];
-    return matches.filter(match => match.home === myClub || match.away === myClub);
-  }, [matches, myClub]);
+    return matches.filter(match => !!effectiveUser && (isClubSide(effectiveUser, match, "home") || isClubSide(effectiveUser, match, "away")));
+  }, [matches, myClub, effectiveUser?.clubId]);
 
   const upcomingClubMatches = React.useMemo(() => {
     return myClubMatches

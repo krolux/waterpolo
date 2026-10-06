@@ -1,3 +1,4 @@
+import { isClubSide } from '../../lib/clubIdentity';
 import React from "react";
 import { CalendarClock, Trash2, Users } from "lucide-react";
 import { PlayerTable } from "../club/PlayerTable";
@@ -34,7 +35,7 @@ type PlayerFormState = {
 };
 
 type ClubDashboardProps = {
-  effectiveUser: { name: string; role: Role; club?: string } | null;
+  effectiveUser: { name: string; role: Role; club?: string; clubId?: string } | null;
   clubId?: string | null;
   matches: Match[];
   competitionNameById?: Record<string, string>;
@@ -371,7 +372,7 @@ export const ClubDashboard: React.FC<ClubDashboardProps> = ({
   const upcomingClubMatches = React.useMemo(() => {
     if (!myClub) return [] as Match[];
     return matches
-      .filter((match) => (match.home === myClub || match.away === myClub) && (!match.result || match.result.trim() === ""))
+      .filter((match) => (!!effectiveUser && (isClubSide(effectiveUser, match, "home") || isClubSide(effectiveUser, match, "away"))) && (!match.result || match.result.trim() === ""))
       .sort((a, b) => parseMatchDateTime(a).getTime() - parseMatchDateTime(b).getTime())
       .slice(0, 6);
   }, [matches, myClub, parseMatchDateTime]);

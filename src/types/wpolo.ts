@@ -11,6 +11,10 @@ export type Match = {
   round?: string;
   seriesRound?: string | null;
   location: string;
+  homeClubId?: string | null;
+  awayClubId?: string | null;
+  legacyHome?: string;
+  legacyAway?: string;
   home: string;
   away: string;
   result?: string;

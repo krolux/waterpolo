@@ -45,7 +45,7 @@ function makePath(kind: DocKind, matchId: string, clubOrNeutral: string, fileNam
 
 /**
  * Upload z „auto-retry”, gdy Storage zwróci „The resource already exists”.
- * Dodatkowo ustawiamy contentType i pozwalamy nadpisać jeśli serwer jednak uzna, że plik istnieje.
+ * Każda próba tworzy nowy plik, więc upload nie wymaga nadpisywania istniejącego obiektu.
  */
 export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: string, file: File) {
   if (kind === "photos") {
@@ -60,7 +60,7 @@ export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: s
   try {
     const { data, error } = await supabase.storage.from("docs2").upload(path, file, {
       cacheControl: "3600",
-      upsert: true, // pozwól nadpisać, jeśli storage jednak „widzi” kolizję
+      upsert: false, // każda próba zapisuje nową, unikalną ścieżkę
       contentType: file.type || "application/octet-stream",
     });
     if (error) throw error;
@@ -72,7 +72,7 @@ export async function uploadDoc(kind: DocKind, matchId: string, clubOrNeutral: s
       path = makePath(kind, matchId, clubOrNeutral, file.name);
       const { data, error } = await supabase.storage.from("docs2").upload(path, file, {
         cacheControl: "3600",
-        upsert: true,
+        upsert: false,
         contentType: file.type || "application/octet-stream",
       });
       if (error) throw error;
@@ -93,20 +93,24 @@ export async function removeDoc(path: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function removeMatchDocumentSlot(kind: DocKind, matchId: string, clubOrNeutral: string) {
-  const { data: rows, error: readError } = await supabase
+export async function removeMatchDocumentSlot(kind: DocKind, matchId: string, clubOrNeutral: string, exactPath?: string) {
+  let query = supabase
     .from("docs_meta")
     .select("path")
     .match({ match_id: matchId, kind, club_or_neutral: sanitizeSegment(clubOrNeutral) });
+  if (exactPath) query = query.eq("path", exactPath);
+  const { data: rows, error: readError } = await query;
   if (readError) throw readError;
   const paths = (rows || []).map(row => String(row.path)).filter(Boolean);
   if (paths.length) {
     const { error: storageError } = await supabase.storage.from("docs2").remove(paths);
     if (storageError) throw storageError;
   }
-  const { error: deleteError } = await supabase
+  let deletion = supabase
     .from("docs_meta")
     .delete()
     .match({ match_id: matchId, kind, club_or_neutral: sanitizeSegment(clubOrNeutral) });
+  if (exactPath) deletion = deletion.eq("path", exactPath);
+  const { error: deleteError } = await deletion;
   if (deleteError) throw deleteError;
 }

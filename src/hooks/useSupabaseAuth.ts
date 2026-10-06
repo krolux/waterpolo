@@ -92,5 +92,19 @@ export function useSupabaseAuth() {
     if (error) throw error
   }
 
-  return { userId, userDisplay, role, signIn, signOut, changePassword }
+  async function updateDisplayName(newName: string) {
+    if (!userId) throw new Error('Brak zalogowanego użytkownika')
+    const trimmed = newName.trim()
+    if (!trimmed) throw new Error('Nazwa nie może być pusta')
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: trimmed })
+      .eq('id', userId)
+    if (error) throw error
+
+    setUserDisplay(trimmed)
+  }
+
+  return { userId, userDisplay, role, signIn, signOut, changePassword, updateDisplayName }
 }

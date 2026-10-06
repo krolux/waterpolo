@@ -1,3 +1,4 @@
+import { isClubSide } from '../../lib/clubIdentity';
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Image, UploadCloud } from "lucide-react";
 import { supabase } from "../../lib/supabase";
@@ -82,12 +83,12 @@ function isClub(u: { role: Role }) {
   return hasRole(u, "Club") || isAdmin(u);
 }
 
-function canUploadComms(user: { role: Role; club?: string }, m: Match) {
-  return isClub(user) && !!user.club && user.club === m.home;
+function canUploadComms(user: { role: Role; club?: string; clubId?: string }, m: Match) {
+  return isAdmin(user) || isClub(user) && !!user.club && isClubSide(user, m, "home");
 }
 
-function canUploadRoster(user: { role: Role; club?: string }, m: Match) {
-  return isClub(user) && !!user.club && (user.club === m.home || user.club === m.away);
+function canUploadRoster(user: { role: Role; club?: string; clubId?: string }, m: Match) {
+  return isAdmin(user) || isClub(user) && !!user.club && (isClubSide(user, m, "home") || isClubSide(user, m, "away"));
 }
 
 function canUploadReport(user: { role: Role; name?: string }, m: Match) {
@@ -101,7 +102,7 @@ function canEditResult(user: { role: Role; name: string }, m: Match) {
 type PerMatchActionsProps = {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
-  user: { name: string; role: Role; club?: string };
+  user: { name: string; role: Role; club?: string; clubId?: string };
   onPenaltiesChange: () => void;
   fixedMatch?: Match;
 };
@@ -119,10 +120,10 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
       return state.matches.filter(m => m.delegate === user.name);
     }
     if (user.role === "Club" && user.club) {
-      return state.matches.filter(m => m.home === user.club || m.away === user.club);
+      return state.matches.filter(m => isClubSide(user, m, "home") || isClubSide(user, m, "away"));
     }
     return state.matches;
-  }, [fixedMatch, state.matches, user.role, user.name, user.club]);
+  }, [fixedMatch, state.matches, user.role, user.name, user.club, user.clubId]);
 
   const [selectedId, setSelectedId] = useState<string>(fixedMatch?.id ?? availableMatches[0]?.id ?? "");
   useEffect(() => {
@@ -165,12 +166,12 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
       const next = { ...match } as Match;
 
       if (type === "comms" || type === "roster") {
-        if (user.role !== "Club" || !user.club) {
+        if (!isAdmin(user) && (!isClub(user) || !user.clubId)) {
           alert("Ta akcja jest dostępna tylko dla roli Klub (z ustawioną nazwą klubu).");
           return;
         }
 
-        const key = user.club === match.home ? "home" : user.club === match.away ? "away" : null;
+        const key = isAdmin(user) ? "home" : isClubSide(user, match, "home") ? "home" : isClubSide(user, match, "away") ? "away" : null;
 
         if (!key) {
           alert("Twój klub nie jest przypisany do tego meczu.");
@@ -184,7 +185,8 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
               return;
             }
 
-            const clubKey = normKey(match.home);
+            const clubKey = match.homeClubId;
+            if (!clubKey) throw new Error("Nie można ustalić ID klubu gospodarza.");
             const sf = await toStoredFileUsingStorage(
               "comms",
               match.id,
@@ -203,7 +205,8 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
             }
 
             const clubName = key === "home" ? match.home : match.away;
-            const clubKey = normKey(clubName);
+            const clubKey = key === "home" ? match.homeClubId : match.awayClubId;
+            if (!clubKey) throw new Error("Nie można ustalić ID klubu.");
             const sf = await toStoredFileUsingStorage(
               "roster",
               match.id,
@@ -298,7 +301,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
     }
   }
 
-  const canClubAct = () => isClub(user) && !!user.club;
+  const canClubAct = () => isAdmin(user) || isClub(user) && !!user.clubId;
 
   return (
     <div className="grid gap-4">
@@ -342,7 +345,7 @@ export const PerMatchActions: React.FC<PerMatchActionsProps> = ({
               </>
             )}
 
-            {isClub(user) && user.club && match && user.club === match.home && (
+            {match && (isAdmin(user) || isClubSide(user, match, "home")) && (
               <>
                 <div className="mt-4 border-t pt-3">
                   <div className="text-sm text-amber-600 font-medium mb-2">Zmień datę / godzinę (gospodarz)</div>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "wpolo-offline-v2";
+const CACHE_NAME = "wpolo-offline-v3";
 const APP_SHELL = ["/"];
 
 self.addEventListener("install", (event) => {
@@ -12,7 +12,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key.startsWith("wpolo-offline-") && key !== CACHE_NAME).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
 });
@@ -36,6 +36,8 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+
+  if (!/^\/assets\/.*-[A-Za-z0-9_-]+\.(js|css)$/.test(url.pathname)) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {

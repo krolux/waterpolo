@@ -1,10 +1,11 @@
+import { isClubSide } from '../../lib/clubIdentity';
 import React from "react";
 import { Bell, CalendarDays, ClipboardList, FileCheck2, GanttChartSquare, ShieldCheck, UserCheck } from "lucide-react";
 import type { Match, Role } from "../../types/wpolo";
 import type { SaveRosterPayload } from "../../types/rosters";
 
 type UserZoneSectionProps = {
-  user: { name: string; role: Role; club?: string } | null;
+  user: { name: string; role: Role; club?: string; clubId?: string } | null;
   matches: Match[];
   savedRosters: SaveRosterPayload[];
 };
@@ -55,14 +56,14 @@ export const UserZoneSection: React.FC<UserZoneSectionProps> = ({ user, matches,
   const now = Date.now();
 
   if (isClub(user.role) && user.club) {
-    const clubMatches = matches.filter((m) => m.home === user.club || m.away === user.club);
+    const clubMatches = matches.filter((m) => isClubSide(user, m, "home") || isClubSide(user, m, "away"));
     const upcoming = clubMatches
       .filter((m) => toTimestamp(m) >= now)
       .sort((a, b) => toTimestamp(a) - toTimestamp(b))
       .slice(0, 3);
 
     const pending = clubMatches.filter((m) => {
-      const side = m.home === user.club ? "home" : m.away === user.club ? "away" : null;
+      const side = isClubSide(user, m, "home") ? "home" : isClubSide(user, m, "away") ? "away" : null;
       if (!side) return false;
       return !m.rosterByClub?.[side];
     }).length;

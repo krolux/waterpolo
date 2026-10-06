@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { refreshClubIdentity, resolveMatchClubs, clubIdForName } from './clubIdentity'
 
 export type DbMatchRow = {
   id: string
@@ -7,6 +8,12 @@ export type DbMatchRow = {
   round: string | null         // NR MECZU (zostaje jak było)
   series_round: string | null  // NOWE: numer rundy do grupowania
   location: string
+  homeClubId?: string | null
+  awayClubId?: string | null
+  home_club_id?: string | null
+  away_club_id?: string | null
+  legacyHome?: string
+  legacyAway?: string
   home: string
   away: string
   result: string | null
@@ -32,6 +39,8 @@ export type SupabaseMatchPayload = {
   round?: string | null
   series_round?: string | null
   location?: string
+  home_club_id?: string | null
+  away_club_id?: string | null
   home?: string
   away?: string
   result?: string | null
@@ -48,7 +57,7 @@ export type SupabaseMatchPayload = {
 
 export function fromMatchDbRow(row: Record<string, any>): DbMatchRow {
   return {
-    ...row,
+    ...resolveMatchClubs(row),
     competitionSeasonId: row.competitionSeasonId ?? row.competition_season_id ?? null,
     tournamentId: row.tournamentId ?? row.tournament_id ?? null,
     stageId: row.stageId ?? row.stage_id ?? null,
@@ -66,8 +75,8 @@ export function toMatchDbPayload(row: Partial<DbMatchRow>): SupabaseMatchPayload
   if (row.round !== undefined) payload.round = row.round ?? null
   if (row.series_round !== undefined) payload.series_round = row.series_round ?? null
   if (row.location !== undefined) payload.location = row.location
-  if (row.home !== undefined) payload.home = row.home
-  if (row.away !== undefined) payload.away = row.away
+  if (row.home !== undefined) { payload.home = row.home; payload.home_club_id = clubIdForName(row.home) ?? null }
+  if (row.away !== undefined) { payload.away = row.away; payload.away_club_id = clubIdForName(row.away) ?? null }
   if (row.result !== undefined) payload.result = row.result ?? null
   if (row.shootout !== undefined) payload.shootout = row.shootout ?? null
   if (row.referee1 !== undefined) payload.referee1 = row.referee1 ?? null
@@ -98,6 +107,7 @@ export function toMatchDbPayload(row: Partial<DbMatchRow>): SupabaseMatchPayload
 }
 
 export async function listMatches(): Promise<DbMatchRow[]> {
+  await refreshClubIdentity()
   const { data, error } = await supabase
     .from('matches')
     .select('*')
@@ -109,6 +119,7 @@ export async function listMatches(): Promise<DbMatchRow[]> {
 }
 
 export async function createMatch(row: Omit<DbMatchRow, 'id' | 'created_at' | 'created_by'>) {
+  await refreshClubIdentity()
   const payload = toMatchDbPayload(row)
   const { data, error } = await supabase
     .from('matches')
@@ -121,6 +132,7 @@ export async function createMatch(row: Omit<DbMatchRow, 'id' | 'created_at' | 'c
 }
 
 export async function updateMatch(id: string, patch: Partial<DbMatchRow>) {
+  await refreshClubIdentity()
   const payload = toMatchDbPayload(patch)
   const { data, error } = await supabase
     .from('matches')

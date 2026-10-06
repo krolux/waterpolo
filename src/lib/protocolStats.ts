@@ -1,3 +1,4 @@
+import { normalizeClubName } from './clubIdentity';
 import { supabase } from "./supabase";
 
 export type ProtocolStatLeader = { playerId: string; playerName: string; club: string; value: number };
@@ -14,6 +15,6 @@ export async function loadPublishedProtocolStats(): Promise<PublishedProtocolSta
   return {
     ekstraklasaReady: !!value.ekstraklasaReady,
     allReady: !!value.allReady,
-    leaders: value.leaders || {},
+    leaders: Object.fromEntries(Object.entries(value.leaders || {}).map(([key, rows]) => [key, rows.map(row => ({ ...row, club: normalizeClubName(row.club) }))])),
   };
 }

@@ -7,7 +7,7 @@ import type { Match, Role } from "../../types/wpolo";
 import { LicenseStatus } from "../club/LicenseStatus";
 import { removeMatchDocumentSlot, type DocKind } from "../../lib/storage";
 
-type EffectiveUser = { name: string; role: Role; club?: string } | null;
+type EffectiveUser = { name: string; role: Role; club?: string; clubId?: string } | null;
 
 export function MatchDocuments({ match, effectiveUser }: { match: Match; effectiveUser: EffectiveUser }) {
   const [rosters, setRosters] = React.useState<MatchRosterDocument[]>([]);
@@ -41,7 +41,7 @@ export function MatchDocuments({ match, effectiveUser }: { match: Match; effecti
   }, [match.id]);
 
   const removeRoster = async (document: MatchRosterDocument) => {
-    const allowed = isAdmin || effectiveUser?.club === document.clubName;
+    const allowed = isAdmin || !!effectiveUser?.clubId && effectiveUser.clubId === document.clubId;
     if (!allowed) return;
     if (!confirm(`Usunąć skład klubu ${document.clubName}?`)) return;
     try {
@@ -104,7 +104,7 @@ export function MatchDocuments({ match, effectiveUser }: { match: Match; effecti
     const canRemove = isAdmin || (document.club !== "Mecz" && effectiveUser?.club === document.club);
     if (!canRemove || !confirm(`Usunąć dokument: ${document.kind}?`)) return;
     try {
-      await removeMatchDocumentSlot(document.storageKind, match.id, document.club === "Mecz" ? "neutral" : document.club);
+      await removeMatchDocumentSlot(document.storageKind, match.id, document.file.path.split("/")[2] || "neutral", document.file.path);
       setRemovedLegacyIds(current => new Set(current).add(document.file.id));
     } catch { alert("Nie udało się usunąć dokumentu."); }
   };
@@ -119,7 +119,7 @@ export function MatchDocuments({ match, effectiveUser }: { match: Match; effecti
         {legacyDocuments.map(document => <DocBadge key={`${document.kind}-${document.club}-${document.file.id}`} file={document.file} label={`${document.kind}: ${document.club}`} canRemove={isAdmin || (document.club !== "Mecz" && effectiveUser?.club === document.club)} onRemove={() => void removeLegacyDocument(document)} />)}
         {rosters.map(document => <span key={document.rosterId} className="inline-flex items-center overflow-hidden rounded-full border border-green-200 bg-white text-xs font-medium text-green-700">
           <button type="button" onClick={() => void loadPreview(document)} className="inline-flex items-center gap-1 px-2 py-1 hover:bg-green-50"><FileText className="h-3.5 w-3.5" /> Skład: {document.clubName}</button>
-          {(isAdmin || effectiveUser?.club === document.clubName) ? <button type="button" aria-label={`Usuń skład ${document.clubName}`} onClick={() => void removeRoster(document)} className="border-l border-green-200 px-1.5 py-1 text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></button> : null}
+          {(isAdmin || !!effectiveUser?.clubId && effectiveUser.clubId === document.clubId) ? <button type="button" aria-label={`Usuń skład ${document.clubName}`} onClick={() => void removeRoster(document)} className="border-l border-green-200 px-1.5 py-1 text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></button> : null}
         </span>)}
       </div>
       {previewDocument ? (
