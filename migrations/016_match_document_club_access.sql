@@ -29,10 +29,10 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
               AND p.club_id IS NOT NULL AND (
                 (split_part(object_name, '/', 1) IN ('comms','roster') AND p.club_id = hc.id
                   AND split_part(object_name, '/', 3) = ANY(ARRAY[hc.id::text,
-                    public.document_club_segment(m.home), public.document_club_segment(hc.name)]))
+                    public.document_club_segment(m.home), public.document_club_segment(hc.name), CASE WHEN hc.name = 'WTS Polonia Bytom' THEN public.document_club_segment('Job Center Mega-Invest Poland WTS Polonia Bytom') END]))
                 OR (split_part(object_name, '/', 1) = 'roster' AND p.club_id = ac.id
                   AND split_part(object_name, '/', 3) = ANY(ARRAY[ac.id::text,
-                    public.document_club_segment(m.away), public.document_club_segment(ac.name)]))
+                    public.document_club_segment(m.away), public.document_club_segment(ac.name), CASE WHEN ac.name = 'WTS Polonia Bytom' THEN public.document_club_segment('Job Center Mega-Invest Poland WTS Polonia Bytom') END]))
               ))
           )
       )

@@ -36,3 +36,17 @@ export function isClubSide(user: ClubUser, match: ClubMatch, side: 'home' | 'awa
   const id = side === 'home' ? match.homeClubId : match.awayClubId;
   return String(user.clubId) === String(id || clubIdForName(match[side] || '') || '');
 }
+
+export function clubDocumentSegment(value: string) {
+  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+}
+export function documentClubMatches(identifier: string, match: ClubMatch & { legacyHome?: string; legacyAway?: string }, side: 'home' | 'away') {
+  const id = side === 'home' ? match.homeClubId : match.awayClubId;
+  const name = match[side] || '';
+  const original = (side === 'home' ? match.legacyHome : match.legacyAway) || name;
+  const identifiers = new Set([id, clubDocumentSegment(name), clubDocumentSegment(original)]);
+  const isBytom = id ? id === clubIdForName(currentClubName) : normalizeClubName(name) === currentClubName;
+  if (isBytom) identifiers.add(clubDocumentSegment(legacyClubName));
+  return identifiers.has(identifier);
+}

@@ -1,4 +1,4 @@
-import { clubDisplayName } from './lib/clubIdentity';
+import { clubDisplayName, documentClubMatches } from './lib/clubIdentity';
 /* App with Supabase CRUD for matches (Step 1) + docs kept in localStorage */
 import React, { useEffect, useMemo, useState } from "react";
 import { FileText, Users, Shield, House, Trophy, CalendarDays, FlaskConical, UserRoundSearch, UserRoundCheck } from "lucide-react";
@@ -751,7 +751,7 @@ const norm = normKey;
 
 
 for (const x of d) {
-  if (x.kind === "comms" && (x.club_or_neutral === m.homeClubId || x.club_or_neutral === norm(m.home) || x.club_or_neutral === norm(m.legacyHome || m.home))) {
+  if (x.kind === "comms" && documentClubMatches(x.club_or_neutral, m, "home")) {
     if (!mm.commsByClub.home) {
       mm.commsByClub.home = {
         id: crypto.randomUUID(),
@@ -769,7 +769,7 @@ for (const x of d) {
   if (x.kind === "roster") {
     const target =
       x.club_or_neutral === norm(m.home) ? "home" :
-      (x.club_or_neutral === m.awayClubId || x.club_or_neutral === norm(m.away) || x.club_or_neutral === norm(m.legacyAway || m.away)) ? "away" : null;
+      documentClubMatches(x.club_or_neutral, m, "away") ? "away" : null;
 
     if (target && !mm.rosterByClub[target]) {
       mm.rosterByClub[target] = {
