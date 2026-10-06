@@ -35,6 +35,7 @@ export const AdminUserApprovals:React.FC<{onBack:()=>void}> = ({onBack}) => {
   const [editing,setEditing] = React.useState<User|null>(null);
   const [mode,setMode] = React.useState<"create"|"edit"|"password"|null>(null);
   const [draft,setDraft] = React.useState({...blank});
+  const formRef = React.useRef<HTMLFormElement>(null);
   const [showPassword,setShowPassword] = React.useState(false);
   const load = React.useCallback(async()=>{
     setLoading(true);
@@ -45,6 +46,7 @@ export const AdminUserApprovals:React.FC<{onBack:()=>void}> = ({onBack}) => {
     finally {setLoading(false);}
   },[]);
   React.useEffect(()=>{void load();},[load]);
+  React.useEffect(()=>{if(mode) formRef.current?.scrollIntoView({behavior:"smooth",block:"start"});},[mode,editing?.id]);
   function open(next:"create"|"edit"|"password",user:User|null=null) {
     setMode(next);setEditing(user);setShowPassword(false);setError("");setMessage("");
     setDraft(user?{...blank,display_name:user.display_name||"",first_name:user.first_name||"",last_name:user.last_name||"",email:user.email,role:user.role,club_id:user.club_id||""}:{...blank});
@@ -77,7 +79,7 @@ export const AdminUserApprovals:React.FC<{onBack:()=>void}> = ({onBack}) => {
     </div>
     {message&&<p role="status" className="rounded-xl bg-green-50 p-3 text-green-800">{message}</p>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-red-800">{error}</p>}
-    {mode&&<form onSubmit={submit} className="rounded-2xl border border-sky-200 bg-white p-4 space-y-3">
+    {mode&&<form ref={formRef} onSubmit={submit} className="rounded-2xl border border-sky-200 bg-white p-4 space-y-3">
       <h3 className="text-lg font-semibold">{mode==="create"?"Nowy użytkownik":mode==="edit"?"Edytuj użytkownika":"Ustaw nowe hasło"}{editing?` — ${editing.display_name||editing.email}`:""}</h3>
       {mode!=="password"&&<div className="grid gap-3 sm:grid-cols-2">
         <label>Nazwa użytkownika<input className={inputClass} required maxLength={100} value={draft.display_name} onChange={e=>field("display_name",e.target.value)}/></label>
